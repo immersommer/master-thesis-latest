@@ -4,7 +4,7 @@
   twoside,
   listof=totoc,
   numbers=noenddot,
-  bibliography=totoc,
+  liography=totoc,
   BCOR1.5cm,
   headsepline,
   DIV12,
@@ -44,13 +44,15 @@ pdfborder={0.75 0.75 1},plainpages=false,pdfpagelabels=true]{hyperref}
 %\newcommand{\printdate}{\@date}
 
 
+
+
 \begin{document}
 
 \pagenumbering{Roman}
 
 \input{content/00_title.tex}
 
-\includepdf{images/yaoxin_jing_signed.pdf}
+\includepdf[page=1-]{images/yaoxin_jing_signed.pdf}
 %\cleardoublepage
 
 \input{content/01_disclaimer.tex}
@@ -69,8 +71,8 @@ pdfborder={0.75 0.75 1},plainpages=false,pdfpagelabels=true]{hyperref}
 \cleardoublepage
 
 % remove this on final
-\listoftodos
-\cleardoublepage
+% \listoftodos
+% \cleardoublepage
 
 \listoffigures
 \cleardoublepage
@@ -84,7 +86,7 @@ pdfborder={0.75 0.75 1},plainpages=false,pdfpagelabels=true]{hyperref}
 \input{content/30_design.tex}
 \input{content/40_implementation.tex}
 \input{content/50_evaluation.tex}
-\input{content/60_futurework.tex}
+%\input{content/60_futurework.tex}
 \input{content/70_conclusion.tex}
 
 \appendix
