@@ -1,0 +1,79 @@
+\chapter{Technical Background}
+\label{sec:state}
+
+% Hier werden zwei wesentliche Aufgaben erledigt:
+
+% 1. Der Leser muß alles beigebracht bekommen, was er zum Verständnis
+% der späteren Kapitel braucht. Insbesondere sind in unserem Fach die
+% Systemvoraussetzungen zu klären, die man später benutzt. Zulässig ist
+% auch, daß man hier auf Tutorials oder Ähnliches verweist, die hier auf
+% dem Netz zugänglich sind.
+
+% 2. Es muß klar werden, was anderswo zu diesem Problem gearbeitet
+% wird. Insbesondere sollen natürlich die Lücken der anderen klar
+% werden. Warum ist die eigene Arbeit, der eigene Ansatz wichtig, um
+% hier den Stand der Technik weiterzubringen? Dieses Kapitel wird von
+% vielen Lesern übergangen (nicht aber vom Gutachter ;-), auch später
+% bei Veröffentlichungen ist "Related Work" eine wichtige Sache.
+
+% Viele Leser stellen dann später fest, daß sie einige der Grundlagen
+% doch brauchen und blättern zurück. Deshalb ist es gut,
+% Rückwärtsverweise in späteren Kapiteln zu haben, und zwar so, daß man
+% die Abschnitte, auf die verwiesen wird, auch für sich lesen
+% kann. Diese Kapitel kann relativ lang werden, je größer der Kontext
+% der Arbeit, desto länger. Es lohnt sich auch! Den Text kann man unter
+% Umständen wiederverwenden, indem man ihn als "Tutorial" zu einem
+% Gebiet auch dem Netz zugänglich macht.
+
+% Dadurch gewinnt man manchmal wertvolle Hinweise von Kollegen. Dieses
+% Kapitel wird in der Regel zuerst geschrieben und ist das Einfachste
+% (oder das Schwerste weil erste).
+
+%\ldots state of the art \ldots
+
+%\todo{write state}
+\section{Kubernetes}
+Kubernetes\cite*{k8s} is a portable, scalable open-source platform for managing and orchestrating containerized workloads. Kubernetes emerged because, in the context of the rise of cloud computing, more and more applications are being deployed to the cloud, 
+and cloud deployers need an automated tool to manage thousands of containers. Kubernetes provides deployers with a framework for running cloud-native applications\cite*{KRATZKE20171} in both elastically and resiliently manner. 
+It undertakes application scaling and failover and offers a variety of deployment models.
+
+In the Kubernetes platform, a pod consists of one or more containers sharing network and storage resources. A pod is the smallest deployment unit managed by Kubernetes. In a cluster, a pod has a unique IP address, and the containers within it 
+can communicate with each other through the localhost. In addition, Kubernetes support different isolation levels of pods. With the runtime class keyword, clients can choose to deploy pods based on Linux namespace and cgroup for better performance, 
+or hardware virtualization for better security\cite*{k8s_runtime_class}.
+
+From an architectural point of view, a k8s cluster consists of at least one master node and several worker nodes. A node can be a physical or virtual machine. The master node consists of a series of control plane components that make global decisions 
+about the cluster, including scheduling, detecting, and responding to cluster events, for example, dynamically adjusting the number of 
+pods in an application based on resource utilization. As shown in the diagram, these control plane components include the kube-apiserver, kube-controller, kube-scheduler, and ectd\cite*{k8s}. Kube-apiserver provides the kubernetes control plane with an 
+interface to control and manage the cluster. Specifically, it can be used to receive and authenticate requests from users and other components of the cluster, and update the corresponding API objects that include services pods, and replication 
+controllers. Kube-controller is a control loop that continuously monitors the state of the cluster and attempts to move the current state of the cluster to the desired state. For example, the Node controller is responsible for monitoring the state 
+of each node and responding accordingly when a node crash. Kube-scheduler continuously search undeployed pods and deploys them to an appropriate worker node. Factors that influence scheduling decisions are resource requirements, 
+hardware/software/policy constraints, affinity, data locality, and inter-workload interference. The etcd is a distributed, highly available key-value store for storing cluster level data.
+
+The worker node， which is managed by the master node runs and maintains the pods. It consists of three main components, kubelet, container runtime (like containerd\cite*{containerd} and ciro\cite*{cri-o}), and kube-proxy. Kubelet is responsible for communication between the 
+worker node and the master node and for ensuring that the pods runs properly on the worker node. Container runtime is used to create and manage image and  container lifecycle, which includes pulling images from the remote registry, unpacking images, 
+initializing the container's runtime environment (setting up storage, network), and running the container. The kube-proxy running on each node implements part of the Kubernetes service and maintains network rules on each node, which allows 
+network access to pods from both within and outside the cluster
+
+
+
+\subsection{K8S General Architecture}
+\subsection{CRI and OCI}
+\subsection{Loging}
+
+
+\section{AMD SEV}
+\subsection{History of AMD SEV}
+\subsection{MEMORY PROTECTION}
+\subsection{Non-Automatic VM Exits}
+\subsection{REMOTE ATTESTATION}
+
+\section{QUARK CONTAINER}
+
+\section{ACCESS CONTROL}
+
+
+\cleardoublepage
+
+%%% Local Variables:
+%%% TeX-master: "diplom"
+%%% End:
