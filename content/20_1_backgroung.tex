@@ -65,17 +65,18 @@ runtimes into k8s\cite*{cri-interface}.
 
 \todo{cri overview figure}
 
-Figure 3 shows the overview of CRI. kubelet communicates with the container runtime via sockets, where the container runtime implements a CRI plugin as a socket server according to the CRI 
+Figure 3 shows the overview of CRI. kubelet communicates with the high-level container runtime via sockets, where the high-level container runtime implements a CRI plugin as a socket server according to the CRI 
 requirements. The socket server provides two primary services to kubelet, namely ImageService and RuntimeService. The ImageService offers kubelet services such as pulling images from remote and 
 inspecting and deleting images managed by the container runtime. The RuntimeService, on the other hand, enables the kubelet to manage the container and sandbox lifecycle 
 (RunPodSandbox /StopPodSandbox/RemovePodSandbox/PodSandboxStatus/CreateContainer/StartContainer/StopContainer, etc.) 
 and interact with containers (attach/port-forward/exec)\cite*{cri-interface}.
 
-In comparison to CRI, which facilitates easy interaction between kubelet and the various container runtimes that manage the image and container lifecycle, the OCI runtime 
+In comparison to CRI, which facilitates easy interaction between kubelet and the various high-level container runtimes that manage the image and container lifecycle, the OCI runtime 
 specification\cite*{oci-runtime-spec} defines how low-level container runtimes create and run containers. Typical low-level runtimes are mainly classified as native runtime 
 (runc\cite*{runc}, railcar\cite*{railcar}, Crun\cite*{runc}, rkt\cite*{rkt}) , and Sandboxed-virtualized runtimes (kata runtime\cite*{Kata-Containers}, quark runtime\cite*{quark}, gvisor runtime\cite*{gvisor}, etc.). 
-We refer the readers to \cite*{Runtime-Comparison} for a comprehensive comparison of these container runtimes.
+We refer the readers to \cite*{Runtime-Comparison} for a comprehensive comparison of these container runtimes. Figure 4 summarizes how Kubernetes manages containers/pods through the CRI/OCI interface and a variety of high/low-level container runtimes.
 
+\todo{overall architecture}
 \subsection{Loging}
 
 
