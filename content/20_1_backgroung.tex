@@ -37,9 +37,12 @@ Kubernetes\cite*{k8s} is a portable, scalable open-source platform for managing 
 and cloud deployers need an automated tool to manage thousands of containers. Kubernetes provides deployers with a framework for running cloud-native applications\cite*{KRATZKE20171} in both elastically and resiliently manner. 
 It undertakes application scaling and failover and offers a variety of deployment models.
 
-In the Kubernetes platform, a pod consists of one or more containers sharing network and storage resources. A pod is the smallest deployment unit managed by Kubernetes. In a cluster, a pod has a unique IP address, and the containers within it 
+Kubernetes also introduces the concept of pod. In a cluster, a pod, which consists of one or more containers sharing network and storage resources, is the smallest deployment unit managed by Kubernetes. It has a unique cluster-IP address, and the containers within it 
 can communicate with each other through the localhost. In addition, Kubernetes support different isolation levels of pods. With the runtime class keyword, clients can choose to deploy pods based on Linux namespace and cgroup for better performance, 
 or hardware virtualization for better security\cite*{k8s_runtime_class}.
+
+\subsection{Kubernetes architecture}
+\todo{add k8s architectural diagram}
 
 From an architectural point of view, a k8s cluster consists of at least one master node and several worker nodes. A node can be a physical or virtual machine. The master node consists of a series of control plane components that make global decisions 
 about the cluster, including scheduling, detecting, and responding to cluster events, for example, dynamically adjusting the number of 
@@ -54,10 +57,22 @@ worker node and the master node and for ensuring that the pods runs properly on 
 initializing the container's runtime environment (setting up storage, network), and running the container. The kube-proxy running on each node implements part of the Kubernetes service and maintains network rules on each node, which allows 
 network access to pods from both within and outside the cluster
 
+\subsection{Open Standards (CRI\cite*{cri-interface}, OCI\cite*{oci-spec}) makes Kubernetes more extensible}
+
+CRI introduces an abstraction layer that empowers kubelet to work with a diverse range of container runtimes without the need to modify cluster components. It defines the requirements of the 
+orchestration system regarding the container runtime and decouples the container runtime from the kubelet source code， which dramatically reduces the effort involved in integrating container 
+runtimes into k8s\cite*{cri-interface}.
+
+\todo{cri overview figure}
+
+Figure 3 shows the overview of CRI. kubelet communicates with the container runtime via sockets, where the container runtime implements a CRI plugin as a socket server according to the CRI 
+requirements. The socket server provides two primary services to kubelet, namely ImageService and RuntimeService. The ImageService offers kubelet services such as pulling images from remote and 
+inspecting and deleting images managed by the container runtime. The RuntimeService, on the other hand, enables the kubelet to manage the container and sandbox lifecycle 
+(RunPodSandbox /StopPodSandbox/RemovePodSandbox/PodSandboxStatus/CreateContainer/StartContainer/StopContainer, etc.) 
+and interact with containers (attach/port-forward/exec)\cite*{cri-interface}.
 
 
-\subsection{K8S General Architecture}
-\subsection{CRI and OCI}
+
 \subsection{Loging}
 
 
