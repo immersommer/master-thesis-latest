@@ -33,6 +33,14 @@
 
 %\todo{write state}
 \section{Kubernetes}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/k8s_arch.pdf}
+    \caption[k8s arch]{k8s arch}
+    \label{fig:k8s_arch}
+  \end{figure}
+\todo{add description for k8s architectural diagram}
+
 Kubernetes\cite*{k8s} is a portable, scalable open-source platform for managing and orchestrating containerized workloads. Kubernetes emerged because, in the context of the rise of cloud computing, more and more applications are being deployed to the cloud, 
 and cloud deployers need an automated tool to manage thousands of containers. Kubernetes provides deployers with a framework for running cloud-native applications\cite*{KRATZKE20171} in both elastically and resiliently manner. 
 It undertakes application scaling and failover and offers a variety of deployment models.
@@ -41,18 +49,17 @@ Kubernetes also introduces the concept of pod. In a cluster, a pod, which consis
 can communicate with each other through the localhost. In addition, Kubernetes support different isolation levels of pods. With the runtime class keyword, clients can choose to deploy pods based on Linux namespace and cgroup for better performance, 
 or hardware virtualization for better security\cite*{k8s_runtime_class}.
 
-\subsection{Kubernetes architecture}
-\todo{add k8s architectural diagram}
 
+\subsection{Kubernetes architecture}
 From an architectural point of view, a k8s cluster consists of at least one master node and several worker nodes. A node can be a physical or virtual machine. The master node consists of a series of control plane components that make global decisions 
 about the cluster, including scheduling, detecting, and responding to cluster events, for example, dynamically adjusting the number of 
-pods in an application based on resource utilization. As shown in the diagram, these control plane components include the kube-apiserver, kube-controller, kube-scheduler, and ectd\cite*{k8s}. Kube-apiserver provides the kubernetes control plane with an 
+pods in an application based on resource utilization. As shown in figure~\ref{fig:k8s_arch}, these control plane components include the kube-apiserver, kube-controller, kube-scheduler, and ectd\cite*{k8s}. Kube-apiserver provides the kubernetes control plane with an 
 interface to control and manage the cluster. Specifically, it can be used to receive and authenticate requests from users and other components of the cluster, and update the corresponding API objects that include services pods, and replication 
 controllers. Kube-controller is a control loop that continuously monitors the state of the cluster and attempts to move the current state of the cluster to the desired state. For example, the Node controller is responsible for monitoring the state 
 of each node and responding accordingly when a node crash. Kube-scheduler continuously search undeployed pods and deploys them to an appropriate worker node. Factors that influence scheduling decisions are resource requirements, 
 hardware/software/policy constraints, affinity, data locality, and inter-workload interference. The etcd is a distributed, highly available key-value store for storing cluster level data.
 
-The worker node， which is managed by the master node runs and maintains the pods. It consists of three main components, kubelet, container runtime (like containerd\cite*{containerd} and ciro\cite*{cri-o}), and kube-proxy. Kubelet is responsible for communication between the 
+The worker node, which is managed by the master node runs and maintains the pods. It consists of three main components, kubelet, container runtime (like containerd\cite*{containerd} and ciro\cite*{cri-o}), and kube-proxy. Kubelet is responsible for communication between the 
 worker node and the master node and for ensuring that the pods runs properly on the worker node. Container runtime is used to create and manage image and  container lifecycle, which includes pulling images from the remote registry, unpacking images, 
 initializing the container's runtime environment (setting up storage, network), and running the container. The kube-proxy running on each node implements part of the Kubernetes service and maintains network rules on each node, which allows 
 network access to pods from both within and outside the cluster
@@ -63,23 +70,13 @@ CRI introduces an abstraction layer that empowers kubelet to work with a diverse
 orchestration system regarding the container runtime and decouples the container runtime from the kubelet source code， which dramatically reduces the effort involved in integrating container 
 runtimes into k8s\cite*{cri-interface}.
 
-
 \todo{add long description for cri overview and k8s with oci cri figure}
-\begin{figure}[tbp]
+\begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{images/cri_overviwe.pdf}
     \caption[cri overview]{cri overview}
     \label{fig:cri_overviwe}
   \end{figure}
-
-
-  \begin{figure}[tbp]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/k8s_with_oci_cri.pdf}
-    \caption[k8s with oci cri]{k8s with oci cri}
-    \label{fig:k8s_with_oci_cri}
-\end{figure}
-
 
 
 Figure ~\ref{fig:cri_overviwe} shows the overview of CRI. kubelet communicates with the high-level container runtime via sockets, where the high-level container runtime implements a CRI plugin as a socket server according to the CRI 
@@ -88,6 +85,13 @@ inspecting and deleting images managed by the container runtime. The RuntimeServ
 (RunPodSandbox /StopPodSandbox/RemovePodSandbox/PodSandboxStatus/CreateContainer/StartContainer/StopContainer, etc.) 
 and interact with containers (attach/port-forward/exec)\cite*{cri-interface}.
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/k8s_with_oci_cri.pdf}
+    \caption[k8s with oci cri]{k8s with oci cri}
+    \label{fig:k8s_with_oci_cri}
+\end{figure}
+\todo{add long description for  k8s with oci cri figure}
 In comparison to CRI, which facilitates easy interaction between kubelet and the various high-level container runtimes that manage the image and container lifecycle, the OCI runtime 
 specification\cite*{oci-runtime-spec} defines how low-level container runtimes create and run containers. Typical low-level runtimes are mainly classified as native runtime 
 (runc\cite*{runc}, railcar\cite*{railcar}, Crun\cite*{runc}, rkt\cite*{rkt}) , and Sandboxed-virtualized runtimes (kata runtime\cite*{Kata-Containers}, quark runtime\cite*{quark}, gvisor runtime\cite*{gvisor}, etc.). 
