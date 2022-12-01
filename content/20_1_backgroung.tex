@@ -100,8 +100,14 @@ We refer the readers to \cite*{Runtime-Comparison} for a comprehensive compariso
 \subsection{Loging}
 
 \section{QUARK CONTAINER}
-This section gives a high-level overview of the Quark container by introducing its main components and explaining how the guest (Qkenel) communicates with the 
-VMM (Qvisor) and Host kernels using Hcall and Ucall, respectively. This explanation is necessary for a better understanding of Chapter 4.
+This section gives a high-level overview of the Quark container\cite*{quark} by introducing its main components and explaining how the guest (Qkenel) communicates with the 
+VMM (Qvisor) and host kernel using Hcall and Ucall, respectively. This explanation is necessary for a better understanding of Chapter 4.
+
+Quark Container is an OCI-compatible container runtime\cite*{oci-runtime-spec}  designed to provide the "security of a virtual machine" while offering the "speed of a 
+container\cite*{speed_secure_container_slogen}." It uses KVM hypervisor to launch a virtual machine with a library operating system (Qkernel) written in rust to run containers. 
+Compared to other sandboxed container runtimes, e.g., kata\cite*{Kata-Containers} and gvisor\cite*{gvisor}, Quark eliminates unnecessary code by using the Qkernel as the guest operating system, 
+resulting in a smaller memory footprint, a shorter boot time, less overhead, and ensuring the same level of isolation and security for containers\cite*{quark_performance_report}.
+
 
 
 \subsection{How HCALL work}
