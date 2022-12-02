@@ -42,7 +42,7 @@
 \todo{add description for k8s architectural diagram}
 
 Kubernetes\cite*{k8s} is a portable, scalable open-source platform for managing and orchestrating containerized workloads. Kubernetes emerged because, in the context of the rise of cloud computing, more and more applications are being deployed to the cloud, 
-and cloud deployers need an automated tool to manage thousands of containers. Kubernetes provides deployers with a framework for running cloud-native applications\cite*{KRATZKE20171} in both elastically and resiliently manner. 
+and cloud operators need an automated tool to manage thousands of containers. Kubernetes provides operators with a framework for running cloud-native applications\cite*{KRATZKE20171} in both elastically and resiliently manner. 
 It undertakes application scaling and failover and offers a variety of deployment models.
 
 Kubernetes also introduces the concept of pod. In a cluster, a pod, which consists of one or more containers sharing network and storage resources, is the smallest deployment unit managed by Kubernetes. It has a unique cluster-IP address, and the containers within it 
@@ -53,14 +53,14 @@ or hardware virtualization for better security\cite*{k8s_runtime_class}.
 \subsection{Kubernetes architecture}
 From an architectural point of view, a k8s cluster consists of at least one master node and several worker nodes. A node can be a physical or virtual machine. The master node consists of a series of control plane components that make global decisions 
 about the cluster, including scheduling, detecting, and responding to cluster events, for example, dynamically adjusting the number of 
-pods in an application based on resource utilization. As shown in figure~\ref{fig:k8s_arch}, these control plane components include the kube-apiserver, kube-controller, kube-scheduler, and ectd\cite*{k8s}. Kube-apiserver provides the kubernetes control plane with an 
+pods in an application based on resource utilization. As shown in figure~\ref{fig:k8s_arch}, these control plane components include the apiserver, controller, scheduler, and ectd\cite*{k8s}. Apiserver provides the kubernetes control plane with an 
 interface to control and manage the cluster. Specifically, it can be used to receive and authenticate requests from users and other components of the cluster, and update the corresponding API objects that include services pods, and replication 
-controllers. Kube-controller is a control loop that continuously monitors the state of the cluster and attempts to move the current state of the cluster to the desired state. For example, the Node controller is responsible for monitoring the state 
-of each node and responding accordingly when a node crash. Kube-scheduler continuously search undeployed pods and deploys them to an appropriate worker node. Factors that influence scheduling decisions are resource requirements, 
+controllers. Controller is a control loop that continuously monitors the state of the cluster and attempts to move the current state of the cluster to the desired state. For example, the Node controller is responsible for monitoring the state 
+of each node and responding accordingly when a node crash. Scheduler continuously search undeployed pods and deploys them to an appropriate worker node. Factors that influence scheduling decisions are resource requirements, 
 hardware/software/policy constraints, affinity, data locality, and inter-workload interference. The etcd is a distributed, highly available key-value store for storing cluster level data.
 
-The worker node, which is managed by the master node runs and maintains the pods. It consists of three main components, kubelet, container runtime (like containerd\cite*{containerd} and ciro\cite*{cri-o}), and kube-proxy. Kubelet is responsible for communication between the 
-worker node and the master node and for ensuring that the pods runs properly on the worker node. Container runtime is used to create and manage image and  container lifecycle, which includes pulling images from the remote registry, unpacking images, 
+Each worker node, which is managed by the master node runs and maintains the pods. It consists of three main components, kubelet, container runtime (like containerd\cite*{containerd} and ciro\cite*{cri-o}), and kube-proxy. Kubelet is responsible for communication between the 
+worker node and the master node and for ensuring that the pods runs properly on the worker node. Container runtime is used to create and manage image and  container lifecycle, which includes pulling images from the remote, unpacking images, 
 initializing the container's runtime environment (setting up storage, network), and running the container. The kube-proxy running on each node implements part of the Kubernetes service and maintains network rules on each node, which allows 
 network access to pods from both within and outside the cluster
 
@@ -99,14 +99,42 @@ We refer the readers to \cite*{Runtime-Comparison} for a comprehensive compariso
 
 \subsection{Loging}
 
-
-\section{AMD SEV}
-\subsection{History of AMD SEV}
-\subsection{MEMORY PROTECTION}
-\subsection{Non-Automatic VM Exits}
-\subsection{REMOTE ATTESTATION}
-
 \section{QUARK CONTAINER}
+This section gives a high-level overview of the Quark container\cite*{quark} by introducing its main components and explaining how the guest (Qkenel) communicates with the 
+VMM (Qvisor) and host kernel using Hcall and Ucall, respectively. This explanation is necessary for a better understanding of Chapter 4.
+
+Quark Container is an OCI-compatible container runtime\cite*{oci-runtime-spec}  designed to provide the "security of a virtual machine" while offering the "speed of a 
+container\cite*{speed_secure_container_slogen}." It uses KVM hypervisor to launch a virtual machine with a library operating system (Qkernel) written in rust to run containers. 
+This container inside qkernel architecture offers defense in depth. Therefore, a rogue containerized program exploiting a qkernel vulnerability only gains access to qvisor, 
+a restricted user process.
+Compared to other sandboxed container runtimes, e.g., kata\cite*{Kata-Containers} and gvisor\cite*{gvisor}, using Qkernel as the guest operating system eliminates unnecessary code, 
+resulting in a smaller footprint, a faster startup, less overhead, and ensuring the same level of isolation and security for containers\cite*{quark_performance_report}.
+\subsection{Architecture}
+Figure 1 illustrates the overview of Quark. Quark features an architecture similar to the classic qemu/KVM VM, where qvisor acts as the VM manager and Qkernel serves as the guest kernel 
+for running containerized applications. Different from common VM designs that support running various guest os，qvisor and qkernel are closely coupled, i.e., qvisor only supports VMs 
+running with qkernel. 
+
+
+As can be seen in Figure 2, all system calls issued by containerized applications are forwarded to the qkernel through the Guest System Call interface, i.e., X86-64 SysCall/SysRet. 
+Qkernel implements most of these system calls and forwards those it cannot handle to the qvisor or host kernel through various interfaces. These interfaces include Ucall, Qcall, and Hyper call.
+\subsection{Qcall, Hyper Call, and Ucall}
+QCALL and hyper call are used for communications between the qkernel and the qvisor. The advantage of qcall over traditional hyper call is that it eliminates the need for the VCPU thread's 
+high-cost Guest/Host switch, which is achieved through a queue on shared memory between guest and host and an IO thread that handles qcall requests in host space. Through the qcall interface, 
+we significantly reduce the number of times the qkernel triggers a hypercall, which means that the performance of the qkernel is greatly improved.
+
+To further improve performance, Quark introduces the ucall interface as a means of direct communication between the qkernel and the host kernel for host IO data operations, 
+such as socket reads and writes. Under the hood, this ucall interface is composed of two queues on shared memory between the host and the guest (guest submission queue and guest completion queue),
+an IO thread in the Host space, and the Linux IO Uring mechanism. Qkernel sends IO requests through the guest submission queue. The IO thread on the host side scans the guest submission 
+queue from time to time and copies the requests in it to the IO Uring submission queue. At the same time, the IO thread continuously scans the completion queue of IO Uring and copies the results 
+of the IO request (struct io\_uring\_cqe) to the guest completion queue. By looking at the user\_data field of struct io\_uring\_cqe, which is the pass back from sqe\->user\_data, the IO thread can 
+notify the specific qkernel thread that an IO operation has been completed.
+
+
+
+\section{TEE --generic Idea}
+\subsection{VM base and process base TEE}
+\subsection{Non-Automatic VM Exits}
+\subsection{ATTESTATION, REMOTE, LOCAL ATTASTATION, HOW INTEL AND sev and TDX dose attestation}
 
 \section{ACCESS CONTROL}
 
