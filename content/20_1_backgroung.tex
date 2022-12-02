@@ -116,6 +116,7 @@ resulting in a smaller footprint, a faster startup, less overhead, and ensuring 
     \caption[quark design]{quark design}
     \label{fig:quark_design}
 \end{figure}
+\todo{add long description for quark design}
 Figure ~\ref{fig:quark_design}  illustrates the overview of Quark. Quark features an architecture similar to the classic qemu/KVM VM, where qvisor acts as the VM manager and Qkernel serves as the guest kernel 
 for running containerized applications. Different from common VM designs that support running various guest os，qvisor and qkernel are closely coupled, i.e., qvisor only supports VMs 
 running with qkernel. 
@@ -127,13 +128,16 @@ running with qkernel.
     \caption[quark IO]{quark IO}
     \label{fig:quark_io}
 \end{figure}
-As can be seen in Figure 2, all system calls issued by containerized applications are forwarded to the qkernel through the Guest System Call interface, i.e., X86-64 SysCall/SysRet. 
+\todo{add long description for quark IO, modify the image: add Guest System Call btw. container app and qkernel}
+As can be seen in Figure ~\ref{fig:quark_io} , all system calls issued by containerized applications are forwarded to the qkernel through the Guest System Call interface, i.e., X86-64 SysCall/SysRet. 
 Qkernel implements most of these system calls and forwards those it cannot handle to the qvisor or host kernel through various interfaces. These interfaces include Ucall, Qcall, and Hyper call.
 \subsection{Qcall, Hyper Call, and Ucall}
+\todo{describe when hyper call instead of qcall is used}
 QCALL and hyper call are used for communications between the qkernel and the qvisor. The advantage of qcall over traditional hyper call is that it eliminates the need for the VCPU thread's 
 high-cost Guest/Host switch, which is achieved through a queue on shared memory between guest and host and an IO thread that handles qcall requests in host space. Through the qcall interface, 
 we significantly reduce the number of times the qkernel triggers a hypercall, which means that the performance of the qkernel is greatly improved.
 
+\todo{add picture to show how ucall works}
 To further improve performance, Quark introduces the ucall interface as a means of direct communication between the qkernel and the host kernel for host IO data operations, 
 such as socket reads and writes. Under the hood, this ucall interface is composed of two queues on shared memory between the host and the guest (guest submission queue and guest completion queue),
 an IO thread in the Host space, and the Linux IO Uring mechanism. Qkernel sends IO requests through the guest submission queue. The IO thread on the host side scans the guest submission 
