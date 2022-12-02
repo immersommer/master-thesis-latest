@@ -110,11 +110,23 @@ a restricted user process.
 Compared to other sandboxed container runtimes, e.g., kata\cite*{Kata-Containers} and gvisor\cite*{gvisor}, using Qkernel as the guest operating system eliminates unnecessary code, 
 resulting in a smaller footprint, a faster startup, less overhead, and ensuring the same level of isolation and security for containers\cite*{quark_performance_report}.
 \subsection{Architecture}
-Figure 1 illustrates the overview of Quark. Quark features an architecture similar to the classic qemu/KVM VM, where qvisor acts as the VM manager and Qkernel serves as the guest kernel 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/quark_design.png}
+    \caption[quark design]{quark design}
+    \label{fig:quark_design}
+\end{figure}
+Figure ~\ref{fig:quark_design}  illustrates the overview of Quark. Quark features an architecture similar to the classic qemu/KVM VM, where qvisor acts as the VM manager and Qkernel serves as the guest kernel 
 for running containerized applications. Different from common VM designs that support running various guest os，qvisor and qkernel are closely coupled, i.e., qvisor only supports VMs 
 running with qkernel. 
 
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/quark_io.png}
+    \caption[quark IO]{quark IO}
+    \label{fig:quark_io}
+\end{figure}
 As can be seen in Figure 2, all system calls issued by containerized applications are forwarded to the qkernel through the Guest System Call interface, i.e., X86-64 SysCall/SysRet. 
 Qkernel implements most of these system calls and forwards those it cannot handle to the qvisor or host kernel through various interfaces. These interfaces include Ucall, Qcall, and Hyper call.
 \subsection{Qcall, Hyper Call, and Ucall}

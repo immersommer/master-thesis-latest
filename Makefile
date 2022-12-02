@@ -24,6 +24,8 @@ DOC_IMG_JPG  = images/squirrel.jpg # you can specify multiple images here
 DOC_IMG_JPG  = images/cri_overviwe.pdf
 DOC_IMG_JPG  = images/k8s_with_oci_cri.pdf
 DOC_IMG_JPG  = images/k8s_arch.pdf
+DOC_IMG_JPG  = images/quark_design.png
+DOC_IMG_JPG  = images/quark_io.png
 
 
 # latex stuff
