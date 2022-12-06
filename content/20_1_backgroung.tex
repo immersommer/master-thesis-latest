@@ -32,6 +32,11 @@
 %\ldots state of the art \ldots
 
 %\todo{write state}
+This chapter provides background knowledge of all the content and topics covered in the thesis. This thesis presumes that the reader is 
+already aware of the basic concepts of operating system, kubernetes\cite*{k8s}, and confidential computing. Nevertheless, it offers a brief overview of some essential terms and 
+concepts to help the reader better understand the later chapters. For a short rundown of associate terminology, please check the glossary on 
+this page.
+\todo{add glossary page nummber}
 \section{Kubernetes}
 \begin{figure}[H]
     \centering
@@ -133,14 +138,16 @@ As can be seen in Figure ~\ref{fig:quark_io} , all system calls issued by contai
 Qkernel implements most of these system calls and forwards those it cannot handle to the qvisor or host kernel through various interfaces. These interfaces include Ucall, Qcall, and Hyper call.
 \subsection{Qcall, Hyper Call, and Ucall}
 \todo{describe when hyper call instead of qcall is used}
-QCALL and hyper call are used for communications between the qkernel and the qvisor. The advantage of qcall over traditional hyper call is that it eliminates the need for the VCPU thread's 
-high-cost Guest/Host switch, which is achieved through a queue on shared memory between guest and host and an IO thread that handles qcall requests in host space. Through the qcall interface, 
-we significantly reduce the number of times the qkernel triggers a hypercall, which means that the performance of the qkernel is greatly improved.
+Hypercall provides the qkernel with the means to issue commands to the qvisor. With hypercall, the qkernel can request service in qvisor, such as opening a file. However, 
+using hypercall is very expensive due to the context switching between the qkenel and qvisor. To this end, Quark provides an asynchronous mechanism called Qcall as an alternative 
+to Hypercall. This mechanism is implemented by a queue on shared memory between the qkernel and the qvisor and an IO thread on the qvisor side, where the shared queue is used to transfer requests 
+sent by the qkernel to the qvisor, and the IO thread is responsible for retrieving requests from the queue and notifying the qkernel thread when the qivosr completes 
+the request. Through this mechanism, qkenel is able to access services in qvisor in an asynchronous manner without VM exit, which improves the performance of the qkernel significantly.
 
 \todo{add picture to show how ucall works}
 To further improve performance, Quark introduces the ucall interface as a means of direct communication between the qkernel and the host kernel for host IO data operations, 
 such as socket reads and writes. Under the hood, this ucall interface is composed of two queues on shared memory between the host and the guest (guest submission queue and guest completion queue),
-an IO thread in the Host space, and the Linux IO Uring mechanism. Qkernel sends IO requests through the guest submission queue. The IO thread on the host side scans the guest submission 
+an IO thread in the Host space, and the Linux IO Uring. Qkernel sends IO requests through the guest submission queue. The IO thread on the host side scans the guest submission 
 queue from time to time and copies the requests in it to the IO Uring submission queue. At the same time, the IO thread continuously scans the completion queue of IO Uring and copies the results 
 of the IO request (struct io\_uring\_cqe) to the guest completion queue. By looking at the user\_data field of struct io\_uring\_cqe, which is the pass back from sqe\->user\_data, the IO thread can 
 notify the specific qkernel thread that an IO operation has been completed.
@@ -154,6 +161,10 @@ notify the specific qkernel thread that an IO operation has been completed.
 
 \section{ACCESS CONTROL}
 
+
+\section{Summary}
+In this chapter, I first give an overview of the various components of k8s and two standards that make k8s more extensible. Furthermore, I depict the general architecture of the quark container 
+and the interfaces that qkernel used to communicate with qvisor and host kernel. Last but not least, I describe the concepts related to TEE, such as memory protection, attestation.
 
 \cleardoublepage
 
