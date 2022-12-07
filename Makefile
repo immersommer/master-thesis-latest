@@ -26,7 +26,7 @@ DOC_IMG_JPG  = images/k8s_with_oci_cri.pdf
 DOC_IMG_JPG  = images/k8s_arch.pdf
 DOC_IMG_JPG  = images/quark_design.png
 DOC_IMG_JPG  = images/quark_io.png
-
+DOC_IMG_JPG  = images/hypercall_qcall_ucall.pdf
 
 # latex stuff
 LUALATEX    ?= lualatex --synctex=1
