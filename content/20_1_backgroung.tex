@@ -141,20 +141,30 @@ various interfaces to access the services in the qvisor and the host kernel in o
 \todo{add long description for quark IO, modify the image: add Guest System Call btw. container app and qkernel}
 
 \subsection{Qcall, Hypercall, and Ucall}
-\todo{describe when hyper call instead of qcall is used}
-Hypercall provides the qkernel with the means to issue commands to the Qvisor. With hypercall, the Qkernel can request service in Qvisor, such as opening a file. However, 
-using hypercall is very expensive due to the context switching between the Qkenel and Qvisor. To this end, Quark provides an asynchronous mechanism called Qcall transfer requests 
-sent by the as an alternative. This mechanism is implemented by a queue on shared memory between the Qkernel and the Qvisor and an io thread on the Qvisor side, where the
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\textwidth]{images/hypercall_qcall_ucall.pdf}
+  \caption[Workflow of Hypercall, Qcall, and Ucall]{Workflow of Hypercall, Qcall, and Ucall}
+  \label{fig:hypercall_qcall_ucall}
+\end{figure}
+\todo{describe the workflow of Hypercall, Qcall, and Ucall in figure's long description}
+Hypercall provides the qkernel with the means to issue commands to the Qvisor. Figure ~\ref{fig:hypercall_qcall_ucall}(a) shows the hypercall workflow in the context of Quark. 
+When qkernel triggers a hypercall, the CPU leaves guest ring 0 mode and enters host ring 0 mode (~\ref{fig:hypercall_qcall_ucall}a (1)). KVM then checks the reason for the VM exit by examining the VMCB and forwards the 
+hypercall to Qvisor running on host ring 3 mode (~\ref{fig:hypercall_qcall_ucall}a (2)). After handling the hypercall request, Qvisor invokes KVM, which resumes qkernel execution in guest ring 0 mode (~\ref{fig:hypercall_qcall_ucall}a (3), (4)).
+With hypercall, the Qkernel can access service in Qvisor, such as opening a file, initializing IO. Unfortunately, 
+this approach is very expensive due to the context switching between the Qkenel and Qvisor. 
+
+To this end, Quark provides an asynchronous mechanism called Qcall as an alternative. 
+As shown in Figure ~\ref{fig:hypercall_qcall_ucall}(b), this mechanism is implemented by a queue on shared memory between the Qkernel and the Qvisor and an io thread on the Qvisor side, where the
 shared queue is used to transfer requests sent by the Qkernel to the Qvisor, and the io thread is responsible for retrieving requests from the queue and notifying the Qkernel thread when the Qivosr completes 
 the request. Through this mechanism, Qkenel is able to access services in Qvisor in an asynchronous manner without VM exit, which improves the performance of the Qkernel significantly.
 
-\todo{add picture to show how Ucall works}
-To further improve performance, Quark introduces the ucall interface as a means of direct communication between the qkernel and the host kernel for host IO data operations, 
-such as socket reads and writes. Under the hood, this ucall interface is composed of two queues on shared memory between the host and the guest (guest submission queue and guest completion queue),
-an IO thread in the Host space, and the Linux IO Uring. Qkernel sends IO requests through the guest submission queue. The IO thread on the host side scans the guest submission 
-queue from time to time and copies the requests in it to the IO Uring submission queue. At the same time, the IO thread continuously scans the completion queue of IO Uring and copies the results 
-of the IO request (struct io\_uring\_cqe) to the guest completion queue. By looking at the user\_data field of struct io\_uring\_cqe, which is the pass back from sqe\->user\_data, the IO thread can 
-notify the specific qkernel thread that an IO operation has been completed.
+Typically, IO operations with hypercall are expensive. Therefore, Quark introduced the Ucall interface as a means of direct communication between the Qkernel and the host kernel for host 
+IO data operations，  such as socket reading and writing. It supports both synchronous and asynchronous IO operations. Figure ~\ref{fig:hypercall_qcall_ucall}(c) details the workflow of the Qkernel 
+using Ucall for synchronous IO operations. First, the qkernel thread submits the IO request into the guest submission queue (Figure ~\ref{fig:hypercall_qcall_ucall}c (1)). Then the Qvisor Ucall handler thread copies the request to the uring submission 
+queue (Figure ~\ref{fig:hypercall_qcall_ucall}c (2)). After the Uring kernel hander finishes processing the IO request, it puts the IO processing result into the uring completion queue (Figure ~\ref{fig:hypercall_qcall_ucall}c (3), (4)). The result 
+contains a user\_data field, which is submitted from the initial IO request and contains information about the Qkernel thread that submitted the IO request. By reading this field, the Qvisor Ucall handler thread wakes up the corresponding Qkernel thread 
+after copying the IO processing result to the guest completion queue (Figure ~\ref{fig:hypercall_qcall_ucall}c (5), (6)).
 
 
 
