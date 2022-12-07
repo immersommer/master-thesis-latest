@@ -106,11 +106,11 @@ We refer the readers to \cite*{Runtime-Comparison} for a comprehensive compariso
 
 \section{QUARK CONTAINER}
 This section gives a high-level overview of the Quark container\cite*{quark} by introducing its main components and explaining how the guest (Qkenel) communicates with the 
-VMM (Qvisor) and host kernel using Hcall and Ucall, respectively. This explanation is necessary for a better understanding of Chapter 4.
+VMM (Qvisor) and host kernel using Hcall ,Qcall, and Ucall, respectively. This explanation is necessary for a better understanding of Chapter 4.
 
 Quark Container is an OCI-compatible container runtime\cite*{oci-runtime-spec}  designed to provide the "security of a virtual machine" while offering the "speed of a 
 container\cite*{speed_secure_container_slogen}." It uses KVM hypervisor to launch a virtual machine with a library operating system (Qkernel) written in rust to run containers. 
-This container inside qkernel architecture offers defense in depth. Therefore, a rogue containerized program exploiting a qkernel vulnerability only gains access to qvisor, 
+This container inside VM architecture offers defense in depth. Therefore, a rogue containerized program exploiting a qkernel vulnerability only gains access to qvisor, 
 a restricted user process.
 Compared to other sandboxed container runtimes, e.g., kata\cite*{Kata-Containers} and gvisor\cite*{gvisor}, using Qkernel as the guest operating system eliminates unnecessary code, 
 resulting in a smaller footprint, a faster startup, less overhead, and ensuring the same level of isolation and security for containers\cite*{quark_performance_report}.
@@ -122,10 +122,14 @@ resulting in a smaller footprint, a faster startup, less overhead, and ensuring 
     \label{fig:quark_design}
 \end{figure}
 \todo{add long description for quark design}
-Figure ~\ref{fig:quark_design}  illustrates the overview of Quark. Quark features an architecture similar to the classic qemu/KVM VM, where qvisor acts as the VM manager and Qkernel serves as the guest kernel 
-for running containerized applications. Different from common VM designs that support running various guest os，qvisor and qkernel are closely coupled, i.e., qvisor only supports VMs 
-running with qkernel. 
 
+In Figure ~\ref{fig:quark_design}, we can see the architecture comparison between Quark-based and Linux virtual machines. The Quark-based virtual machine is shown on the left. This virtual machine consists of Qvisor, 
+Qkernel, and several containerized applications. Corresponding to qemu in a Linux virtual machine, qvisor is a virtual machine manager that uses KVM to create and manage the qkernel-based micro VM. 
+The qkernel and the containerized applications comprise a virtual machine, where the qkernel serves as the guest operating system and applications run as processes in the guest user space. Unlike 
+the Linux guest kernel, qkernel is an ultra-lightweight kernel that contains only necessary code. Furthermore, it implements essential operating system components, such as process management, 
+memory management, file system， and network system. Thus, the qkernel, like a macro kernel, provides services to the running program. The user program, in turn, accesses these services via guest 
+system calls. i.e., X86-64 SysCall/SysRet. The individual components in the qkernel are implemented with the help of the qvisor and the host kernel. When a user program triggers a guest system call, the qkernel makes use of 
+various interfaces to access the services in the qvisor and the host kernel in order to complete the system call. As can be seen in Figure ~\ref{fig:quark_io}, these interfaces include hyper call, qcall, and ucall.
 
 \begin{figure}[H]
     \centering
@@ -133,18 +137,18 @@ running with qkernel.
     \caption[quark IO]{quark IO}
     \label{fig:quark_io}
 \end{figure}
-\todo{add long description for quark IO, modify the image: add Guest System Call btw. container app and qkernel}
-As can be seen in Figure ~\ref{fig:quark_io} , all system calls issued by containerized applications are forwarded to the qkernel through the Guest System Call interface, i.e., X86-64 SysCall/SysRet. 
-Qkernel implements most of these system calls and forwards those it cannot handle to the qvisor or host kernel through various interfaces. These interfaces include Ucall, Qcall, and Hyper call.
-\subsection{Qcall, Hyper Call, and Ucall}
-\todo{describe when hyper call instead of qcall is used}
-Hypercall provides the qkernel with the means to issue commands to the qvisor. With hypercall, the qkernel can request service in qvisor, such as opening a file. However, 
-using hypercall is very expensive due to the context switching between the qkenel and qvisor. To this end, Quark provides an asynchronous mechanism called Qcall as an alternative 
-to Hypercall. This mechanism is implemented by a queue on shared memory between the qkernel and the qvisor and an IO thread on the qvisor side, where the shared queue is used to transfer requests 
-sent by the qkernel to the qvisor, and the IO thread is responsible for retrieving requests from the queue and notifying the qkernel thread when the qivosr completes 
-the request. Through this mechanism, qkenel is able to access services in qvisor in an asynchronous manner without VM exit, which improves the performance of the qkernel significantly.
 
-\todo{add picture to show how ucall works}
+\todo{add long description for quark IO, modify the image: add Guest System Call btw. container app and qkernel}
+
+\subsection{Qcall, Hypercall, and Ucall}
+\todo{describe when hyper call instead of qcall is used}
+Hypercall provides the qkernel with the means to issue commands to the Qvisor. With hypercall, the Qkernel can request service in Qvisor, such as opening a file. However, 
+using hypercall is very expensive due to the context switching between the Qkenel and Qvisor. To this end, Quark provides an asynchronous mechanism called Qcall transfer requests 
+sent by the as an alternative. This mechanism is implemented by a queue on shared memory between the Qkernel and the Qvisor and an io thread on the Qvisor side, where the
+shared queue is used to transfer requests sent by the Qkernel to the Qvisor, and the io thread is responsible for retrieving requests from the queue and notifying the Qkernel thread when the Qivosr completes 
+the request. Through this mechanism, Qkenel is able to access services in Qvisor in an asynchronous manner without VM exit, which improves the performance of the Qkernel significantly.
+
+\todo{add picture to show how Ucall works}
 To further improve performance, Quark introduces the ucall interface as a means of direct communication between the qkernel and the host kernel for host IO data operations, 
 such as socket reads and writes. Under the hood, this ucall interface is composed of two queues on shared memory between the host and the guest (guest submission queue and guest completion queue),
 an IO thread in the Host space, and the Linux IO Uring. Qkernel sends IO requests through the guest submission queue. The IO thread on the host side scans the guest submission 
