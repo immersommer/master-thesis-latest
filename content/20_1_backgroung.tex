@@ -169,7 +169,7 @@ after copying the IO processing result to the guest completion queue (Figure ~\r
 
 
 \section{TEE --generic Idea}
-The hardware-assisted Trusted Execution Environment (TEE) provides one or more tamper-proof computing environments that ensure data confidentiality and integrity. This environment protects security-sensitive applications from co-located attackers 
+The hardware-assisted Trusted Execution Environment (TEE) provides one or more tamper-proof computing environments that ensure data confidentiality and integrity. These computing environments are also called enclaves. It protects protects security-sensitive applications from co-located attackers 
 through verifiable boot of the execution environment, CPU and memory isolation, trusted IO, and secure storage\cite*{Hardware-supported-TEE}. The security provided by hardware-assisted TEE relies on specialized chips. Therefore, breaking various software layers.
 Such as operating systems and hypervisors, as well as system memory, do not affect TEE's ability to protect sensitive computation and data\cite*{7345265}.
 
