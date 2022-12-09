@@ -170,11 +170,11 @@ after copying the IO processing result to the guest completion queue (Figure ~\r
 
 \section{TEE --generic Idea}
 The hardware-assisted Trusted Execution Environment (TEE) provides one or more tamper-proof computing environments that ensure data confidentiality and integrity. The computing environment is also called enclave. It protects security-sensitive applications from co-located attackers 
-through verifiable boot of the execution environment, CPU and memory isolation, trusted IO, and secure storage\cite*{Hardware-supported-TEE}. The security provided by hardware-assisted TEE relies on specialized chips. Therefore, breaking various software layers.
-Such as operating systems and hypervisors, as well as system memory, do not affect TEE's ability to protect sensitive computation and data\cite*{7345265}.
+through verifiable boot of the execution environment, CPU and memory isolation, trusted IO, and secure storage\cite*{Hardware-supported-TEE}. This security guarantee relays on specialized chips. Therefore, breaking various software layers.
+Such as operating systems and hypervisors, do not affect TEE's ability to protect sensitive computation and data\cite*{7345265}.
 
 As shown in Figure ~\ref{fig:vm_process_tee}, hardware-based TEE models can be conceptually divided into two categories, namely VM-based TEE and process-based TEE\cite*{101145}. In VM-based TEE models, the entire VM memory is encrypted with a hardware-based encryption key to protect the VM from other privileged 
-software components, such as hypervisors and operating systems. Examples of VM-based TEE include AMD SEV\cite*{AMD_SEV}, INTEL TDX\cite*{Inte_TDX}, etc. In contrast to VM-based TEE, process-based TEE encrypts only a segment of memory in the application address space. Examples of process-based TEE implementation 
+software components, such as hypervisor and operating system. Examples of VM-based TEE include AMD SEV\cite*{AMD_SEV}, INTEL TDX\cite*{Inte_TDX}, etc. In contrast to VM-based TEE, process-based TEE encrypts only a segment of memory in the application address space. Examples of process-based TEE implementation 
 are INTEL SGX\cite*{INTEL_SGX} and OpenPOWER's Sanctum\cite*{Costan2016SanctumMH}.
 \begin{figure}[H]
   \centering
@@ -183,16 +183,21 @@ are INTEL SGX\cite*{INTEL_SGX} and OpenPOWER's Sanctum\cite*{Costan2016SanctumMH
   \label{fig:vm_process_tee}
 \end{figure}
 
-Both of these models have their advantages and disadvantages\cite*{10.3389/fcomp.2022.930741} \cite*{Execution_Environment_landscape}. Take intel sgx as an example of process-based TEE. Compared to VM-based TEE, It has the advantage of a smaller TCB, which means a smaller attack interface. However, the disadvantages are also obvious. A frequently 
+Both of these models have their advantages and disadvantages\cite*{10.3389/fcomp.2022.930741} \cite*{Execution_Environment_landscape} \cite*{101145}. Take Intel SGX as an example of process-based TEE. Compared to VM-based TEE, it has the advantage of a smaller TCB, i.e., a smaller attack surface. However, the disadvantages are also obvious. A frequently 
 cited disadvantage is the need for significant software modifications to accommodate this TEE model. Other drawbacks include performance degradation due to limited EPC size in cases where a process requires a huge encrypted memory region, and the lack of bi-directional isolation 
 between the operating system and the enclave, etc.
 
 
 The VM-based approach has the following advantages. First, the model provides bi-directional isolation between the enclave and the operating system, alleviating the concern about malware running in the enclave corrupting the operating system. In addition, the model is more 
 flexible as it supports running security-sensitive programs in the enclave without modification. However, placing the entire virtual machine under the protection of the TEE increases the TCB, making the approach more vulnerable to attacks.
-\subsection{VM base and process base TEE}
-\subsection{Non-Automatic VM Exits}
-\subsection{ATTESTATION, REMOTE, LOCAL ATTASTATION, HOW INTEL AND sev and TDX dose attestation}
+
+
+In the next two sections, we describe in more detail how VM-based TEE safeguards sensitive data by means of memory encryption, attestation, etc. Also, since our implementation  is based on VM-based TEE, 
+a detailed description of process-based TEE is condisered out of the scope. For a detailed explanation of process-based TEE, we refer the reader to \cite*{cryptoeprint:2016/086} \cite*{10.1145/2487726.2488370} \cite*{SGX_PAPER_LIST}.
+
+
+\subsection{memory encryption}
+\subsection{attestation}
 
 \section{ACCESS CONTROL}
 
