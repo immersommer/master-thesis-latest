@@ -190,7 +190,7 @@ cited disadvantage is the need for significant software modifications to accommo
 may cause a significant performance penalty for IO-intensive applications, as it only allows enclave to perform system calls and hardware accesses via Ocall and Ecall, which can be very expensive.
 
 
-The VM-based approach has the following advantages. First, the model provides bi-directional isolation, alleviating the concern about malware running in the enclave corrupting the other components on the same host. In addition, the model is more 
+The VM-based approach has the following advantages. First, it provides bi-directional isolation, alleviating the concern about malware running in the enclave corrupting the other components on the same host. In addition, it is more 
 flexible compared to process base approaches as it supports running security-sensitive programs in an enclave (VM) without modification. However, placing the entire virtual machine under the protection of the TEE increases the TCB, making the approach more vulnerable to attacks.
 
 
@@ -215,14 +215,15 @@ any time while it is running. It is also interesting to note that the AMD SEV fa
 explanation of local attestation. For those interested in local attestation, please refer to the next section on Intel TDX.
 
 Remote attestation for SEV SNP relies on three keys, the  Chip Endorsement Key (CEK), the e AMD SEV Signing Key (ASK), and the AMD root signing key(RSK), to establish 
-the root of trust. CEK is a P-384 ECDSA chip-unique signing key fused into the processor die, while ASK and ARK are global keys securely stored by AMD. The relationship between these three keys is 
-that CEK on each AMD platform is signed by ASK, and ASK is signed by ARK. During the operation of the enclave, the certifier can request an attestation report signed by the CEK from the enclave. 
+the root of trust. CEK is a P-384 ECDSA chip-unique signing key fused into the processor die, while ASK and ARK are global keys securely stored by AMD. The relationship between these three 
+keys is that CEK on each AMD platform is signed by ASK, and ASK is signed by ARK. During the runtime of the enclave, the certifier can request an attestation report signed by the CEK from the enclave. 
 This report contains measurements related to the enclave, which include measurements on the contents of the enclave memory, the configuration of the platform on which the enclave is running, etc.
  In addition, the report includes a 512-bit custom guest data field to, for example, prove freshness to the verifier or establish a mutual TLS communication channel between the enclave and the 
  verifier. In the end, after obtaining the report, the verifier can verify the report using the public key of the AMD signature key obtained from AMD and decide whether the enclave should be 
  provisioned based on the measurements in the report.
 
 \subsection{Intel TDX}
+Intel TDX
 \subsection{Comparison}
 
 \section{ACCESS CONTROL}
