@@ -200,22 +200,31 @@ a detailed description of process-based TEE is considered out of the scope. For 
 
 
 \subsection{AMD SEV SNP}
-AMD SEV SNP is AMD's latest virtual machine-based TEE solution. It retains the features of its predecessor, namely VM memory encryption, register state protection after VM exit, and further adds integrity protection for encrypted memory.
+AMD SEV SNP\cite*{sev_smp} is AMD's latest virtual machine-based TEE solution. It retains the features of its predecessor (AMD SEV\cite*{sev} and AMD SEV-ES\cite*{sev_es}), namely VM memory 
+encryption, register state protection after VM exit, and further adds integrity protection for encrypted memory.
 
-AMD SEV SNP protects the virtual machine's memory with encryption. When a service running in an enclave (VM) accesses memory, the AES-128 encryption engine embedded in the memory controller transparently encrypts or decrypts the memory using a memory encryption key. Note that each enclave is assigned a unique memory encryption, and this key will never be revealed to an untrusted entity, such as a hypervisor. As a result, untrusted entities can only read the cipher text on the VM's memory. To enable sharing of memory pages between enclaves or between an enclave and hypervisor, a new control bit, the "C-bit," is introduced in the page table entry, allowing the enclave to decide which page should be encrypted.
+AMD SEV SNP protects the virtual machine's memory with encryption. When a service running in an enclave (VM) accesses memory, the AES-128 encryption engine embedded in the memory controller 
+transparently encrypts or decrypts the memory using a memory encryption key. Note that each enclave is assigned a unique memory encryption, and this key will never be revealed to an untrusted 
+entity, such as a hypervisor. As a result, untrusted entities can only read the cipher text on the VM's memory. To enable sharing of memory pages between enclaves or between an enclave and 
+hypervisor, a new control bit, the "C-bit," is introduced in the page table entry, allowing the enclave to decide which page should be encrypted.
 
-To mitigate attacks on VM control blocks during VM exits, SNP supports non-automatic VM exits. SNP classifies VM exits into two categories: automatic VM exits and non-automatic VM exits. Automatic VM exits refer to VM exits that do not expose any guest register state to the hypervisor. Examples of automatic VM exits include those triggered by physical interrupts, shutdowns, and the hlt instruction, etc. All other exits are non-automatic VM exits, i.e., exits of VMs that require exposing the state of the guest registers to the hypervisor. In this case, SNP allows the guest to select the registers that need to be exposed to the hypervisor and encrypt the remaining register state before the VM exits.
+To mitigate attacks on VM control blocks during VM exits, SNP supports non-automatic VM exits. SNP classifies VM exits into two categories: automatic VM exits and non-automatic VM exits. 
+Automatic VM exits refer to VM exits that do not expose any guest register state to the hypervisor. Examples of automatic VM exits include those triggered by physical interrupts, shutdowns, 
+and the hlt instruction, etc. All other exits are non-automatic VM exits, i.e., exits of VMs that require exposing the state of the guest registers to the hypervisor. In this case, 
+SNP allows the guest to select the registers that need to be exposed to the hypervisor and encrypt the remaining register state before the VM exits.
 
-In comparison to its predecessor, AMD SNP protects the integrity of enclave memory by introducing RMP, which helps SNP enforce the ownership of a physical page to one entity, i.e., only the owner of a page can modify that page. In addition, changing the ownership of a page will erase the contents of that page. In this way, malicious entities may only read the encrypted virtual machine memory rather than modify it.
+In comparison to its predecessor, AMD SNP protects the integrity of enclave memory by introducing Reverse Map Tabel (RMP), which helps SNP enforce the ownership of a physical page to one entity, i.e., 
+only the owner of a page can modify that page. In addition, changing the ownership of a page will erase the contents of that page. In this way, malicious entities may only read the 
+encrypted virtual machine memory rather than modify it.
 
 SEV SNP also supports attestation. It allows the secret owner to verify the trustworthiness of the enclave and decide whether to make the secrets in their possession available to the enclave. 
 This process is also referred to as attestation and provisioning. Compared to its predecessors, AMD SEV, and AMD SEV-ES, SNP not only retains the static attestation, i.e., the attestation during 
 enclave launch, but also adds the runtime attestation feature. This feature makes the SNP's attestation more flexible as it allows the verifier to examine the trustworthiness of the enclave at 
 any time while it is running. It is also interesting to note that the AMD SEV family does not support local attestation compared to intel's TEE solutions. As such, this section skips the 
-explanation of local attestation. For those interested in local attestation, please refer to the next section on Intel TDX.
+explanation of local attestation. For those interested in local attestation, please refer to the next section on Intel TDX \ref*{subsec:tdx}.
 
 Remote attestation for SEV SNP relies on three keys, the  Chip Endorsement Key (CEK), the e AMD SEV Signing Key (ASK), and the AMD root signing key(RSK), to establish 
-the root of trust. CEK is a P-384 ECDSA chip-unique signing key fused into the processor die, while ASK and ARK are global keys securely stored by AMD. The relationship between these three 
+the root of trust\cite*{Menetrey2022AnES}. CEK is a P-384 ECDSA chip-unique signing key fused into the processor die, while ASK and ARK are global keys securely stored by AMD. The relationship between these three 
 keys is that CEK on each AMD platform is signed by ASK, and ASK is signed by ARK. During the runtime of the enclave, the certifier can request an attestation report signed by the CEK from the enclave. 
 This report contains measurements related to the enclave, which include measurements on the contents of the enclave memory, the configuration of the platform on which the enclave is running, etc.
  In addition, the report includes a 512-bit custom guest data field to, for example, prove freshness to the verifier or establish a mutual TLS communication channel between the enclave and the 
@@ -223,7 +232,16 @@ This report contains measurements related to the enclave, which include measurem
  provisioned based on the measurements in the report.
 
 \subsection{Intel TDX}
-Intel TDX
+\label{subsec:tdx}
+
+Intel has also announced its virtual machine-based solution called Intel TDX\cite*{Intel_tdx_whitepaper}. Although TDX has yet to be available to the market, several system-level software\cite*{Kate_support_tdx} \cite*{Linux_support_tdx}, including our implementation, 
+have already decided to adopt Intel TDX. Hence we decided to give a brief introduction to INTEL TDX. 
+
+Figure ~\ref{fig:TDX_diagram} illustrates The Architecture of Intel TDX. All trust domains (TDs), as well as the digitally signed TDX module, run in a new CPU mode, i.e.,  "Secure Arbitration Mode （SEAM）."
+This new mode offers an isolated execution environment for TDs so that privileged software running in other modes (hypervisor, operating system, etc.) cannot eavesdrop on the TD's state, including 
+register states, memory contents, etc.   The TDX module running in SEAM root mode is responsible for running TDs in SEAM guest mode and offers an interface for host-side VMM to 
+manage the TDs. This interface enables the TDX module to validate commands to TDs issued by VMM and enforce security policies around those commands with the aim of keeping the data confidentiality 
+and integrity inside TDs. 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.8\textwidth]{images/TDX_diagram.pdf}
@@ -231,12 +249,37 @@ Intel TDX
   \label{fig:TDX_diagram}
 \end{figure}
 \todo{add reference to this figure}
+Intel TDX offers confidentiality and integrity of memory and CPU state to TDs. This is achieved by reusing a so-called multi-key, total-memory-encryption engine 
+(MKTME), which provides encryption using AES-128-XTS, integrity using 28-bit MAC, and a TD-ownership bit associated with each cache line\cite*{Intel_tdx_whitepaper}. Under the hood, the 
+MKTME in the memory controller performs memory encryption to each TD using a TD-assigned private key. Such keys are managed by the TDX model in SEAM mode and are 
+not accessible by the hypervisor. Furthermore, TDX leverages the TD-ownership bit to determine if a cache line is tied with a page assigned to a TD. In case an 
+entity does not possess the right memory encryption key and tries to access memory with this bit set, the entity can only get a dummy value\cite*{Intel_tdx_whitepaper}. In this way, we 
+effectively avoid ciphertext analysis. Last but not least, MAC associated with each memory line provide  TDX with a way to detect state tamper for encrypted memory.   
+And cause a TD to terminate if a MAC violation happens.
+
+TDX also supports shared memory to facilitate TD communication with untrusted external entities. Unlike the private memory of a TD that is protected by cryptographic encryption and SHA-3-based MAC 
+using the TD-assigned private key, external entities such as hypervisors can access the shared memory in plain text. This mechanism is achieved by introducing a new bit called "Shared Bit" 
+on TD's page table entry (guest page table entry) and  2 EPTs, namely a secure EPT and a shared EPT. TD leverage this shared bit to determine if a GPA maps to shared memory. The secure EPT and 
+the shared EPT are used to translate the private/shared GPA to the physical address, respectively. Besides, the Intel-TDX module hosts a data structure called Physical-Address-Metadata Tabe to 
+enforce page ownership. In this way, a page cannot be mapped to two TD's secure EPT at the same time.
+
+TDX is designed to offer local and remote attestation by reusing and extending the attestation infrastructure from Intel SGX\cite*{Intel_tdx_whitepaper}, e.g., quoting enclave, Intel SGX DCAP. One principle difference is 
+that the local attestation verifier and challenger reside on the same host, and the root of trust is built upon the shared platform hardware, while building the root of trust in remote attestation 
+requires a more sophisticated solution, like DCAP\cite*{Intel_DCAP}, or EPID\cite*{Intel_EPID}.   
+
+In the Intel TDX local attestation, a new instruction is provided to generate the local report for the attester (TD). This local report includes the measurement associated with a TD (hash value), 
+SVNs of TDX-TCB elements, and customized data from the TD\cite*{Intel_tdx_whitepaper}. Furthermore, this report is integrity-protected and cryptographically tied to the hardware shared between the verifier and the attester 
+using a message authentication code (MAC). Thus, the verifier can then use EVERIFYREPORT instructions to verify this report and determine the trustworthiness of the attester. 
+
+ 
+The root of trust for Intel TDX remote attestation is offered by a certification infrastructure that reuses the Intel sgx DCAP\cite*{Intel_DCAP} and quoting enclave\cite*{Intel_tdx_whitepaper}. Quoting enclave shares the same hardware 
+platform with the attester (TD) and is responsible for generating a quote for a local attestation report after verifying the report. Quoting enclave on the same hardware platform with the 
+attester (TD) is responsible for generating a quote for a local attestation report after verifying the report using EVERIFYREPORT instructions. This quote is digitally signed by an 
+attestation key owned by quoting enclave, and the remote verifier can verify it by consulting the Intel certification authority. For the detailed explanation of the Intel TDX remote attestation, we refer the reader to \cite*{Intel_tdx_whitepaper}, \cite*{9448036}.
 
 \subsection{Comparison}
 
 \section{ACCESS CONTROL}
-
-
 
 \section{Summary}
 In this chapter, I first give an overview of the various components of k8s and two standards that make k8s more extensible. Furthermore, I depict the general architecture of the quark container 
