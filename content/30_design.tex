@@ -23,6 +23,98 @@
 %\todo{write design}
 
 DESIGN
+
+\subsection{Quark in K8s}
+
+
+
+\subsubsection{k8s overview}
+
+    Figure1:::::::::::::::::::::::
+
+    The tenant connects to the api server located on the master node via the https protocol and issues commands to the cluster via this link
+    
+    The master node establishes a connection to the kubelet service located on each worker node via the https protocol. Through this link, it can manage the lifecycle of the worker nodes and the pods running on them. Furthermore, commands sent from the tenant to the master node 
+    are also sent to the worker nodes through this link, including creating a pod, deleting a pod, etc.
+    
+    The kubelet at each worker node acts as an agent, listening for requests/commands from the master and calling other services located on the same node to fulfill the request.
+    
+    In the case of container/image management related requests, it makes a call to a host choosed high level container runtime.
+    These High-level container managers, such as containerd, and cri-o, are responsible for managing the container lifecycle and images, while the actual creation/deletion of pods/containers is done by the lower-level container runtime or so called shim process.
+
+    Furthermore, it is worth noting that in order to facilitate communication between kubelet and different high level container runtimes, kubelet proposes an abstract interface called CRI interface. This interface defines a set 
+    of endpoints for how high levek container runtime manage the lifecycle of pods/containers and images. Therefore, it must be implemented by any high-level container runtime that wishes to integrate into the k8s environment. This interface breaks the dependency between kubelet 
+    and a specific high-level container manager and greatly improves the extensibility of k8s.
+    
+    Similar to the idea of defining a CRI interface, the high-level container runtime also defines an abstract interface for communicating with shim processes that run containers in different ways. In the case of containerd, this abstract interface is called the shim v2 api. 
+    This interface defines endpoints for creating/deleting containers, issuing commands to a container or allocating terminal in a container etc.
+
+
+
+
+    The diagram below shows how containerd works with a kubelet to create a container, where containerd implements the cri interface through the cri plugin
+
+    Figure2:::::::::::::::::::::::
+
+    \begin{itemize}
+        \item Kubelet creates a pod by calling the cri plugin through the CRI Runtime Services API.
+        \item The cri plug-in establishes the pod's network namespace, then employ the CNI (Container Network Interface) to configure it;
+        \item The cri plugin calls the containerd's function to start a shim process that implements the shim api.
+        \item The cri plugin then issues the create and start pod command to the shim process through the shim api, which creates a special pause container as the the sandbox container in the pod's cgroups and namespace.
+        \item Kubelet then invokes the cri plug-in through the CRI Image Service API to pull the image for application container.
+        \item If there is no image on the local registry, the cri plugin further make use of containerd to pull the image from remote
+        \item Kubelet then calls cri plugin , via the CRI runtime service API, to create and start the application container inside the pod using the pulled container image;
+        \item Kubelet contacts the cri plugin by using the CRI Runtime Services API to create and launch the application container inside the pod.
+        \item cri plugin in turn calls forward those cmds to shim process via shim v2 api.
+        \item shim process finally prepaire the container root file system  and loanch the container inside the pod.After these steps, a pod and its corresponding application container is created and running
+        \item The shim process finally loads the container root filesystem from a subdirectory of containerd and creates the container in the pod. After these steps, the application container is created and runs in this pod.
+    \end{itemize}
+
+
+\subsubsection{quark overview}
+
+Figure3:::::::::::::::::::::::
+
+\subsubsection{Overview of confidential quark in cloud environments}
+
+\subsection{Secure deployment}
+
+1.How applications obtain secrets?
+Popular applications obtain secrets in three ways: environment variables, function parameters, and files.
+
+2.How to provide secret to application?
+\begin{itemize}
+    \item  The secrets related to environment variables and function arguments are  delivered to the qkernel by a secure channel, after CAS confirms that the qkernel is running in the correct environment through its attestation report
+    \item  During the container creation process, file-related secrets are encrypted and mounted to a specific location on the container file system.
+    \begin{itemize}
+        \item The shield in the qkernel should load the file, decrypt it and store it in the client memory during this time interval after provisioning and before the container starts running.
+        \item The plain text version of the file is stored in guest memory. Any process in guest that accesses the file always read the plain text version stored in guest memory instead of the encrypted one stored on the host machine
+      \end{itemize}
+    \item
+\end{itemize}
+
+How attestation work and how to build the secure channel between CAS and Qkernel?
+
+
+\subsection{}
+
+How applications obtain secrets?
+Popular applications obtain secrets in three ways: environment variables, function parameters, and files.
+
+How to provide secret to application?
+\begin{itemize}
+    \item  The secrets related to environment variables and function arguments are  delivered to the qkernel by a secure channel, after CAS confirms that the qkernel is running in the correct environment through its attestation report
+    \item  During the container creation process, file-related secrets are encrypted and mounted to a specific location on the container file system.
+    \begin{itemize}
+        \item The shield in the qkernel should load the file, decrypt it and store it in the client memory during this time interval after provisioning and before the container starts running.
+        \item The plain text version of the file is stored in guest memory. Any process in guest that accesses the file always read the plain text version stored in guest memory instead of the encrypted one stored on the host machine
+      \end{itemize}
+    \item
+\end{itemize}
+
+How attestation work and how to build the secure channel between CAS and Qkernel?
+
+
 \cleardoublepage
 
 %%% Local Variables:
