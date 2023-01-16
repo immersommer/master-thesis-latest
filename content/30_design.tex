@@ -24,11 +24,11 @@
 
 DESIGN
 
-\subsection{Quark in K8s}
 
 
 
-\subsubsection{k8s overview}
+
+\subsection{k8s overview}
 
     Figure1:::::::::::::::::::::::
 
@@ -71,62 +71,149 @@ DESIGN
     \end{itemize}
 
 
-\subsubsection{quark overview}
+\subsection{quark overview}
 
 Figure3:::::::::::::::::::::::
 
-\subsubsection{Overview of confidential quark in cloud environments}
+\subsection{Overview of confidential quark in cloud environments}
 
-\subsection{Secure deployment}
+\section{Secure deployment(in theory)}
 
-1.How applications obtain secrets?
-Popular applications obtain secrets in three ways: environment variables, function parameters, and files.
+\subsection{How applications obtain secrets?}
 
-2.How to provide secret to application?
+Popular applications obtain secrets in three ways
+\begin{itemize}
+    \item  environment variables
+    \item  application arguments
+    \item  files.
+\end{itemize}
+
+\subsection{How to provide secret to application?}
+
 \begin{itemize}
     \item  The secrets related to environment variables and function arguments are  delivered to the qkernel by a secure channel, after CAS confirms that the qkernel is running in the correct environment through its attestation report
-    \item  During the container creation process, file-related secrets are encrypted and mounted to a specific location on the container file system.
+    \item  File-related secrets are encrypted and mounted to a specific location on the container file system.
     \begin{itemize}
+        \item After attestation, CAS passes the decryption key to the shield of qkernel.
         \item The shield in the qkernel should load the file, decrypt it and store it in the client memory during this time interval after provisioning and before the container starts running.
         \item The plain text version of the file is stored in guest memory. Any process in guest that accesses the file always read the plain text version stored in guest memory instead of the encrypted one stored on the host machine
       \end{itemize}
     \item
 \end{itemize}
 
-How attestation work and how to build the secure channel between CAS and Qkernel?
+\subsection{How attestation work and how to build the secure channel between CAS and Qkernel}
 
+We use the key brokerage service attestation protocol to establish a communication channel between a Key Broke client (KBC) in secure VM and a trusted Key Broker Service (KBS), 
+through which the KBS can verify that the KBC is running in a trusted environment and inject secrets into the KBC in a secure manner.  To support guest attestation and secret injection, the protocol employs the simple, 
+and extendable "Request-Challenge-Attestation-Response" (RCAR) method and HTTPS protocol. 
 
-\subsection{Secure deployment}
+The protocol is divided into two main steps. In the first step, the KBS authenticates the KBC. After the first step is completed, KBS will allow KBCs to request protected resources from it.
+Figure from internet:::::::::::::::::::::::
 
-How applications obtain secrets?
-Popular applications obtain secrets in three ways: environment variables, function parameters, and files.
-
-How to provide secret to application?
+\subsection{The whole procedure}
 \begin{itemize}
-    \item  The secrets related to environment variables and function arguments are  delivered to the qkernel via a secure channel, after CAS confirms that the qkernel is running in the correct environment through its attestation report
-    \item  File-related secrets are encrypted, and then mounted to a specific location on the container file system  during the container creation.
-    \begin{itemize}
-        \item The shield in the qkernel should load the file, decrypt it and store it in the client memory during this time interval after provisioning and before the container starts running.
-        \item The plain text version of the file is stored in guest memory. Any process in guest that accesses the file always read the plain text version stored in guest memory instead of the encrypted one stored on the host machine
-      \end{itemize}
-    \item
+    \item  The data owner encrypts the file-related secret and prepares the policy for shield running inside the qkernel, where the policy contains the decryption key of the file-related secret, environment variable and arguments-related secret in plaintext
+    \item  The data owner attests cas, and uploads the policy if the attestation succeeds.
+    \item  The cloud operator then mounts the file-related secrets to the container's file system and starts the container. Note that the IP address of the CAS is passed to the container as an environment variable when the container is started.
+    \item  The Shield then starts and sends the POD's attestation report to CAS via https protocol
+    \item  CAS verify the attestation report with the help of Intel/AMD remote attestation Infrastructure. If the verification succeeds, CAS sends the policy file to the shield over https channel.
+    \item  Shield loads the encrypted file-related secrets from the host, decrypts them, and saves them in the guest's memory. Shield then reads the secrets related to environment variables and application parameters from the policy file and uses them as environment variables and application parameters for the application container process.
+\end{itemize}
+, attest cas, uplaod policy, send create container req to master node, containerd create container, qkernel get attestation report from host and sent it to cas, cas verify the report, and send the secret back to qkernel....)
+
+\section{Runtime issue}
+\subsection{shared library loading during runtime(implement)}
+Motivation: Loading malicious libraries during runtime may corrupt the container's confidential execution environment.
+
+Mitigation: Check the libraries' signatures using the signer's public key in the policy file before loading them into guest memory.
+
+
+\subsection{volume managed by k8s(implement)}
+Motivation: Applications that require storage may write their secrets to k8s managed volumes.
+
+Mitigation: 
+
+
+\subsection{There may be more issues}
+\subsubsection{Shared momory}
+\subsubsection{Message queue}
+
+\section{Endpoid related}
+\subsection{Overview of endpoints defined in CRI runtime service}
+\begin{itemize}
+    \item  attach:Attach to a running container
+    \item  exec:Run a command/termianl in a running container
+    \item  logs: Fetch the logs of a container
+    \item  port-forward: Forward local port to a pod
+
+    \item  inspect: Display the status of one or more containers
+    \item  inspectp: Display the status of one or more pods
+    \item  ps:  List containers
+    \item  pods: List pods
+    
+    \item  create: Create a new container
+    \item  start: Start one or more created containers
+    \item  run:Run a new container inside a sandbox
+    \item  runp:Run a new pod
+    \item  rm:Remove one or more containers
+    \item  rmp:Remove one or more pods
+    \item  stop:Stop one or more running containers
+    \item  stopp: Stop one or more running pods
+
+    \item  update: Update one or more running containers's resources (CPU, memory etc.)
+    \item  stats: List container(s) resource usage statistics
+    \item  statsp: List pod resource usage statistics
 \end{itemize}
 
-How attestation work and how to build the secure channel between CAS and Qkernel?
+All endpoints can be classified into four categories according to their usage:
+\begin{itemize}
+    \item  Debug-purpose endpoints:attach, exec, logs, port-forward:
+    \item  Endpoints for Pod/container lifecycle management: create, start, run, runp, rm, rmp, stop, stopp
+    \item  Endpoints for collecting container/pod memadata stored in high level container runtime: inspect, inspectp, ps, pods
+    \item  Endpoints for Pod/container raw resources management (cpu, memory, etc.,): update, stats, statsp
+\end{itemize}
+
+\subsection{Exec endpoint}
+\subsubsection{Terminal mode(implement)}
+Provide option in policy to disable the termianl mode
 
 
-The whole procedure (user encrypt file, attest cas, uplaod policy, send create container req to master node, containerd create container, qkernel get attestation report from host and sent it to cas, cas verify the report, and send the secret back to qkernel....)
+\subsubsection{Single cmd line mode(implement)}
+\subsubsection{How qkenel identify the request issuer}
+\begin{itemize}
+    \item  cmd issuer first require a access token from CAS, this access token contain the request information and the role of the cmd issuer
+    \item  cmd issuer then send the encrypted request along with the access token to qkernel through the k8s channel
+    \item  qkernel verifies the token by sending it to CAS. If the token is valid, CAS sends a HTTP response that contains the "true" keyword and other related information
+    \item  qkernel finaly exec the cmd according to the policy defined for the role
+\end{itemize}
+\subsubsection{How to prevent the host from viewing the request contents (cmd and its associate arguments), as well as the request result}
+The request itself and its execution results are encrypted and integrity-protected using AES-GCM.
+
+\subsection{Log endpoint (implement)}
+Logs streaming from the container's stdout/err are encrypted and integrity-protected using AES-GCM.
+\subsection{Attach endpoint}
+Since the stdout/err of the container is encrypted, a client without the decryption key cannot get any useful data through the channel established by the Attach endpoint.
+
+\subsection{Port-forward endpoint}
+Port-forward endpoint is out of scop
+
+\section{Secure Client(in theory)}
+
+\begin{itemize}
+    \item  Prepare the policy and secrets including:
+    \begin{itemize}
+        \item  encrypts the file-related secrets using key A
+        \item requests the cloud operator to mount the encrypted secret to a certain path
+        \item embeds key A  and the mount path to policy so that qkernel can find and decrypt it.
+        \item  Add arguments and environment variable-related secrets to the policy file
+    \end{itemize}
+    \item Attest the CAS and upload the policy
+    \item  Get access token from CAS, encrypt the Single cmd line mode request, and decrypt its result using the key got from the CAS
+    \item  decrypt the container's log using the key got from the CAS
+    \item  issue dynamic attestation request to qkernel
+\end{itemize}
 
 
-\subsection{Runtime issue}
-load shared library
-write secret to volume managed by k8s
-
-
-\subsection{Exec endpoid related}
-
-
-\subsection{Log related}
 
 
 
