@@ -96,15 +96,15 @@ Popular applications obtain secrets in three ways: environment variables, functi
 How attestation work and how to build the secure channel between CAS and Qkernel?
 
 
-\subsection{}
+\subsection{Secure deployment}
 
 How applications obtain secrets?
 Popular applications obtain secrets in three ways: environment variables, function parameters, and files.
 
 How to provide secret to application?
 \begin{itemize}
-    \item  The secrets related to environment variables and function arguments are  delivered to the qkernel by a secure channel, after CAS confirms that the qkernel is running in the correct environment through its attestation report
-    \item  During the container creation process, file-related secrets are encrypted and mounted to a specific location on the container file system.
+    \item  The secrets related to environment variables and function arguments are  delivered to the qkernel via a secure channel, after CAS confirms that the qkernel is running in the correct environment through its attestation report
+    \item  File-related secrets are encrypted, and then mounted to a specific location on the container file system  during the container creation.
     \begin{itemize}
         \item The shield in the qkernel should load the file, decrypt it and store it in the client memory during this time interval after provisioning and before the container starts running.
         \item The plain text version of the file is stored in guest memory. Any process in guest that accesses the file always read the plain text version stored in guest memory instead of the encrypted one stored on the host machine
@@ -113,6 +113,22 @@ How to provide secret to application?
 \end{itemize}
 
 How attestation work and how to build the secure channel between CAS and Qkernel?
+
+
+The whole procedure (user encrypt file, attest cas, uplaod policy, send create container req to master node, containerd create container, qkernel get attestation report from host and sent it to cas, cas verify the report, and send the secret back to qkernel....)
+
+
+\subsection{Runtime issue}
+load shared library
+write secret to volume managed by k8s
+
+
+\subsection{Exec endpoid related}
+
+
+\subsection{Log related}
+
+
 
 
 \cleardoublepage
