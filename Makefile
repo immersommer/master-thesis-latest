@@ -29,7 +29,12 @@ DOC_IMG_JPG  = images/quark_io.png
 DOC_IMG_JPG  = images/hypercall_qcall_ucall.pdf
 DOC_IMG_JPG  = images/vm_process_tee.pdf
 DOC_IMG_JPG  = images/TDX_diagram.pdf
-
+DOC_IMG_JPG  = images/IMG_4415.png
+DOC_IMG_JPG  = images/IMG_4416.png
+DOC_IMG_JPG  = images/IMG_4417.png
+DOC_IMG_JPG  = images/IMG_4414.png
+DOC_IMG_JPG  = images/IMG_4413.png
+DOC_IMG_JPG  = images/fileencption.png
 
 # latex stuff
 LUALATEX    ?= lualatex --synctex=1

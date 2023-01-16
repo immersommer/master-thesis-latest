@@ -30,7 +30,12 @@ DESIGN
 
 \subsection{k8s overview}
 
-    Figure1:::::::::::::::::::::::
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.8\textwidth]{images/IMG_4416.PNG}
+        \caption[k8s arch]{k8s arch}
+        \label{fig:k8s}
+    \end{figure}
 
     The tenant connects to the api server located on the master node via the https protocol and issues commands to the cluster via this link
     
@@ -54,7 +59,14 @@ DESIGN
 
     The diagram below shows how containerd works with a kubelet to create a container, where containerd implements the cri interface through the cri plugin
 
-    Figure2:::::::::::::::::::::::
+
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.8\textwidth]{images/IMG_4417.PNG}
+        \caption[Kubelet Workflow]{Kubelet Workflow}
+        \label{fig:Kubelet}
+    \end{figure}
+
 
     \begin{itemize}
         \item Kubelet creates a pod by calling the cri plugin through the CRI Runtime Services API.
@@ -73,9 +85,23 @@ DESIGN
 
 \subsection{quark overview}
 
-Figure3:::::::::::::::::::::::
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/IMG_4415.PNG}
+    \caption[quark]{quark}
+    \label{fig:quark}
+\end{figure}
 
 \subsection{Overview of confidential quark in cloud environments}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/IMG_4414.PNG}
+    \caption[confidential quark]{confidential quark}
+    \label{fig:confidential_quark}
+\end{figure}
+
+
 
 \section{Secure deployment(in theory)}
 
@@ -95,8 +121,8 @@ Popular applications obtain secrets in three ways
     \item  File-related secrets are encrypted and mounted to a specific location on the container file system.
     \begin{itemize}
         \item After attestation, CAS passes the decryption key to the shield of qkernel.
-        \item The shield in the qkernel should load the file, decrypt it and store it in the client memory during this time interval after provisioning and before the container starts running.
-        \item The plain text version of the file is stored in guest memory. Any process in guest that accesses the file always read the plain text version stored in guest memory instead of the encrypted one stored on the host machine
+        \item The shield then load the file, decrypt it and store it in the guest memory before the container starts running.
+        \item Any processes in guest that accesses the file always read the plain text version stored in guest memory instead of the encrypted one stored on the host machine
       \end{itemize}
     \item
 \end{itemize}
@@ -119,10 +145,10 @@ Figure from internet:::::::::::::::::::::::
     \item  CAS verify the attestation report with the help of Intel/AMD remote attestation Infrastructure. If the verification succeeds, CAS sends the policy file to the shield over https channel.
     \item  Shield loads the encrypted file-related secrets from the host, decrypts them, and saves them in the guest's memory. Shield then reads the secrets related to environment variables and application parameters from the policy file and uses them as environment variables and application parameters for the application container process.
 \end{itemize}
-, attest cas, uplaod policy, send create container req to master node, containerd create container, qkernel get attestation report from host and sent it to cas, cas verify the report, and send the secret back to qkernel....)
+
 
 \section{Runtime issue}
-\subsection{shared library loading during runtime(implement)}
+\subsection{Shared library loading during runtime(implement)}
 Motivation: Loading malicious libraries during runtime may corrupt the container's confidential execution environment.
 
 Mitigation: Check the libraries' signatures using the signer's public key in the policy file before loading them into guest memory.
@@ -132,13 +158,27 @@ Mitigation: Check the libraries' signatures using the signer's public key in the
 Motivation: Applications that require storage may write their secrets to k8s managed volumes.
 
 Mitigation: 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/IMG_4413.PNG}
+    \caption[shielded file system]{shielded file system}
+    \label{fig:shielded_filesystem}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/fileencption.png}
+    \caption[file content encryption]{file content encryption}
+    \label{fig:file_content_encryption}
+\end{figure}
+
 
 
 \subsection{There may be more issues}
-\subsubsection{Shared momory}
+\subsubsection{Shared memory}
 \subsubsection{Message queue}
 
-\section{Endpoid related}
+\section{Endpoints related}
 \subsection{Overview of endpoints defined in CRI runtime service}
 \begin{itemize}
     \item  attach:Attach to a running container
@@ -160,7 +200,7 @@ Mitigation:
     \item  stop:Stop one or more running containers
     \item  stopp: Stop one or more running pods
 
-    \item  update: Update one or more running containers's resources (CPU, memory etc.)
+    \item  update: Update one or more running container's resources (CPU, memory etc.)
     \item  stats: List container(s) resource usage statistics
     \item  statsp: List pod resource usage statistics
 \end{itemize}
@@ -169,7 +209,7 @@ All endpoints can be classified into four categories according to their usage:
 \begin{itemize}
     \item  Debug-purpose endpoints:attach, exec, logs, port-forward:
     \item  Endpoints for Pod/container lifecycle management: create, start, run, runp, rm, rmp, stop, stopp
-    \item  Endpoints for collecting container/pod memadata stored in high level container runtime: inspect, inspectp, ps, pods
+    \item  Endpoints for collecting container/pod metadata stored in high level container runtime: inspect, inspectp, ps, pods
     \item  Endpoints for Pod/container raw resources management (cpu, memory, etc.,): update, stats, statsp
 \end{itemize}
 
@@ -181,7 +221,7 @@ Provide option in policy to disable the termianl mode
 \subsubsection{Single cmd line mode(implement)}
 \subsubsection{How qkenel identify the request issuer}
 \begin{itemize}
-    \item  cmd issuer first require a access token from CAS, this access token contain the request information and the role of the cmd issuer
+    \item  cmd issuer first require an access token from CAS, this access token contain the request information and the role of the cmd issuer
     \item  cmd issuer then send the encrypted request along with the access token to qkernel through the k8s channel
     \item  qkernel verifies the token by sending it to CAS. If the token is valid, CAS sends a HTTP response that contains the "true" keyword and other related information
     \item  qkernel finaly exec the cmd according to the policy defined for the role
@@ -195,7 +235,7 @@ Logs streaming from the container's stdout/err are encrypted and integrity-prote
 Since the stdout/err of the container is encrypted, a client without the decryption key cannot get any useful data through the channel established by the Attach endpoint.
 
 \subsection{Port-forward endpoint}
-Port-forward endpoint is out of scop
+Port-forward endpoint is out of scope
 
 \section{Secure Client(in theory)}
 
