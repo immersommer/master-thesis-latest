@@ -39,6 +39,19 @@ pdfborder={0.75 0.75 1},plainpages=false,pdfpagelabels=true]{hyperref}
 \input{preamble/style.tex}
 \input{preamble/newcommands.tex}
 
+
+\makeatletter
+%Take the original environment definition and change the leftmargin to 1cm
+\renewenvironment*{displayquote}
+  {\begingroup\setlength{\leftmargini}{1cm}\csq@getcargs{\csq@bdquote{}{}}}
+  {\csq@edquote\endgroup}
+\makeatother
+%Hooks
+%Use single spacing, set 10pt font, set italics, and beginning quotes
+\renewcommand{\mkbegdispquote}
+    {\singlespacing\fontsize{10pt}{10pt}\selectfont\itshape\textooquote}%\setquotestyle{quote}
+%End displayquote environment with ending quotes
+\renewcommand{\mkenddispquote}{\textcoquote}
 % If you know when you will hand in your thesis, enter the date here.
 %\date{30. April 2009}
 %\newcommand{\printdate}{\@date}

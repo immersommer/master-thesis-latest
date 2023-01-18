@@ -35,6 +35,9 @@ DOC_IMG_JPG  = images/IMG_4417.png
 DOC_IMG_JPG  = images/IMG_4414.png
 DOC_IMG_JPG  = images/IMG_4413.png
 DOC_IMG_JPG  = images/fileencption.png
+DOC_IMG_JPG  = images/attestation.PNG
+DOC_IMG_JPG  = images/resourcerequrie.PNG
+
 
 # latex stuff
 LUALATEX    ?= lualatex --synctex=1
