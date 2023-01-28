@@ -64,45 +64,170 @@ controllers. Controller is a control loop that continuously monitors the state o
 of each node and responding accordingly when a node crash. Scheduler continuously search undeployed pods and deploys them to an appropriate worker node. Factors that influence scheduling decisions are resource requirements, 
 hardware/software/policy constraints, affinity, data locality, and inter-workload interference. The etcd is a distributed, highly available key-value store for storing cluster level data.
 
-Each worker node, which is managed by the master node runs and maintains the pods. It consists of three main components, kubelet, container runtime (like containerd\cite*{containerd} and ciro\cite*{cri-o}), and kube-proxy. Kubelet is responsible for communication between the 
-worker node and the master node and for ensuring that the pods runs properly on the worker node. Container runtime is used to create and manage image and  container lifecycle, which includes pulling images from the remote, unpacking images, 
-initializing the container's runtime environment (setting up storage, network), and running the container. The kube-proxy running on each node implements part of the Kubernetes service and maintains network rules on each node, which allows 
-network access to pods from both within and outside the cluster
 
-\subsection{Open Standards (CRI\cite*{cri-interface}, OCI\cite*{oci-spec}) makes Kubernetes more extensible}
+Each worker node runs and maintains the pods. It consists of three main components, kube-proxy, kubelet, and container high/low-level runtime. The kube-proxy running on each node implements part of the Kubernetes service and maintains network rules 
+on each node, which allows network access to pods from both within and outside the cluster. As for kubelet, it acts as an agent, listening for requests/commands from the master and calling other services located on the same node to fulfill the 
+request. In the case of container/image management-related requests, it makes a call to a host-chosen high-level container runtime, like containerd\cite*{containerd} or ciro\cite*{cri-o}. These high-level container runtimes are responsible for managing the container lifecycle 
+and images, and delegate the actual creation/deletion of pod/containers to lower-level container runtimes or so-called shim process. Examples of low level container runtime include kata, qvisor, quark, runc, etc,.
 
-CRI introduces an abstraction layer that empowers kubelet to work with a diverse range of container runtimes without the need to modify cluster components. It defines the requirements of the 
-orchestration system regarding the container runtime and decouples the container runtime from the kubelet source code， which dramatically reduces the effort involved in integrating container 
-runtimes into k8s\cite*{cri-interface}.
 
-\todo{add long description for cri overview and k8s with oci cri figure}
+\subsection{Container Runtime and OCI Runtime Specification}
+The high-level container runtime is the software that manages container images and container lifecycles on worker nodes. One of its responsibilities is to configure container network namespaces  and preprocess container images during the container 
+build process. Image preprocessing includes pulling the image from remote to local, decompressing the image, creating a "file system bundle" and forwarding it to the low-level container runtime.
+
+This file bundle is created according to the OCI runtime specification and contains all the meta data necessary to create and run the container, i.e., the container root file system and the configuration information required for low level container 
+runtime to create and start a container. Any low-level container runtime that implements the OCI runtime specification has the ability to create a container based on this "file system bundle ". This implies that a high-level container runtime is 
+able to use various OCI-compatible low-level runtimes to run different types of containers to meet user needs, for example, using the kata runtime to create virtual machine-based containers for security-sensitive customers. Other oci compatible low 
+level container runtime are Runc, Qvisor, Gvisor, etc,. As such, the OCI runtime specification greatly enhances interoperability between the high-level container runtime and various low-level container runtime implementations.
+
+
+
+\subsection{Open Standards (CRI\cite*{cri-interface}, Shim V2 API, OCI\cite*{oci-spec}) makes Kubernetes more extensible}
+\subsubsection{Container Runtime Interface (CRI)}
+Nowadays, there are various high-level container runtimes on the market. The most popular of them are CRI-O\cite*{cri-o}, and Containerd\cite*{containerd}. However, different implementations of high-level container runtimes increase 
+the effort required to integrate them into kubelet. This problem was solved when k8s proposed the Container Runtime Interface (CRI)\cite*{cri-interface}. It consists of two gRPC service interfaces, the ImageService 
+interface and the RuntimeServec. As showed in code snippet \Nameref{CRI_INTERFACE}, the ImageService interface defines the endpoints for managing images, while the RuntimeServec interface includes endpoints for managing containers and pods. 
+\begin{lstlisting}[language=rust, basicstyle=\small, caption={Container Runtime Interface (CRI)}, title={Container Runtime Interface (CRI)}, label={CRI_INTERFACE}]
+  // ImageService defines the public APIs for managing images.
+  service ImageService {
+      rpc ListImages(ListImagesRequest) 
+      rpc ImageStatus(ImageStatusRequest)
+      rpc PullImage(PullImageRequest)
+      rpc RemoveImage(RemoveImageRequest)
+      rpc ImageFsInfo(ImageFsInfoRequest)
+  }
+
+  // Runtime service defines the public APIs for remote container runtimes
+  service RuntimeService {
+      rpc Version(VersionRequest)
+      rpc RunPodSandbox(RunPodSandboxRequest)
+      rpc StopPodSandbox(StopPodSandboxRequest)
+      rpc RemovePodSandbox(RemovePodSandboxRequest)
+      rpc PodSandboxStatus(PodSandboxStatusRequest)
+      rpc ListPodSandbox(ListPodSandboxRequest)
+      rpc CreateContainer(CreateContainerRequest)
+      rpc StartContainer(StartContainerRequest)
+      rpc StopContainer(StopContainerRequest)
+      rpc RemoveContainer(RemoveContainerRequest)
+      rpc ListContainers(ListContainersRequest)
+      rpc ContainerStatus(ContainerStatusRequest)
+      rpc UpdateContainerResources(UpdateContainerResourcesRequest)
+      rpc ReopenContainerLog(ReopenContainerLogRequest)
+      rpc ExecSync(ExecSyncRequest)
+      rpc Exec(ExecRequest)
+      rpc Attach(AttachRequest)
+      rpc PortForward(PortForwardRequest)
+      rpc ContainerStats(ContainerStatsRequest)
+      rpc ListContainerStats(ListContainerStatsRequest)
+      rpc PodSandboxStats(PodSandboxStatsRequest)
+      rpc ListPodSandboxStats(ListPodSandboxStatsRequest)
+      rpc UpdateRuntimeConfig(UpdateRuntimeConfigRequest) 
+      rpc Status(StatusRequest)
+  }
+\end{lstlisting}
+
+Any high-level runtime that wants to integrate into the Kubernetes ecosystem must implement the endpoints defined in the CRI. Thus, it acts as a communication protocol between the kubelet and the 
+high-level container runtime allowing the kubelet to access the services provided by any container runtime that implements the CRI interface. Through the CRI interface,  kubelet breaks the dependency with a specific 
+high-level container runtime, thus greatly improving the scalability of Kubernetes.
+
+\subsubsection{Shim V2 API}
+There are different low level container runtimes on the market that can meet various customer needs, namely security-oriented container runtimes such as kata and quark, and performance-oriented runtimes including Runc (containers for the Linux kernel). 
+However, this can bring great integration overhead for high-level container runtime developers if they want to support these lower-level container runtimes. For example, if the contained wants to run both kata-based and quark-based containers, 
+the containerd developer has to write two integration patches and make sure they are compatible to the containerd code base. Followed the idea of CRI, the community addressed this problem by defining the shim interface, which aims to 
+decouple the low level runtime from the high-level runtime and prevent any code invasion into the high-level container runtime during the integration process.
+ %or \small or \footnotesize etc. \tiny
+ \begin{lstlisting}[language=rust, basicstyle=\small, caption={Shim V2 Api}, title={Shim V2 Api}, label={shim_v2}]
+  pub trait Task {
+      fn state(&self, _ctx: &::ttrpc::TtrpcContext, _req: super::shim::StateRequest)
+      fn create(&self, _ctx: &::ttrpc::TtrpcContext, _req: super::shim::CreateTaskRequest)
+      fn start(&self, _ctx: &::ttrpc::TtrpcContext, _req: super::shim::StartRequest)
+      fn delete(&self, _ctx: &::ttrpc::TtrpcContext, _req: super::shim::DeleteRequest)
+      fn pids(&self, _ctx: &::ttrpc::TtrpcContext, _req: super::shim::PidsRequest)
+      fn pause(&self, _ctx: &::ttrpc::TtrpcContext, _req: super::shim::PauseRequest)
+      fn resume(&self, _ctx: &::ttrpc::TtrpcContext, _req: super::shim::ResumeRequest)
+      fn checkpoint(&self, _ctx: &::ttrpc::TtrpcContext, _req: super::shim::CheckpointTaskRequest)
+      fn kill(&self, _ctx: &::ttrpc::TtrpcContext, _req: super::shim::KillRequest)
+      fn exec(&self, _ctx: &::ttrpc::TtrpcContext, _req: super::shim::ExecProcessRequest)
+      fn resize_pty(&self, _ctx: &::ttrpc::TtrpcContext, _req: super::shim::ResizePtyRequest)
+      fn close_io(&self, _ctx: &::ttrpc::TtrpcContext, _req: super::shim::CloseIORequest)
+      fn update(&self, _ctx: &::ttrpc::TtrpcContext, _req: super::shim::UpdateTaskRequest)
+      fn wait(&self, _ctx: &::ttrpc::TtrpcContext, _req: super::shim::WaitRequest)
+      fn stats(&self, _ctx: &::ttrpc::TtrpcContext, _req: super::shim::StatsRequest)
+      fn connect(&self, _ctx: &::ttrpc::TtrpcContext, _req: super::shim::ConnectRequest)
+      fn shutdown(&self, _ctx: &::ttrpc::TtrpcContext, _req: super::shim::ShutdownRequest)
+  }
+  \end{lstlisting}
+  
+In the context of containerd, this shim interface is called the shim v2 API. As depicted in code snippet \nameref{shim_v2}, it is an api that contains multiple ttrpc endpoints. These endpoints specify the requirements for the low level container runtime 
+to integrate with containerd. To this end, the low-level runtime should implement these endpoints in order to run with containerd.
+
+
+\subsubsection{CRI and Shim V2 Api in Practice}
+In this section, we present you with a concrete example of how containerd uses CRI and Shim V2 Api and 
+various components to create a container. The following diagram shows how containerd works with a kubelet to create an LXC-based container, where containerd implements the cri interface 
+through the cri plugin and employs the shim v2 api to notify the shim process to create a container.
+
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{images/cri_overviwe.pdf}
-    \caption[cri overview]{cri overview}
-    \label{fig:cri_overviwe}
-  \end{figure}
-
-
-Figure ~\ref{fig:cri_overviwe} shows the overview of CRI. kubelet communicates with the high-level container runtime via sockets, where the high-level container runtime implements a CRI plugin as a socket server according to the CRI 
-requirements. The socket server provides two primary services to kubelet, namely ImageService and RuntimeService. The ImageService offers kubelet services such as pulling images from remote and 
-inspecting and deleting images managed by the container runtime. The RuntimeService, on the other hand, enables the kubelet to manage the container and sandbox lifecycle 
-(RunPodSandbox /StopPodSandbox/RemovePodSandbox/PodSandboxStatus/CreateContainer/StartContainer/StopContainer, etc.) 
-and interact with containers (attach/port-forward/exec)\cite*{cri-interface}.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/k8s_with_oci_cri.pdf}
-    \caption[k8s with oci cri]{k8s with oci cri}
-    \label{fig:k8s_with_oci_cri}
+    \includegraphics[width=0.8\textwidth]{images/IMG_4417.PNG}
+    \caption[Kubelet Workflow]{Kubelet Workflow}
+    \label{fig:Kubelet}
 \end{figure}
-\todo{add long description for  k8s with oci cri figure}
-In comparison to CRI, which facilitates easy interaction between kubelet and the various high-level container runtimes that manage the image and container lifecycle, the OCI runtime 
-specification\cite*{oci-runtime-spec} defines how low-level container runtimes create and run containers. Typical low-level runtimes are mainly classified as native runtime 
-(runc\cite*{runc}, railcar\cite*{railcar}, Crun\cite*{runc}, rkt\cite*{rkt}) , and Sandboxed-virtualized runtimes (kata runtime\cite*{Kata-Containers}, quark runtime\cite*{quark}, gvisor runtime\cite*{gvisor}, etc.). 
-We refer the readers to \cite*{Runtime-Comparison} for a comprehensive comparison of these container runtimes. Figure~\ref{fig:k8s_with_oci_cri} summarizes how Kubernetes manages containers through the CRI/OCI interface and a variety of high/low-level container runtimes.
+Upon receipt of a ’create container in a new pod’ request from master node, kubelet  creates a pod by calling the cri plugin through the CRI Runtime Services API. 
+Cri plugin first creates network namespace for the pod ,and configured the namespace using CNI (Container Network Interface), Then, the cri plugin start a shim process that implements the shim v2 api by calling the containerd's functions.
+After the a shim process is launch properly, The cri plugin instructs the shim to create a pod through create and start ttrpc endpoints defined in the shim v2 api. Specifically, This include creating a special pause container as the the sandbox/root container in the pod's cgroups and namespace.
+Once the pod is running, kubelet invokes the cri plug-in again through the CRI Image Service API to pull the application container's image. If there is no image on the local registry, the cri plugin further make use of containerd to pull the image from remote
+The final step is to crate and start application container inside the pod,  This operation is done by kubelet that sends create and start cmd to the cri plugin  using the CRI Runtime Services API. Cri plugin in turn forwards those cmds to shim process, which
+loads the container root filesystem from a subdirectory of containerd and creates the container in the pod. After these steps, the application container is created and runs in this pod.
+% \begin{itemize}
+%     \item Kubelet creates a pod by calling the cri plugin through the CRI Runtime Services API.
+%     \item The cri plug-in create network namespace for the pod, then employ the CNI (Container Network Interface) to configure it;
+%     \item The cri plugin calls the containerd's function to start a shim process that implements the shim v2 api.
+%     \item The cri plugin then issues the create and start pod command to the shim process through the shim api, which creates a special pause container as the the sandbox container in the pod's cgroups and namespace.
+%     \item Kubelet then invokes the cri plug-in through the CRI Image Service API to pull the image for application container.
+%     \item If there is no image on the local registry, the cri plugin further make use of containerd to pull the image from remote
+%     \item Kubelet then contacts the cri plugin by using the CRI Runtime Services API to create and launch the application container inside the pod. inside the pod using the pulled application container image;
+%     \item cri plugin in turn forwards those cmds to shim process via shim v2 api.
+%     \item The shim process finally loads the container root filesystem from a subdirectory of containerd and creates the container in the pod. After these steps, the application container is created and runs in this pod.
+% \end{itemize}
 
-\subsection{Loging}
+
+
+
+% \subsection{Open Standards (CRI\cite*{cri-interface}, OCI\cite*{oci-spec}) makes Kubernetes more extensible}
+
+% CRI introduces an abstraction layer that empowers kubelet to work with a diverse range of container runtimes without the need to modify cluster components. It defines the requirements of the 
+% orchestration system regarding the container runtime and decouples the container runtime from the kubelet source code， which dramatically reduces the effort involved in integrating container 
+% runtimes into k8s\cite*{cri-interface}.
+
+% \todo{add long description for cri overview and k8s with oci cri figure}
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.8\textwidth]{images/cri_overviwe.pdf}
+%     \caption[cri overview]{cri overview}
+%     \label{fig:cri_overviwe}
+%   \end{figure}
+
+
+% Figure ~\ref{fig:cri_overviwe} shows the overview of CRI. kubelet communicates with the high-level container runtime via sockets, where the high-level container runtime implements a CRI plugin as a socket server according to the CRI 
+% requirements. The socket server provides two primary services to kubelet, namely ImageService and RuntimeService. The ImageService offers kubelet services such as pulling images from remote and 
+% inspecting and deleting images managed by the container runtime. The RuntimeService, on the other hand, enables the kubelet to manage the container and sandbox lifecycle 
+% (RunPodSandbox /StopPodSandbox/RemovePodSandbox/PodSandboxStatus/CreateContainer/StartContainer/StopContainer, etc.) 
+% and interact with containers (attach/port-forward/exec)\cite*{cri-interface}.
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.8\textwidth]{images/k8s_with_oci_cri.pdf}
+%     \caption[k8s with oci cri]{k8s with oci cri}
+%     \label{fig:k8s_with_oci_cri}
+% \end{figure}
+% \todo{add long description for  k8s with oci cri figure}
+% In comparison to CRI, which facilitates easy interaction between kubelet and the various high-level container runtimes that manage the image and container lifecycle, the OCI runtime 
+% specification\cite*{oci-runtime-spec} defines how low-level container runtimes create and run containers. Typical low-level runtimes are mainly classified as native runtime 
+% (runc\cite*{runc}, railcar\cite*{railcar}, Crun\cite*{runc}, rkt\cite*{rkt}) , and Sandboxed-virtualized runtimes (kata runtime\cite*{Kata-Containers}, quark runtime\cite*{quark}, gvisor runtime\cite*{gvisor}, etc.). 
+% We refer the readers to \cite*{Runtime-Comparison} for a comprehensive comparison of these container runtimes. Figure~\ref{fig:k8s_with_oci_cri} summarizes how Kubernetes manages containers through the CRI/OCI interface and a variety of high/low-level container runtimes.
+
+% \subsection{Loging}
 
 \section{QUARK CONTAINER}
 This section gives a high-level overview of the Quark container\cite*{quark} by introducing its main components and explaining how the guest (Qkenel) communicates with the 

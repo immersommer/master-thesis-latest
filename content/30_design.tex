@@ -57,32 +57,6 @@ DESIGN
     This interface defines endpoints for creating/deleting containers, issuing commands to a container or allocating terminal in a container etc.
 
 
-
-
-    The diagram below shows how containerd works with kubelet to create a container, where containerd implements the cri interface through the cri plugin
-
-
-    \begin{figure}[H]
-        \centering
-        \includegraphics[width=0.8\textwidth]{images/IMG_4417.PNG}
-        \caption[Kubelet Workflow]{Kubelet Workflow}
-        \label{fig:Kubelet}
-    \end{figure}
-
-
-    \begin{itemize}
-        \item Kubelet creates a pod by calling the cri plugin through the CRI Runtime Services API.
-        \item The cri plug-in create network namespace for the pod, then employ the CNI (Container Network Interface) to configure it;
-        \item The cri plugin calls the containerd's function to start a shim process that implements the shim v2 api.
-        \item The cri plugin then issues the create and start pod command to the shim process through the shim api, which creates a special pause container as the the sandbox container in the pod's cgroups and namespace.
-        \item Kubelet then invokes the cri plug-in through the CRI Image Service API to pull the image for application container.
-        \item If there is no image on the local registry, the cri plugin further make use of containerd to pull the image from remote
-        \item Kubelet then contacts the cri plugin by using the CRI Runtime Services API to create and launch the application container inside the pod. inside the pod using the pulled application container image;
-        \item cri plugin in turn forwards those cmds to shim process via shim v2 api.
-        \item The shim process finally loads the container root filesystem from a subdirectory of containerd and creates the container in the pod. After these steps, the application container is created and runs in this pod.
-    \end{itemize}
-
-
 \subsection{quark overview}
 
 
@@ -313,28 +287,28 @@ All endpoints can be classified into four categories according to their usage:
 Conclusion.
 \begin{itemize}
     \item  The debug-related endpoints can be exploited by malicious attackers and compromise confidential qkernel. Thus we analyze these endpoints in detail in the later sections
-    \item  Endpoints about container lifecycle management do not reveal any data， but we have to consider 2 cases:
+    \item  Endpoints about container lifecycle management do not reveal any secret, but we have to consider 2 cases:
     \begin{itemize}
         \item  For the start container req from start endpoint, we have to consider how to pass secrets to the legacy application container----> solution: see section \ref*{Secure_deployment} "secure deployment“
-        \item  When the start container req reaches the shim process, the shim process may mount the k8s managed volume, this means a application may write secrets to the cloud provider managed volume ----> solution: need shield file system, see section \ref*{volume_managed_by_k8s} "volume managed by k8s"
+        \item  When the start container req reaches the shim process, the shim process may mount the k8s managed volume, this means during runtime an application may write secrets to the cloud provider managed volume ----> solution: need shield file system, see section \ref*{volume_managed_by_k8s} "volume managed by k8s"
     \end{itemize}
-    \item Endpoints for collecting container/pod metadata stored in high level container runtime do not reveal any secrets kept in confidential quarks. Because these Endpoints requests only collect metadata about the container stored in the conainerd, i.e. these requests are not sent to the confidential quark
-    \item  Endpoints for Pod/container raw resources management: does not reveal any secrets stored in the confidential quark, because these Endpoints only collect the use of raw resources by the confidential qkernel.
+    \item Endpoints for collecting container/pod metadata stored in high level container runtime do not reveal any secrets kept in confidential qkernel. Because requests from these Endpoints only collect container/pod metadata stored in high level container runtime (conainerd), i.e. these requests are not sent to the confidential qkernel
+    \item  Endpoints for Pod/container raw resources management: does not reveal any secrets stored in the confidential qkernel, because these Endpoints only collect the use of raw resources by the confidential qkernel.
 \end{itemize}
 
 
 \subsection{Exec endpoint}
 \subsubsection{Terminal mode(done)}
 We provide option in policy to disable the termianl mode
-However, it is important to note that the confidential qkernel does not protect the input and output of the terminal when terminal assignment is allowed. 
+However, it is important to note that the confidential qkernel does not protect the stdin/out of the terminal when terminal allocation is allowed. 
 
 The reason is that we argue that terminal allocation should be rejected in production, i.e., termianl should only be used in the development phase. In a multi-stakeholder scenario, secrets may come from different stakeholders. When one stakeholder 
-gains access to the container through terminal, the confidential qkernel cannot restrict that stakeholder from reading the secrets of other stakeholders. More specificlly, when the qkernel receives a terminal assignment request, it starts a process 
-that executes the /bin/sh executable. The commands sent by the stackholder to the container through the termianl will be executed by this process. Since the process is running in the confidential guest, the guest's memory, the cpu registers being 
-used, and the contents of the container file system are all in plaintext to the process. So the process can read the others secrets and return it to the stakeholder.
+gains access to the container through terminal, the confidential qkernel cannot restrict that stakeholder from reading the secrets of other stakeholders. More specificlly, when the qkernel receives a terminal allocation request, it starts a process 
+that executes the /bin/sh executable. The commands sent by the stackholder to the container through the termianl will be executed by this process. Since the process is running inside the confidential guest, the guest's memory, the cpu registers being 
+used, and the files in the container file system are all in plaintext to the process. So the process can read the others secrets and return it to the stakeholder.
 
 In a production environment, if one wants to send commands to a container running under the protection of the confidential qkernel, he should use the Single cmd line mode. In this mode, the qkernel allows one to send a request each time to the container to execute a command. 
-When the qkernel receives the request, the qkernel check has permission to execute the command. In this way, we effectively avoid secrets disclosure in multi-stakeholder.
+When the qkernel receives the request, the qkernel whether the issuer has permission to execute the command by reading the policy file. In this way, we effectively avoid secrets disclosure in multi-stakeholder
 scenarios.
 
 \subsubsection{Single cmd line mode(done)}
