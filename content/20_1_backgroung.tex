@@ -71,14 +71,28 @@ request. In the case of container/image management-related requests, it makes a 
 and images, and delegate the actual creation/deletion of pod/containers to lower-level container runtimes or so-called shim process. Examples of low level container runtime include kata, qvisor, quark, runc, etc,.
 
 
-\subsection{Container Runtime and OCI Runtime Specification}
-The high-level container runtime is the software that manages container images and container lifecycles on worker nodes. One of its responsibilities is to configure container network namespaces  and preprocess container images during the container 
-build process. Image preprocessing includes pulling the image from remote to local, decompressing the image, creating a "file system bundle" and forwarding it to the low-level container runtime.
+\subsection{OCI Runtime Specification and Low level container runtimes}
+There are various low-level container runtimes available in the market to meet the different needs of users for container security and performance. For example, security-sensitive customers can use the kata runtime to create virtual machine-based 
+containers, which provides 2 layers of isolation. However, these container runtime implementations can break container portability and compatibility between container runtimes.
 
-This file bundle is created according to the OCI runtime specification and contains all the meta data necessary to create and run the container, i.e., the container root file system and the configuration information required for low level container 
-runtime to create and start a container. Any low-level container runtime that implements the OCI runtime specification has the ability to create a container based on this "file system bundle ". This implies that a high-level container runtime is 
-able to use various OCI-compatible low-level runtimes to run different types of containers to meet user needs, for example, using the kata runtime to create virtual machine-based containers for security-sensitive customers. Other oci compatible low 
-level container runtime are Runc, Qvisor, Gvisor, etc,. As such, the OCI runtime specification greatly enhances interoperability between the high-level container runtime and various low-level container runtime implementations.
+To address this issue, the Open Container Initiative has proposed the OCI runtime specification which outlines how a low levle container runtime creates and runs containers based on "file system packages" and how to manage the lifecycle of containers.
+
+The "file system bundle" holds the container root file system and the metadata needed to create and run containers. This metadata includes the following information: metadata related to the application process, such as process environment variables 
+and process arguments, metadata defining the container root file system, and mount information, which specifies the additional file systems that should be mounted to the container root file system by low level container runtime. Besides, for Linux 
+platforms, this metadata may also contain configuration for process security and resource limits, such as rlimits, AppArmor, and SELinux labels, as well as hooks, which enable one to extend the functionality of a low-level runtime by hooking 
+executables into the container lifecycle. This is shown in the following state diagram.
+
+\begin{figure}[tbp]
+  \centering
+  \includegraphics[width=0.8\textwidth]{images/Container_Lifecycle_state}
+  \caption[Short description]{container lifecycle and hooks. Image taken from \url{https://www.alibabacloud.com/blog/open-container-initiative-oci-specifications_594397}}
+  \label{fig:Container_Lifecycle_state}
+\end{figure}
+How does the OCI runtime work in practice? Upon receiving the "container creation request", high-level container runtime configures container network namespaces and preprocess container images during the container build process. This includes 
+pulling the image from remote, unpacking the image, 
+creating a "file system bundle" and forwarding it to an OCI-compatible low-level container runtime. Since the low-level container runtime is implemented following the OCI runtime specification,  it has the ability to set up the environment and run 
+the container based on a "file system bundle ". In this way,  we prevent fragmentation caused by different low-level container runtime implementations.  In other words, the OCI runtime specification greatly enhances interoperability between the 
+high-level container runtime and various low-level container runtime implementations.
 
 
 

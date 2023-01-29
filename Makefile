@@ -37,6 +37,8 @@ DOC_IMG_JPG  = images/IMG_4413.png
 DOC_IMG_JPG  = images/fileencption.png
 DOC_IMG_JPG  = images/attestation.PNG
 DOC_IMG_JPG  = images/resourcerequrie.PNG
+DOC_IMG_JPG  = images/Container_Lifecycle_state.PNG
+
 
 
 # latex stuff
