@@ -45,6 +45,10 @@ DOC_IMG_JPG  = images/ben_results_syscall_interceptor.PNG
 DOC_IMG_JPG  = images/perf_attestation_report_yaml.PNG
 
 DOC_IMG_JPG  = images/perf_attestation_report_result.PNG
+DOC_IMG_JPG  = images/file_type_secret_access_test_deploy_yaml_baseline.PNG
+DOC_IMG_JPG  = images/file_type_secret_access_test_deploy_yaml_cquark.PNG
+
+
 
 
 
