@@ -14,6 +14,238 @@
 
 \todo{Write evaluation}
 
+\section{Qualitative Analysis}
+
+
+\begin{table}[H]
+    \tiny
+    \caption{Possible Vulnerability in upstream Quark in the context of Confidential Computing and suggested Solutions}
+    \label{crouch}
+    \begin{tabular}{  p{3.4cm}  p{3.4cm}  p{3.4cm} p{2cm} }
+        \toprule
+\textbf{Vulnerability}      
+& \textbf{Attack Example}   
+& \textbf{Possible Solution}
+& \textbf{Comment}  \\\midrule
+Physical Access Attacks
+& Offline DRAM Analysis          
+& Running the application in a secure virtual machine
+& Out of the scope   \\\hline
+Lack of protection to guest memory and register states          
+& Hypervisor reads private guest memory/cpu states                          
+& Running the application in a secure virtual machine
+& Out of the scope   \\\hline
+Paravirtualized filesystem sharing mechanism       
+& Hypervisor/Untrusted host process reads application’s credentials stored on host
+& Enable file system shielding layer to encrypt outbound and decrypt inbound data 
+& Out of the scope   \\\hline
+
+No security guarantee for communications over the Internet (unbounded network access to containers)     
+& Attacker access application’s credential by establishing a network connection to application using tools like, kubectl port-forward
+& Enable network shielding layer using TLS
+& Out of the scope   \\\hline
+
+Deploying Secrets via untrusted Entities (Kubelet, Containerd, Qvisor)    
+& File type secrets are mounted to container rootfs by qvisor, args and envv type secrets are passed to qkernel through qvisor
+& Offload the secrets deployment from qvisor by defining a new secure channel btw. relying party and guest kernel for secrets provisioning and storing secrets on guest memory
+& Problem solved  \\\hline
+
+Executing arbitrary command in container  
+& Attacker view application’s credentials stored on guest memory using kubectl exec cat command
+& Enable authentication and access control to kubectl exec in guest kernel
+& Problem solved  \\\hline
+
+
+Container log in plaintext managed by untrusted entity
+& Attacker reads application’s log message using kubectl logs container-name
+& Enable container STDOUT protection
+& Problem solved  \\\hline
+
+Storing Qkernel Log on host in plaintext
+& Cloud provider reads guest kernel’s log messages located in directory /var/log/quark
+& Enable qkernel log manager and set the log level to OFF
+& Problem solved  \\\hline
+
+Loading untrusted executable from host
+& Attackers may tamper with executables stored on the host and trick applications into executing compromised code to reveal secrets
+& Executable loaded into guest memory is measured and the results are send to relying party for executable integrity check
+& Problem solved  \\\hline
+
+Loading untrusted shared library from host
+& Attackers may tamper with shared libraries stored on the host and trick applications into executing compromised code to reveal secrets
+& Executable loaded into guest memory is measured and the results are send to relying party for executable integrity check
+& Problem solved  \\\hline
+
+Missing administration to application restart
+& Attacker may provide the guest with compromised executables, shared libraries, or wrong process spec when k8s requests the Qkernel to restart the crashed application
+& Compare the hash of the application rebuilding process with the hash of application's initial launching process stored on guest memory. If two hashes doesn’t match,  qkernel refuse the application restart request.
+& Problem solved  \\\hline
+
+
+No restriction to Container's syscalls (guest system calls)
+& Applications can be tricked into using vulnerable guest/host system calls, leading to disclosure of secrets
+& Using Guest system call interceptor to restrict the system calls application can use.
+& Problem solved  \\\hline
+
+
+Creating application process using untrusted process spec sent from host
+& Attacker may trick the qkernel into attaching a terminal to application process by modifying the "terminal" option in the process specification
+& Software measurement manager measure the loaded process specification and the results are send to relying party for integrity check
+& Problem solved  \\\hline
+
+
+Lack of runtime measurements
+& Secure VM like AMD SEV only calculate the hash of VM launching process, anything loaded to guest during runtime is not measured
+& Add software measurement manager to measure data loaded during runtime
+& Problem solved  \\\hline
+% objects and systems &
+% Underlying values       
+% & Plurality \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+
+\section{Quantitative Analysis}
+In this section, we evaluate the performance of the system implementations described in the previous chapters through multiple benchmarks to assess the impact on the performance and latency of the applications running in the cquark environment.
+
+
+\subsection{Overview of Quantitative Analysis}
+
+
+Our benchmarks  consist of micro-benchmarks and macro-benchmarks. The microbenchmarks are performed to  thoroughly understand the latency overhead of each new building block in CQuark, while the macro benchmarks are conducted to compare the speed of 
+real world applications run by CQuark vs unmodified Quark, and to get a view of the additional overhead incurred by cquark for protecting application’s confidentiality.
+
+
+The benchmarking in this section is structured around the following subsections. First, we describe the hardware and software setup for benchmarking in Section 5.1. We then evaluate the speed of obtaining three different types of attestation reports (emulated hardware reports, software reports signed by the kbs key or by the application key) using a microbenchmark that executes a certain number of a system call in a loop and records the time required to execute the system call (Section 2.3). We found that the speed of obtaining the emulated hardware report is 50\% slow than that of obtaining the other two reports due to VM exit. 
+
+Subsequently, in Section 2.4, we evaluate the overhead of the guest system call interceptor using a micro test that executes a certain number of a specific system call in a loop in upstream quark and cquark, respectively. The results show that the guest system interceptor imposes an overhead of 1.47x and 17x for system calls that are handled only by the guest and system calls that must be handled by the host, respectively
+
+Unlike upstream quark, which stores file-type secrets in the host, cquark stores file-type secrets directly on guest memory. Therefore, in Section 2.5, we evaluate the speeds of a application accessing file-type secrets in upstream quark and cquark using a similar approach as in Section 2.4. The results reveal that in cquark, the speed of accessing file-type secrets is improved by a factor of 1.17.
+
+
+Later, in Section 2.6, we present latency performance benchmark results for sending commands to containers in cquark and upstream quark. Compared to the speed of sending commands using kubectl exec in upstream quark, the authentication and access control for the exec endpoint in cquark introduces 1.15 times overhead. Furthermore, We compare the speed of sending the same command with kubectl and securectl in cquark. The results show that despite the additional encryption and decryption required by the commands sent by securectl, the commands are executed 1.1 times faster than those sent by kubectl.
+
+
+In Section 2.7, we conducted an evaluation of the latency overhead introduced by the new cquark components during application deployment using a "hello world" program.  Specifically, the evaluation involved testing the latency overhead of the https kbs client, secret injector, shared library measurement manager, hardware evidence driver, and software measurement manager Throughout the experiments, we adjusted a critical parameter to observe how each component affects the overall application startup time Findings indicate that the https kbs client constitutes the bulk of the overhead when the size of the measurement data is less than 100 MB, while the overhead introduced by the secret injector and hardware evidence driver is negligible in any case. Further details, including the benchmark configuration and results can be found on page XX.
+
+
+In Section 2.8, we conclude the performance benchmarking exercise by conducting macro benchmarking using nginx and redis as workloads. Our benchmarks focus on exploring the performance differences between applications running in cquark and upstream quark in terms of startup time, exit time, and the speed of processing requests during runtime. Our findings reveal that in cquark, redis and nginx require 1.49X and 1.55X startup times than in upstream quark, respectively. The difference primarily arises from the contrast in data size measured during application startup, i.e., 67.15 Mib in Nginx and 16.258 MiB in Redis. In terms of application exit time, Redis and Nginx exhibit nearly identical performance when running on cquark and upstream quark. Furthermore, we utilized Redis-benchmark and Apache HTTP server benchmarking tool as load generators to gauge the application runtime performance. Our experiment results indicate that Nginx and Redis running in cquark encounter performance declines of approximately 9\% and 20\%,respectively,due to guest system interceptor.
+
+\subsection{Hardware and Software Setup}
+
+In this section, a summary of the hardware and software settings utilized for the benchmarks is provided. Regarding hardware, all measurements were performed on an a server with AMD EPYC 7443P 24-Core cpu and 4 DDR4-3200 Mhz-16GB RAM. In terms of software, the host OS is Ubuntu 20.04.6 LTS and Linux 5.19.0 kernel. . To establish a low-noise environment for benchmarking with reproducible results and low variability, the CPU governor was set to performance mode, and Hyper-Threading and Turbo Boost were disabled.  Moreover, all binaries used for testing, i.e. Qvisor, Qkernel, and All binaries used for testing, namely Qvisor, Qkernel, and the "hello-world" application, were built in release mode. Note that, unless otherwise mentioned, the unchanged version of Quark, i.e., upstream Quark is v0.2.0 in the following.
+
+
+Regarding the tools for measuring latency, since all benchmark objects are located in the guest, we use the guest system call clock\_gettime(monotonic) for time measurement and print the results to the host using the qkernel logging system. The benchmarking framework can analyze the benchmarking results by parsing the cquark log located under host directory /var/log/quark.
+
+In addition, all benchmark tests are performed multiple times to minimize the impact of environmental noise on the data results. Figures in the following sections illustrate the measurement results, conveying the average time and variance utilized for one run of the subject being measured.
+
+
+\subsection{Micro-benchmark – Attestation Report Syscall}
+
+Cquark enables guest user mode applications to obtain three types of attestation reports, that is, simulated AMD SEV SNP reports, software reports signed by KBS keys, or software reports signed by the application via a system call. In this section, we assess the speed with which the application 
+acquires various attestation reports.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/perf_attestation_report_yaml.PNG}
+    \caption[Qkernel Attestation Report Syscall Benchmark Deployment]{Qkernel Attestation Report Syscall Benchmark Deployment}
+    \label{fig:perf_attestation_report_yaml}
+\end{figure}
+
+To this end, we prepared a Rust microbenchmark that measures the mean and variance of the time requisite for obtaining the three types of reports and prints the results to its standard output. To ensure stable outcomes, the test program submits 10,000 requests for each type of report to the kernel. 
+As the benchmark program is containerized, we can deploy the benchmark to Cquark using the YAML file in Figure \ref*{fig:perf_attestation_report_yaml}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/perf_attestation_report_result.PNG}
+    \caption[Benchmark result of Attestation Report Syscall]{Qkernel Attestation Report Syscall Benchmark Deployment}
+    \label{fig:perf_attestation_report_result}
+\end{figure}
+
+Figure \ref*{fig:perf_attestation_report_result} depicts the speed of requesting three types of proof reports for guest mode applications in the cquark setting. The data reveal that acquiring a software report requires approximately one-third of the time needed to obtain a simulated hardware report. 
+Specifically, requesting a simulated hardware report takes approximately 838.141us, whereas acquiring the two software reports needs only about 286us. The disparity stems from the dissimilarities in processing software and hardware reports by the qkernel. While the qkernel 
+system call handler generates software reports promptly, the handler needs to transmits hardware report requests through qkernel snp attestation driver to the host AMD SEV emulation module in order to generate a dummy report. This process involves a lot expensive operations like VM exit, 
+encryption and decryption of messages for communication between the snp attestation driver and host AMD SEV emulation modul, reading the on-disk dummy snp report among others. Consequently, acquiring a simulated hardware repors is significantly slower than obtaining a software report.
+
+
+\subsection{Micro-benchmark – Qkernel Syscall Interceptor}
+
+Interception of guest system calls by the guest system call interceptor to determine whether a call is legitimate introduces latency overhead to applications running in the guest user mode.  To investigate this overhead, we employ a micro benchmark program written in Rust.  The benchmark measures the average and variance execution time of chosen system calls. Furthermore, to obtain stable results., each system call is executed in a loop of 100,000 times. As the benchmark program is containerized, we can deploy the program to Cquark and upstream Quark using the YAML file in Figure \ref*{fig:syscall_interceptor_yaml}.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/perf_system_call_interceptor_yaml.PNG}
+    \caption[Qkernel Syscall Interceptor Benchmark Deployment]{Qkernel Syscall Interceptor Benchmark Deployment}
+    \label{fig:syscall_interceptor_yaml}
+\end{figure}
+
+
+For this benchmark, we select four system calls: getpid, getppid, read, and write. Since qkernel already implements process and thread objects, calling getpid or getppid prompts qkernel to directly return the corresponding pid/ppid without interference from the host. This provides us with a clear understanding of the overhead introduced by the interceptor. Additionally, we measured the execution time of read and write system calls for Cquark and upstream Quark to evaluate the overhead that the interceptor brought to the host-handled system calls
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/ben_results_syscall_interceptor.PNG}
+    \caption[Benchmark result of Syscall Interceptor]{Latency comparison of executing syctem calls in Cquark vs upstream Qaurk. The latency is thereby measured using the guest system call clock\_gettime(monotonic). 
+        Each system call is executed 1,000,000 times in a tight loop. Read and write buffer size is 100 bytes}
+    \label{fig:ben_results_syscall_interceptor}
+\end{figure}
+
+
+Figure ~\ref{fig:ben_results_syscall_interceptor} illustrates the mean and variance of execution times for the selected system calls in the upstream Quark and Cquark environments. We observed that upstream Quark takes only around 270 ns to execute a single getpid and getppid call while Cquark takes approximately 4716 ns. This implies that the guest system call interceptor causes a delay of about 4500 ns per system call. Moreover, a comparable latency overhead is introduced for read and write system calls, i.e.,4500 ns.  However, since read and write system calls are processed on the host side and take longer, their processing time in Cquark does not rise as significantly as that of getpid and getppid. To summarize, in cquark, host handled system calls in the (i.e., write and read) and guest handled-only (e.g., getpid and getppid) are 1.47x and 17x slower, respectively, compared to upstream Quark
+
+
+The overhead incurred by the system call interceptor arises from two primary sources. Firstly, the whitelist of client-side system call interceptors is kept in a vector. Accessing the whitelist for system call authorization check is an operation with the complexity of O(N). Secondly, to avert any contentions resulting from run-time updates and reads to the system call interceptor's metadata, this metadata is safeguarded with a lock. Consequently, a lock/unlock operation is initiated for every system call permission check.
+
+
+
+\subsection{Micro-benchmark – Speed of Reading file base secret}
+
+Compared to upstream Quark which stores file type secrets on the host, CQuark instead stores them in guest memory to prevent unauthorized access and avoid potential VM exits during read and write operations. Hence, the purpose of this benchmark is to evaluate the performance enhancement achieved from 
+accessing file type secrets in CQuark. The benchmark measures the total time taken to perform one open() and read() operation on a target secret type file in both upstream Quark and CQuark environments. The file size is 1302 bytes. To ensure stable results, 10,000 open and read operations are performed.
+As the benchmark program is containerized, we deploy it to both CQuark and upstream Quark using the YAML file outlined in Figure \ref*{fig:file_type_secret_access_test_deploy_yaml_baseline} and \ref*{fig:file_type_secret_access_test_deploy_yaml_cquark}.
+
+
+% \begin{figure}[H]
+%     \centering
+%     \subfloat[\centering Deployment File for upstream Quark]{{\includegraphics[width=5cm]{images/file_type_secret_access_test_deploy_yaml_baseline.PNG} }}
+%     \qquad
+%     \subfloat[\centering Deployment File for confidential Quark]{{\includegraphics[width=5cm]{images/file_type_secret_access_test_deploy_yaml_cquark.PNG} }}
+%     \caption{Benchmark Deployment for testing Speed of Reading file type Secrets }
+%     \label{fig:file_type_secret_access_test_deploy_yaml_baseline}
+% \end{figure}
+% \end{document}
+
+\begin{figure}
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{images/file_type_secret_access_test_deploy_yaml_baseline.PNG} % first figure itself
+        \caption{Benchmark Deployment for testing Speed of accessing file type Secrets in upstream Quark}
+        \label{fig:file_type_secret_access_test_deploy_yaml_baseline}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.9\textwidth]{images/file_type_secret_access_test_deploy_yaml_cquark.PNG} % second figure itself
+        \caption{Benchmark Deployment for testing Speed of accessing file type Secrets in confidential Quark}
+        \label{fig:file_type_secret_access_test_deploy_yaml_cquark}
+    \end{minipage}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/reading_speed_of_file_type_secrets_in_Baseline_and_Cquark.PNG}
+    \caption[Benchmark result of testing Speed of accessing file type Secrets in confidential Quark vs upstream quark]{The figure shows result of testing speed of accessing file type secrets in confidential Quark vs upstream Quark. 
+    The evaluations is performed using the open() and read() system calls, and ten thousand (10,000) operations are conducted with a 50-byte read buffer size.
+    }
+    \label{fig:reading_speed_of_file_type_secrets_in_Baseline_and_Cquark}
+\end{figure}
+
+
+The obtained results are presented in Figure \ref*{fig:reading_speed_of_file_type_secrets_in_Baseline_and_Cquark}, revealing that the performance of s in CQuark is competitive with upstream Quark for accessing file-type secrets. Surprisingly, there is no significant difference in speed between the two, with CQuark providing only 1.17 times the performance improvement when accessing the target secret file.  This reason is that the larger performance loss resulting from system call execution due to the client system call interceptor in CQuark outweighs the overhead produced by VM exits in upstream Quark.
+
+
+
 \cleardoublepage
 
 %%% Local Variables:

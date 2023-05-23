@@ -39,6 +39,15 @@ DOC_IMG_JPG  = images/attestation.PNG
 DOC_IMG_JPG  = images/resourcerequrie.PNG
 DOC_IMG_JPG  = images/Container_Lifecycle_state.PNG
 
+# evaluation images
+DOC_IMG_JPG  = images/perf_system_call_interceptor_yaml.PNG
+DOC_IMG_JPG  = images/ben_results_syscall_interceptor.PNG
+DOC_IMG_JPG  = images/perf_attestation_report_yaml.PNG
+
+DOC_IMG_JPG  = images/perf_attestation_report_result.PNG
+DOC_IMG_JPG  = images/file_type_secret_access_test_deploy_yaml_baseline.PNG
+DOC_IMG_JPG  = images/file_type_secret_access_test_deploy_yaml_cquark.PNG
+
 
 
 # latex stuff
