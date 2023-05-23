@@ -195,6 +195,32 @@ Figure ~\ref{fig:ben_results_syscall_interceptor} illustrates the mean and varia
 
 The overhead incurred by the system call interceptor arises from two primary sources. Firstly, the whitelist of client-side system call interceptors is kept in a vector. Accessing the whitelist for system call authorization check is an operation with the complexity of O(N). Secondly, to avert any contentions resulting from run-time updates and reads to the system call interceptor's metadata, this metadata is safeguarded with a lock. Consequently, a lock/unlock operation is initiated for every system call permission check.
 
+
+\subsection{Micro-benchmark – Speed of Reading file base secret}
+
+Compared to upstream Quark which stores file type secrets on the host, CQuark instead stores them in guest memory to prevent unauthorized access and avoid potential VM exits during read and write operations. Hence, the purpose of this benchmark is to evaluate the performance enhancement achieved from 
+accessing file type secrets in CQuark. The benchmark measures the total time taken to perform one open() and read() operation on a target secret type file in both upstream Quark and CQuark environments. The file size is 1302 bytes. To ensure stable results, 10,000 open and read operations are performed.
+As the benchmark program is containerized, we deploy it to both CQuark and upstream Quark using the YAML file outlined in Figure \ref*{fig:file_type_secret_access_test_deploy_yaml_baseline}.
+
+
+\begin{figure}%
+    \centering
+    \subfloat[\centering Deployment File for upstream Quark]{{\includegraphics[width=5cm]{images/file_type_secret_access_test_deploy_yaml_baseline.PNG} }}%
+    \qquad
+    \subfloat[\centering Deployment File for confidential Quark]{{\includegraphics[width=5cm]{images/file_type_secret_access_test_deploy_yaml_cquark.PNG} }}%
+    \caption{Benchmark Deployment for testing Speed of Reading file type Secrets }%
+    \label{fig:file_type_secret_access_test_deploy_yaml_baseline}%
+\end{figure}
+\end{document}
+
+
+
+The obtained results are presented in Figure 5.5, revealing that the performance of s in CQuark is competitive with upstream Quark for accessing file-type secrets. Surprisingly, there is no significant difference in speed between the two, with CQuark providing only 1.17 times the performance improvement when accessing the target secret file.  This reason is that the larger performance loss resulting from system call execution due to the client system call interceptor in CQuark outweighs the overhead produced by VM exits in upstream Quark.
+
+
+
+
+
 \ldots evaluation \ldots
 
 \todo{Write evaluation}
