@@ -144,14 +144,37 @@ In addition, all benchmark tests are performed multiple times to minimize the im
 
 \subsection{Micro-benchmark – Attestation Report Syscall}
 
+Cquark enables guest user mode applications to obtain three types of attestation reports, that is, simulated AMD SEV SNP reports, software reports signed by KBS keys, or software reports signed by the application via a system call. In this section, we assess the speed with which the application 
+acquires various attestation reports.
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/perf_attestation_report_yaml.PNG}
+    \caption[Qkernel Attestation Report Syscall Benchmark Deployment]{Qkernel Attestation Report Syscall Benchmark Deployment}
+    \label{fig:perf_attestation_report_yaml}
+\end{figure}
+
+To this end, we prepared a Rust microbenchmark that measures the mean and variance of the time requisite for obtaining the three types of reports and prints the results to its standard output. To ensure stable outcomes, the test program submits 10,000 requests for each type of report to the kernel. 
+As the benchmark program is containerized, we can deploy the benchmark to Cquark using the YAML file in Figure \ref*{fig:perf_attestation_report_yaml}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/perf_attestation_report_result.PNG}
+    \caption[Benchmark result of Attestation Report Syscall]{Qkernel Attestation Report Syscall Benchmark Deployment}
+    \label{fig:perf_attestation_report_result}
+\end{figure}
+
+Figure \ref*{fig:perf_attestation_report_result} depicts the speed of requesting three types of proof reports for guest mode applications in the cquark setting. The data reveal that acquiring a software report requires approximately one-third of the time needed to obtain a simulated hardware report. 
+Specifically, requesting a simulated hardware report takes approximately 838.141us, whereas acquiring the two software reports needs only about 286us. The disparity stems from the dissimilarities in processing software and hardware reports by the qkernel. While the qkernel 
+system call handler generates software reports promptly, the handler needs to transmits hardware report requests through qkernel snp attestation driver to the host AMD SEV emulation module in order to generate a dummy report. This process involves a lot expensive operations like VM exit, 
+encryption and decryption of messages for communication between the snp attestation driver and host AMD SEV emulation modul, reading the on-disk dummy snp report among others. Consequently, acquiring a simulated hardware repors is significantly slower than obtaining a software report.
 
 \subsection{Micro-benchmark – Qkernel Syscall Interceptor}
 
 Interception of guest system calls by the guest system call interceptor to determine whether a call is legitimate introduces latency overhead to applications running in the guest user mode.  To investigate this overhead, we employ a micro benchmark program written in Rust.  The benchmark measures the average and variance execution time of chosen system calls. Furthermore, to obtain stable results., each system call is executed in a loop of 100,000 times. As the benchmark program is containerized, we can deploy the program to Cquark and upstream Quark using the YAML file in Figure \ref*{fig:syscall_interceptor_yaml}.
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{images/syscall_interceptor_yaml.PNG}
+    \includegraphics[width=0.8\textwidth]{images/perf_system_call_interceptor_yaml.PNG}
     \caption[Qkernel Syscall Interceptor Benchmark Deployment]{Qkernel Syscall Interceptor Benchmark Deployment}
     \label{fig:syscall_interceptor_yaml}
 \end{figure}
