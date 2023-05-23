@@ -9,10 +9,121 @@
 % vorzunehmen. Es wird empfohlen zunächst die eigenen Erwartungen
 % bezüglich der Ergebnisse zu erläutern und anschließend eventuell
 % festgestellte Abweichungen zu erklären.
+In previous chapters, we analyzed the security issues of the upstream quark in confidential computing, and proposed the design and implementation of Confidential Quark as a countermeasure. 
+In this chapter, we evaluate the security and performance of Confidential Quark from both qualitative and quantitative perspectives.
+
+
+\section{Qualitative Analysis}
+
+
+\begin{table}[h]
+    \tiny
+    \caption{Possible Vulnerability in upstream Quark in the context of Confidential Computing and suggested Solutions}
+    \label{crouch}
+    \begin{tabular}{  p{3.4cm}  p{3.4cm}  p{3.4cm} p{2cm} }
+        \toprule
+\textbf{Vulnerability}      
+& \textbf{Attack Example}   
+& \textbf{Possible Solution}
+& \textbf{Comment}  \\\midrule
+Physical Access Attacks
+& Offline DRAM Analysis          
+& Running the application in a secure virtual machine
+& Out of the scope   \\\hline
+Lack of protection to guest memory and register states          
+& Hypervisor reads private guest memory/cpu states                          
+& Running the application in a secure virtual machine
+& Out of the scope   \\\hline
+Paravirtualized filesystem sharing mechanism       
+& Hypervisor/Untrusted host process reads application’s credentials stored on host
+& Enable file system shielding layer to encrypt outbound and decrypt inbound data 
+& Out of the scope   \\\hline
+
+No security guarantee for communications over the Internet (unbounded network access to containers)     
+& Attacker access application’s credential by establishing a network connection to application using tools like, kubectl port-forward
+& Enable network shielding layer using TLS
+& Out of the scope   \\\hline
+
+Deploying Secrets via untrusted Entities (Kubelet, Containerd, Qvisor)    
+& File type secrets are mounted to container rootfs by qvisor, args and envv type secrets are passed to qkernel through qvisor
+& Offload the secrets deployment from qvisor by defining a new secure channel btw. relying party and guest kernel for secrets provisioning and storing secrets on guest memory
+& Problem solved  \\\hline
+
+Executing arbitrary command in container  
+& Attacker view application’s credentials stored on guest memory using kubectl exec cat command
+& Enable authentication and access control to kubectl exec in guest kernel
+& Problem solved  \\\hline
+
+
+Container log in plaintext managed by untrusted entity
+& Attacker reads application’s log message using kubectl logs container-name
+& Enable container STDOUT protection
+& Problem solved  \\\hline
+
+Storing Qkernel Log on host in plaintext
+& Cloud provider reads guest kernel’s log messages located in directory /var/log/quark
+& Enable qkernel log manager and set the log level to OFF
+& Problem solved  \\\hline
+
+Loading untrusted executable from host
+& Attackers may tamper with executables stored on the host and trick applications into executing compromised code to reveal secrets
+& Executable loaded into guest memory is measured and the results are send to relying party for executable integrity check
+& Problem solved  \\\hline
+
+Loading untrusted shared library from host
+& Attackers may tamper with shared libraries stored on the host and trick applications into executing compromised code to reveal secrets
+& Executable loaded into guest memory is measured and the results are send to relying party for executable integrity check
+& Problem solved  \\\hline
+
+Loading untrusted executable from host
+& Attackers may tamper with executables stored on the host and trick applications into executing compromised code to reveal secrets
+& Software measurement manager measure the loaded shared libraries and compares the measurement results with reference value it gets from relying parting
+& Problem solved  \\\hline
+
+Missing administration to application restart
+& Attacker may provide the guest with compromised executables, shared libraries, or wrong process spec when k8s requests the Qkernel to restart the crashed application
+& Compare the hash of the application rebuilding process with the hash of application's initial launching process stored on guest memory. If two hashes doesn’t match,  qkernel refuse the application restart request.
+& Problem solved  \\\hline
+
+
+No restriction to Container's syscalls (guest system calls)
+& Applications can be tricked into using vulnerable guest/host system calls, leading to disclosure of secrets
+& Using Guest system call interceptor to restrict the system calls application can use.
+& Problem solved  \\\hline
+
+
+Creating application process using untrusted process spec sent from host
+& Attacker may trick the qkernel into attaching a terminal to application process by modifying the "terminal" option in the process specification
+& Software measurement manager measure the loaded process specification and the results are send to relying party for integrity check
+& Problem solved  \\\hline
+
+
+Lack of runtime measurements
+& Secure VM like AMD SEV only calculate the hash of VM launching process, anything loaded to guest during runtime is not measured
+& Add software measurement manager to measure data loaded during runtime
+& Problem solved  \\\hline
+
+
+
+% objects and systems &
+% Underlying values       
+% & Plurality \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+
+
+\section{Quantitative Analysis}
+
+
 
 \ldots evaluation \ldots
 
 \todo{Write evaluation}
+
+
+\section{Overview of confidential quark in cloud environments}
 
 \cleardoublepage
 
