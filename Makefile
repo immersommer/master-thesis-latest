@@ -39,6 +39,10 @@ DOC_IMG_JPG  = images/attestation.PNG
 DOC_IMG_JPG  = images/resourcerequrie.PNG
 DOC_IMG_JPG  = images/Container_Lifecycle_state.PNG
 
+# evaluation images
+DOC_IMG_JPG  = images/syscall_interceptor_yaml.PNG
+DOC_IMG_JPG  = images/ben_results_syscall_interceptor.PNG
+
 
 
 # latex stuff
