@@ -155,7 +155,7 @@ acquires various attestation reports.
 \end{figure}
 
 To this end, we prepared a Rust microbenchmark that measures the mean and variance of the time requisite for obtaining the three types of reports and prints the results to its standard output. To ensure stable outcomes, the test program submits 10,000 requests for each type of report to the kernel. 
-As the benchmark program is containerized, we can deploy the benchmark to Cquark using the YAML file in Figure \ref*{fig:perf_attestation_report_yaml}.
+As the benchmark program is containerized, we can deploy the benchmark to Cquark using the YAML file in Figure ~\ref*{fig:perf_attestation_report_yaml}.
 
 \begin{figure}[H]
     \centering
@@ -164,7 +164,7 @@ As the benchmark program is containerized, we can deploy the benchmark to Cquark
     \label{fig:perf_attestation_report_result}
 \end{figure}
 
-Figure \ref*{fig:perf_attestation_report_result} depicts the speed of requesting three types of proof reports for guest mode applications in the cquark setting. The data reveal that acquiring a software report requires approximately one-third of the time needed to obtain a simulated hardware report. 
+Figure \ref{fig:perf_attestation_report_result} depicts the speed of requesting three types of proof reports for guest mode applications in the cquark setting. The data reveal that acquiring a software report requires approximately one-third of the time needed to obtain a simulated hardware report. 
 Specifically, requesting a simulated hardware report takes approximately 838.141us, whereas acquiring the two software reports needs only about 286us. The disparity stems from the dissimilarities in processing software and hardware reports by the qkernel. While the qkernel 
 system call handler generates software reports promptly, the handler needs to transmits hardware report requests through qkernel snp attestation driver to the host AMD SEV emulation module in order to generate a dummy report. This process involves a lot expensive operations like VM exit, 
 encryption and decryption of messages for communication between the snp attestation driver and host AMD SEV emulation modul, reading the on-disk dummy snp report among others. Consequently, acquiring a simulated hardware repors is significantly slower than obtaining a software report.
@@ -172,7 +172,7 @@ encryption and decryption of messages for communication between the snp attestat
 
 \subsection{Micro-benchmark – Qkernel Syscall Interceptor}
 
-Interception of guest system calls by the guest system call interceptor to determine whether a call is legitimate introduces latency overhead to applications running in the guest user mode.  To investigate this overhead, we employ a micro benchmark program written in Rust.  The benchmark measures the average and variance execution time of chosen system calls. Furthermore, to obtain stable results., each system call is executed in a loop of 100,000 times. As the benchmark program is containerized, we can deploy the program to Cquark and upstream Quark using the YAML file in Figure \ref*{fig:syscall_interceptor_yaml}.
+Interception of guest system calls by the guest system call interceptor to determine whether a call is legitimate introduces latency overhead to applications running in the guest user mode.  To investigate this overhead, we employ a micro benchmark program written in Rust.  The benchmark measures the average and variance execution time of chosen system calls. Furthermore, to obtain stable results., each system call is executed in a loop of 100,000 times. As the benchmark program is containerized, we can deploy the program to Cquark and upstream Quark using the YAML file in Figure \ref{fig:syscall_interceptor_yaml}.
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{images/perf_system_call_interceptor_yaml.PNG}
@@ -202,7 +202,7 @@ The overhead incurred by the system call interceptor arises from two primary sou
 
 Compared to upstream Quark which stores file type secrets on the host, CQuark instead stores them in guest memory to prevent unauthorized access and avoid potential VM exits during read and write operations. Hence, the purpose of this benchmark is to evaluate the performance enhancement achieved from 
 accessing file type secrets in CQuark. The benchmark measures the total time taken to perform one open() and read() operation on a target secret type file in both upstream Quark and CQuark environments. The file size is 1302 bytes. To ensure stable results, 10,000 open and read operations are performed.
-As the benchmark program is containerized, we deploy it to both CQuark and upstream Quark using the YAML file outlined in Figure \ref*{fig:file_type_secret_access_test_deploy_yaml_baseline} and \ref*{fig:file_type_secret_access_test_deploy_yaml_cquark}.
+As the benchmark program is containerized, we deploy it to both CQuark and upstream Quark using the YAML file outlined in Figure ~\ref{fig:file_type_secret_access_test_deploy_yaml_baseline} and ~\ref{fig:file_type_secret_access_test_deploy_yaml_cquark}.
 
 
 % \begin{figure}[H]
@@ -242,8 +242,90 @@ As the benchmark program is containerized, we deploy it to both CQuark and upstr
 \end{figure}
 
 
-The obtained results are presented in Figure \ref*{fig:reading_speed_of_file_type_secrets_in_Baseline_and_Cquark}, revealing that the performance of s in CQuark is competitive with upstream Quark for accessing file-type secrets. Surprisingly, there is no significant difference in speed between the two, with CQuark providing only 1.17 times the performance improvement when accessing the target secret file.  This reason is that the larger performance loss resulting from system call execution due to the client system call interceptor in CQuark outweighs the overhead produced by VM exits in upstream Quark.
+The obtained results are presented in Figure ~\ref{fig:reading_speed_of_file_type_secrets_in_Baseline_and_Cquark}, revealing that the performance of s in CQuark is competitive with upstream Quark for accessing file-type secrets. Surprisingly, there is no significant difference in speed between the two, with CQuark providing only 1.17 times the performance improvement when accessing the target secret file.  This reason is that the larger performance loss resulting from system call execution due to the client system call interceptor in CQuark outweighs the overhead produced by VM exits in upstream Quark.
 
+
+\subsection{Micro-benchmark – Latency Test for issuing Instructions to Application}
+
+This section presents the results of tests conducted to assess the latency of issuing instructions to applications in Cquark. The tests involved comparing the latency of sending commands using kubectl between Cquark and midstream Quark, as well as a speed comparison test for issuing unprivileged 
+and privileged commands in Cquark using kubectl and securectl respectively.
+
+
+To facilitate the tests, we extended our test framework to enable it to issue specific instructions to the application using either kubectl or securectl, while recording command execution time. Similar to previous benchmarks, each instruction was iterated 1,000 times to ensure dependable results. 
+Due to time constraints, we were unable to measure all available commands on the Linux system, so we chose four commonly used commands for the following testing: pwd, ls, cat, and cp.
+
+% \begin{figure}
+%     \centering
+%     \begin{minipage}{0.45\textwidth}
+%         \centering
+%         \includegraphics[width=0.9\textwidth]{images/speed_of_issuing_cmd_in_cquark_upstream_quark.PNG} % first figure itself
+%         \caption{Benchmark Deployment for testing Speed of accessing file type Secrets in upstream Quark}
+%         \label{fig:speed_of_issuing_cmd_in_cquark_upstream_quark}
+%     \end{minipage}\hfill
+%     \begin{minipage}{0.45\textwidth}
+%         \centering
+%         \includegraphics[width=0.9\textwidth]{images/timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl.PNG} % second figure itself
+%         \caption{Benchmark Deployment for testing Speed of accessing file type Secrets in confidential Quark}
+%         \label{fig:timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl}
+%     \end{minipage}
+% \end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/speed_of_issuing_cmd_in_cquark_upstream_quark.PNG}
+    \caption[Benchmark result - Latency Comparison of sending Commands to Application in Cquark vs vanilla Quark]{A latency comparison test of sending commands to applications in cquark vs vanilla quark.  The test selects four 
+    commonly used Linux commands as samples, each being executed one thousand times. The results indicate that utilizing Kubectl exec to issue instructions to applications in cquark takes over 9\% longer than in vanilla quark.
+    }
+    \label{fig:speed_of_issuing_cmd_in_cquark_upstream_quark}
+\end{figure}
+
+
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl.PNG}
+    \caption[Benchmark result - The processing time for each component during the instruction execution lifecycle in Cquark vs in vanilla Quark]{Benchmark result of evaluating the percentage of time spent by each component in processing instructions during the instruction execution lifecycle in Cquark vs in vanilla Quark . Here 
+     the components refer kubectl,  Kubernetes components for instructions transmission, like containerd, etc., and Qkernel for instruction execution. 
+     Each bar in the figure represents the total execution time of an instruction whereby the color-filled section represents the time qkernel used for instruction execution, while the dashed-filled segment implies the time other components took for instruction issuing, transmission, and result handling.
+    }
+    \label{fig:timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl}
+\end{figure}
+
+
+This section focuses on analyzing the benchmarking results illustrated in Figures ~\ref{fig:speed_of_issuing_cmd_in_cquark_upstream_quark} and ~\ref{fig:timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl}, which shed light on the overhead generated by the Cquark implementation for issuing instruction to application. The results show that cquark introduces approximately 9\% overhead to the instruction 
+execution compared to vanilla quark. This overhead stems from several factors. Firstly, unlike upstream quarks, the Qkernel in Cquark performs authentication and access control in Qkernel for each instruction. Besides, the measurement of the instruction's corresponding binary and guest system call 
+interception increases the instruction execution time.  This argument is confirmed in Figure 5.1b, where the average time for Qkernel execution of instructions in a vanilla quark environment is between 1 and 2 ms, while in Cquark, instructions execution in Qkernel takes more than 10 ms. Thus, issuing 
+instructions using Kubectl in Cquark proves to be more expensive than in vanilla quark.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/speed_of_issuing_cmd_in_cquark_kubctl_securectl.PNG}
+    \caption[Benchmark result - Latency Comparison of issuing privileged instruction vs unprivileged instruction in CQuark]{A latency comparison test of issuing privileged instruction vs unprivileged instruction in CQuark.  The test included four frequently used Linux commands as samples, 
+    each being executed one thousand times.The results indicate that issuing privileged instructions is faster than issuing unprivileged instruction.
+    }
+    \label{fig:speed_of_issuing_cmd_in_cquark_kubctl_securectl}
+\end{figure}
+
+
+Out of curiosity, we compared the time required to issue privileged and unprivileged instructions in Cquark to the application using Securectl and Kubectl, respectively. The results in Figure ~\ref{fig:speed_of_issuing_cmd_in_cquark_kubctl_securectl} reveal that issuing privileged instructions is much faster than issuing unprivileged commands. This finding is counterintuitive since 
+privileged instructions require additional cryptographic protection to ensure the confidentiality and integrity of their contents, which implies executing additional code.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/timeshare_issuing_cmd_in_cquark_kubectl_securectl.PNG}
+    \caption[Benchmark result - The processing time for components during the privileged vs unprivileged instruction execution lifecycle]{Benchmark result evaluating the percentage of time spent by each component in processing instructions during the privileged versus unprivileged instruction 
+    execution lifecycle . Here the components refer to the tool the user employed to issue instructions, i.e., kubectl or securecli,  Kubernetes components for instructions transmission, like containerd, etc., and Qkernel for instruction execution.  Each bar in the 
+    figure represents the total execution time of an instruction whereby the color-filled section represents the time qkernel used for instruction execution, while the dashed-filled segment implies the time other components took for instruction issuing, transmission, and result handling.
+    }
+    \label{fig:timeshare_issuing_cmd_in_cquark_kubectl_securectl}
+\end{figure}
+
+To investigate the issue further, we conducted time  measurements of processing time for each component during the privileged vs unprivileged instruction execution lifecycle. Here the components refer to the tool the user employed 
+to issue instructions, i.e., kubectl or securecli,  Kubernetes components for instructions transmission, like containerd, etc., and Qkernel for instruction execution.
+Figure ~\ref{fig:timeshare_issuing_cmd_in_cquark_kubectl_securectl} presents the results obtained. The time incurred by qkernel for executing unprivileged and privileged instructions (color-filled boxes) distinctly shows that the latter takes approximately 0.5 milliseconds more than the former does. These latency overheads derive from the decryption and 
+integrity checks that kernel performs for each privileged instruction, as well as the cryptographic protection for the instruction result. However, comparing the time taken by kubectl and securectl to process user requests (dashed filled boxes), securectl is significantly faster. Thus, this 
+offsets the cryptographic protection overhead for privileged instructions.
 
 
 \cleardoublepage

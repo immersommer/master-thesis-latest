@@ -49,6 +49,13 @@ DOC_IMG_JPG  = images/file_type_secret_access_test_deploy_yaml_baseline.PNG
 DOC_IMG_JPG  = images/file_type_secret_access_test_deploy_yaml_cquark.PNG
 
 
+DOC_IMG_JPG  = images/speed_of_issuing_cmd_in_cquark_kubctl_securectl.PNG
+
+DOC_IMG_JPG  = images/speed_of_issuing_cmd_in_cquark_upstream_quark.PNG
+DOC_IMG_JPG  = images/timeshare_issuing_cmd_in_cquark_kubectl_securectl.PNG
+DOC_IMG_JPG  = images/timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl.PNG
+
+
 
 # latex stuff
 LUALATEX    ?= lualatex --synctex=1
