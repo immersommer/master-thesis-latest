@@ -340,16 +340,33 @@ start time, exit time, and latency overhead incurred by the remote attestation a
 \end{figure}
 
 
-Regarding the benchmark methodology. A statically linked hello-world program in list 1 is used. To reduce the interference of environmental noise，the test framework runs the application 100 times. In addition, since the remote attestation and provisioning agent, the secret injector, 
+Regarding the benchmark methodology. A statically linked hello-world program in Listing ~\ref{code1} is used. To reduce the interference of environmental noise，the test framework runs the application 100 times. In addition, since the remote attestation and provisioning agent, the secret injector, 
 the hardware evidence driver, and the software measurement manager shown in Figure  ~\ref{fig:micro_benchmark_app_life_cycle_bencmark_pattern}  (colored boxes) are located in the guest kernel, the test framework cannot directly measure the time spent by these components. Therefore, we use guest clock\_gettime(monotonic) to record the time and print the 
 latency overhead of each component to the host using the qkernel logging system. The same approach applies to record the size of data measured by the software measurement manager. 
+
+\begin{lstlisting}[language=C,frame=single,caption=Hello World Program,label=code1]
+int main() {
+    printf("Hello, World!\n");
+    return 0;
+}
+\end{lstlisting}
 
 
 As expounded in Chapter 4, two factors may impact the application startup time in Cquark: the number of file type secrets and the size of the data measured by the software measurement manager. Hence, this section conducts following three tests. First, we establish a baseline by setting the 
 number of file-type secrets to zero and running the hello world program. The test framework measures the program startup time, and records the latency overhead from the remote attestation and provisioning agent, the secret injector, the hardware evidence driver, and the software measurement manager。  
 In Experiment 2, we increase the number of file type secrets in order to observe the change in program startup time, as well as the latency overhead from the remote proof and upgrade agent and the secret injector. In Experiment 3, we examine the growth in the latency overhead of the software 
-measurement manager during program startup as the amount of measured data increased. To conduct the test, we utilize a variant of the hello-world program as shown in Listing II, incorporating a global initialization array to regulate the data segment size in the binary and thus modify the size 
+measurement manager during program startup as the amount of measured data increased. To conduct the test, we utilize a variant of the hello-world program as shown in Listing ~\ref{code2}, incorporating a global initialization array to regulate the data segment size in the binary and thus modify the size 
 of software manager measured data during program startup.
+
+\begin{lstlisting}[language=C,frame=single,caption=Hello World Program Variant,label=code2]
+#define ARRAY_LEN (unsigned long)(1024*1024*100)    
+char array[ARRAY_LEN] = {[ 0 ... (1) ] = 'a'} ;
+int main() {     
+    printf("Hello, World!\n");
+    return 0;
+}
+\end{lstlisting}
+
 
 \subsubsection{Creating a Baseline}
 
