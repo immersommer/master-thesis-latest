@@ -328,6 +328,307 @@ integrity checks that kernel performs for each privileged instruction, as well a
 offsets the cryptographic protection overhead for privileged instructions.
 
 
+\subsection{Micro-benchmark – Latency Test for Application Startup}
+The introduction of remote attestation, secret provisioning, and data measurement from the host in Cquark results in additional latency overhead for application startup. To examine this overhead, we extended the testing framework to iteratively initiate and terminate the application, measuring the 
+start time, exit time, and latency overhead incurred by the remote attestation and provisioning agent, secret injector, hardware evidence driver, and software measurement manager.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/micro_benchmark_app_life_cycle_bencmark_pattern.png}
+    \caption[Benchmark Pattern - Latency Test for Application Startup]{Benchmark Pattern - Latency Test for Application Startup}
+    \label{fig:micro_benchmark_app_life_cycle_bencmark_pattern}
+\end{figure}
+
+
+Regarding the benchmark methodology. A statically linked hello-world program in list 1 is used. To reduce the interference of environmental noise，the test framework runs the application 100 times. In addition, since the remote attestation and provisioning agent, the secret injector, 
+the hardware evidence driver, and the software measurement manager shown in Figure  ~\ref{fig:micro_benchmark_app_life_cycle_bencmark_pattern}  (colored boxes) are located in the guest kernel, the test framework cannot directly measure the time spent by these components. Therefore, we use guest clock\_gettime(monotonic) to record the time and print the 
+latency overhead of each component to the host using the qkernel logging system. The same approach applies to record the size of data measured by the software measurement manager. 
+
+
+As expounded in Chapter 4, two factors may impact the application startup time in Cquark: the number of file type secrets and the size of the data measured by the software measurement manager. Hence, this section conducts following three tests. First, we establish a baseline by setting the 
+number of file-type secrets to zero and running the hello world program. The test framework measures the program startup time, and records the latency overhead from the remote attestation and provisioning agent, the secret injector, the hardware evidence driver, and the software measurement manager。  
+In Experiment 2, we increase the number of file type secrets in order to observe the change in program startup time, as well as the latency overhead from the remote proof and upgrade agent and the secret injector. In Experiment 3, we examine the growth in the latency overhead of the software 
+measurement manager during program startup as the amount of measured data increased. To conduct the test, we utilize a variant of the hello-world program as shown in Listing II, incorporating a global initialization array to regulate the data segment size in the binary and thus modify the size 
+of software manager measured data during program startup.
+
+\subsubsection{Creating a Baseline}
+
+This benchmark measures the hello world program's startup time, and the latency overhead caused by remote attestation and provisioning agent, the secret injector, the hardware evidence driver, and the software measurement manager. Note that here the number of file type secrets is 0.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/application_start_microtest_baseline_time_overhead_each_cmp.PNG}
+    \caption[Benchmark results: Latency Overhead introduce by new Componnents in Cquark]{Benchmark results: Latency Overhead introduce by new Componnents in Cquark}
+    \label{fig:application_start_microtest_baseline_time_overhead_each_cmp}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/application_start_microtest_baseline_time_distribution.PNG}
+    \caption[Time  Distribution of the application startup ]{Distribution of the time consumed by different components in the application startup}
+    \label{fig:application_start_microtest_baseline_time_distribution}
+\end{figure}
+
+
+
+The benchmark results in figure ~\ref{fig:application_start_microtest_baseline_time_overhead_each_cmp} and ~\ref{fig:application_start_microtest_baseline_time_distribution}  shows that the remote attestation and provisioning agent, the secret injector, the hardware evidence driver, and the software measurement manager doubled the program startup time. Notably, the remote attestation and provisioning agent contributed the most to the latency 
+overhead, which is expected, given its necessity to establish a TLS connection with the relying party, complete the remote attestation process, and fetch the shield layer policy following the KBS attestation protocol. With regards to the secret injector, the hardware evidence object driver, 
+which is primarily responsible for loading secrets into the application process and generating a simulated hardware report accordingly,  exhibited a delay overhead of 0.90 milliseconds and 1.73 milliseconds, respectively. However, this delay is negligible compared to the overhead caused 
+by the remote attestation and provisioning agent (~837 milliseconds).  Furthermore, according to Table , based on the data presented in Table ~\ref{table: Measurement_For_Hello_world}, the software measurement manager is found to measure approximately 1.45 MiB of data during program startup, leading to an overhead of only about 
+10 milliseconds.
+
+\begin{table}[htbp]
+    \centering
+    \footnotesize
+    \caption{Software measurement manager measured data during application startup\strut}
+    \begin{tabularx}{1\textwidth}{@{} l L L L L L L@{}}
+    \toprule
+        Matrics    & ELF &  Shared Library   & Process Spec  & Stack   & Guest Kernel Args  & Total Measurement\\
+    \midrule
+
+        \vn{Measurement}     &  1.447 MiB    &   0 MiB  &   3819 Byte   & 305 Byte   &5865 Byte  & 1.457 MiB\\
+    \bottomrule
+    \end{tabularx}
+    \label{table: Measurement_For_Hello_world}
+\end{table}
+
+
+
+\subsubsection{Determining Attestation \&\& Provisioning Agent and Secret Injector Overhead}
+The baseline results confirm that the remote attestation and provisioning agent are significant source of latency overhead. To this end, this section aims to examine how the latency overhead of the remote attestation and provisioning agent, along with the secret injector, changes as the number 
+of file-type secrets increases. Please see paragraph xx for additional information on the benchmark configuration.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/overhead_attestation_agent_as_file_num_increasing.PNG}
+    \caption[Benchmark result: Latency Overhead from Attestation \&\& Provisioning Agent as the number of file-based secrets increases]{Benchmark result: Latency Overhead from Attestation \&\& Provisioning Agent as the number of file-based secrets increases}
+    \label{fig:overhead_attestation_agent_as_file_num_increasing}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/overhead_secret_injector_as_file_num_increasing.PNG}
+    \caption[Benchmark result: Latency Overhead from Secret Injector as the number of file-based secrets increases]{Benchmark result: Latency Overhead from Secret Injector as the number of file-based secrets increases}
+    \label{fig:overhead_secret_injector_as_file_num_increasing}
+\end{figure}
+
+
+This paragraph discusses the benchmark results in Figure ~\ref{fig:overhead_attestation_agent_as_file_num_increasing} and Figure ~\ref{fig:overhead_secret_injector_as_file_num_increasing}, which reveal the evolution of the overhead introduced by the remote attestation and provisioning agent, and secret injector, as the number of file-type secrets grows. The results demonstrate that the increase in 
+overhead from the remote attestation and provisioning agent, and secret injector, is proportional to the number of file-type secrets, as expected. As discussed in Chapter 5, constrained by the maximum TLS record size supported by the embedded\_tls library (16kb), the remote attestation and provisioning 
+agent must perform one HTTP get + tls operation for each file-type secret. For the secret injector, it is evident that as the number of files increases, it needs more time to inject the files into the target location in the application process.  Additionally, a 
+Figure ~\ref{fig:startup_time_change_as_file_type_secret_increasing} reveals that although the overhead from the secret injector increases as the number of file secrets grows, it is negligible compared to the overhead from remote attestation and provisioning agent. Moreover, when the number of file-type secrets reaches 128, 
+the overhead associated with the remote attestation and provisioning agents becomes astounding, reaching 4500 ms, accounting for over 70\% of the total program startup time.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/startup_time_change_as_file_type_secret_increasing.PNG}
+    \caption[Distribution of the time consumed by attestation \&\& provisioning agent, secret injector and others in the application startup]{Distribution of the time consumed by attestation \&\& provisioning agent, secret injector and others in the application startup}
+    \label{fig:startup_time_change_as_file_type_secret_increasing}
+\end{figure}
+
+
+
+\subsubsection{Impact of measured Data Size}
+This benchmark assesses the changes in the software measurer's latency overhead as the application binary size grows. Please refer to paragraph xx for the benchmark configuration.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/overhead_software_measurement_manager_as_elf_size_increasing.PNG}
+    \caption[Benchmark result: Latency Overhead from Software Measurement Manager as the measured Data Size increases]{Benchmark result: Latency Overhead from Software Measurement Manager as the measured Data Size increases}
+    \label{fig:overhead_software_measurement_manager_as_elf_size_increasing}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/startup_time_change_as_elf_size_increasing.PNG}
+    \caption[Distribution of the time consumed by Attestation \&\& Provisioning Agent, Software Measurement Manager and others in the Application Startup]{Distribution of the time consumed by Attestation \&\& Provisioning Agent, Software Measurement Manager and others in the Application Startup}
+    \label{fig:startup_time_change_as_elf_size_increasing}
+\end{figure}
+
+
+
+The benchmark results are in Figure ~\ref{fig:overhead_software_measurement_manager_as_elf_size_increasing}, which shows the latency overhead of the software measurer is proportional to the binary file size, i.e., the more data to be measured, the higher the overhead introduced by the software measurer. Furthermore, it is worth mentioning that when measured 
+data less than or equal to 100 MiB, the latency overhead of the software measurer is lower than the overhead introduced by the remote attestation and provisioning agent. (Figure ~\ref{fig:startup_time_change_as_elf_size_increasing}).
+
+
+
+\subsection{Macro-Benchmark– Application Life Cycle Performance Benchmark}
+
+To evaluate the performance of Cquark in a real-world scenario, we conducted the following macro benchmark. The test compares the startup time, exit time, and runtime throughput of real-world applications in Cquark and vanilla quark using Nginx and Redis. It should be noted that program startup time 
+is measured from the start of the Qkernel to the completion of the dynamic linker (ld.so) loading the application's shared libraries, while the program exit time refers to the time from the time the exit system call is called until qkernel stops running, as shown in Figure 1. Regarding the application 
+runtime throughput, we use the Apache HTTP server benchmarking tool (AB) and Redis-benchmark to generate workloads for Nginx and Redis, respectively
+
+
+Regarding the benchmark methodology and setup, our testing framework was extended to launch the target application repeatedly, record its startup and exit times, and results from AB and Redis-benchmark. Specifically, the test framework launches the target application 100 times, with the remote 
+attestation and provisioning agent only fetching the shield policy from the relying party. For workload generator’s configuration, Redis benchmark and AB are set to issue 1,000,000 requests using 50 concurrent clients to Redis and Nginx, respectively. In addition, the size of the file requested 
+by ab to Nginx is 181 bytes. In addition, the size of the file requested by ab to Nginx is 181 bytes.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/reds_nginx_startup_comp.PNG}
+    \caption[Redis \&\& Nginx Startup Time in Cquark vs vanilla Quark]{Redis \&\& Nginx Startup Time in Cquark vs vanilla Quark}
+    \label{fig:reds_nginx_startup_comp}
+\end{figure}
+
+The results presented in Figure ~\ref{fig:reds_nginx_startup_comp} indicate that Cquark takes about twice as long as vanilla quark to complete the application setup. This result is reasonable, given that Qkernel in Cquark must perform additional operations like remote attestation, secret provisioning, and host loaded data 
+measurement, which prolongs the startup time of an application. When comparing the startup time of Nginx and Redis in the Cquark(~\ref{fig:reds_nginx_startup_comp}), we observed that Nginx takes approximately  324 ms longer than Redis to start. Since both applications only fetch the shield policy 
+during startup, the latency overhead from the remote attestation and provisioning agent should be identical for both. Therefore, we deduce that the longer Nginx startup time is due to the software measurement manager measuring more data, resulting in an increased startup time.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/time_disribution_startup_redis_nginx.PNG}
+    \caption[Redis \&\& Nginx  Startup Time in Cquark vs vanilla Quark]{Redis \&\& Nginx  Startup Time in Cquark vs vanilla Quark}
+    \label{fig:time_disribution_startup_redis_nginx}
+\end{figure}
+
+\begin{table}[htbp]
+    \centering
+    \footnotesize
+
+    \begin{tabularx}{1\textwidth}{@{} l L L L L L L@{}}
+    \toprule
+        Matrics    & ELF &  Shared Library   & Process Spec  & Stack   & Guest Kernel Args  & Total Measurement\\
+    \midrule
+
+        \vn{Measurement for Redis}     &  3.64 MiB   &   12.61 MiB  &   3476 Byte   & 310 Byte   &5865 Byte  & 16.26 MiB\\
+        \vn{Measurement for Nginx}     &  5.5 MiB    &   61.64 MiB  &   3352 Byte  & 2169 Byte  &5865 Byte  & 67.15 MiB\\
+    \bottomrule
+    \end{tabularx}
+    \caption{Software Measurement Manager measured Data during Application Startup\strut}
+    \label{table: Measurement_For_Nginx_Redis}
+\end{table}
+
+
+To validate our hypothesis, we measured the overhead induced by the remote attestation and provisioning agent, the secret injector, the hardware evidence driver, and the software measurement manager, as well as the size of the data measured by the software measurer during the application 
+startup in Cquark. The relevant details can be found in Figure  ~\ref{fig:time_disribution_startup_redis_nginx} and Table ~\ref{table:Measurement_For_Nginx_Redis}. Our findings show that the software measurer measured 16.25 MiB and 67.15 MiB of data for Redis and Nginx respectively, leading to a latency of 60.69 ms and 324 ms.   Additionally, even though both applications 
+have the same setup for the remote attestation and provisioning agent, the difference in latency overhead from the remote attestation and provisioning agent due to possible network transmission jitter was approximately 65 ms. Moreover, the latency generated from the hardware evidence driver and 
+secret injection was less than 1 ms in both cases, which was insignificant compared to the software measurer and remote attestation and provisioning agent's overhead. To summarize, Nginx's startup time is longer compared to Redis due to two key reasons - network jitter and Nginx requires the 
+software measurement manager to process more data during setup.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/reds_nginx_exit_comp.PNG}
+    \caption[Redis \&\& Nginx Exit Time in Cquark vs vanilla Quark]{Redis \&\& Nginx Exit Time in Cquark vs vanilla Quark}
+    \label{fig:reds_nginx_exit_comp}
+\end{figure}
+
+
+With respect to the application (sandbox) exit, Figure ~\ref{fig:reds_nginx_exit_comp}  shows that Cquarkcan achieves the same performance as vanilla Quark. Specifically, in both Cquark and vanilla quark, the exit time of Redis and Nginx is around 2529 ms.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{images/redis_throughput.PNG}
+    \caption[Redis Throughout Test]{Redis Throughout Test Result}
+    \label{fig:redis_throughput}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{images/nginx_throughput.PNG}
+    \caption[Nginx Throughout Test]{Nginx Throughout Test Result}
+    \label{fig:nginx_throughput}
+\end{figure}
+
+
+The throughput test results for Redis and Nginx can be found in Figures ~\ref{fig:redis_throughput} and  ~\ref{fig:nginx_throughput}, respectively. Our analysis shows that execution of Redis and Nginx in Cquark led to a performance degradation of approximately 22\% and 10\%, respectively. The primary reason for this effect is the interception of 
+the guest system calls.
+
+
+
+\subsection{Trust Computing Base}
+
+
+
+In VM-based Trusted Execution Environments (TEE), the Trusted Computing Base (TCB) comprises the necessary hardware, firmware, and software modules, like the guest operating system, that ensure the required security guarantee while handling confidential data. The smaller the TCB, the lower the 
+risk of a TEE being compromised by a vulnerability. Therefore, in this section, we evaluate the TCB overhead introduced by our implementation and compares the TCB size between CQuark and Confidential Container. To assess CQuark-incurred TCB overhead, we compare the lines of code and the size of 
+the guest kernel binary in CQuark and vanilla Quark as both use a application kernel as the guest kernel and the shield layer is part of  the guest kernel binary.  For the TCB size comparison between CQuark and the Confidential Container, we use the binary size of the Guest assets as a reference.  
+To ensure fairness, we employ the strip utility to remove unused symbols in binaries.
+
+\begin{table}[htbp]
+    \centering
+\begin{tabular}{lrrrcrrr}\toprule
+    \hline
+    \multicolumn{3}{c}{Vanilla Quark}&&\multicolumn{3}{c}{Confidential Quark}\\
+    \cline{1-3}\cline{5-7}
+    $Component$ & $LoC$ & $Size$$^{3}$ && $Component$ & $LoC$ & $Size$$^{3}$\\
+  \midrule
+     Qkernel &32487 & -&& Qkernel&32487&-\\
+     Qlib &85128  & -&&Qlib&  86609 &-\\
+     Shield  & 0 & - && Shield&2805&-\\
+  
+     \midrule
+      Total  & 117615& 3.1MiB&& & 121901 &  4.6 MiB\\
+      \bottomrule
+  \end{tabular}
+
+  \caption{Comparison of the LoC and compiled size of vanilla quark and confidential quark\strut}
+  \label{table:tcb_size_quark_vs_cquark}
+\end{table}
+
+Table ~\ref{table:tcb_size_quark_vs_cquark} provides a summary of the TCB overhead required to achieve confidentiality in CQuark. The Vanilla Quark version v2.0 has a guest kernel with 11,7615 lines of code and generates a 3.10 MB static linked binary. In CQuark, our implementation adds 4286 LoC to the guest binary, bringing the total to 12,1901
+LoC and 4.6 MB of compiled static linked binary. Overall, our implementation makes the qkernel binary 1.48 times larger compared to Vanilla Quark.
+
+
+\begin{table}[htbp]
+    \centering
+\begin{tabular}{lrrcrr}\toprule
+    \hline
+    \multicolumn{2}{c}{Confidential Container}&&\multicolumn{2}{c}{Confidential Quark}\\
+    \cline{1-2}\cline{4-5}
+    $Component$  & $Size$$^{3}$ && $Component$  & $Size$$^{3}$\\
+  \midrule
+     Guest Kernel & 22.65MiB&& Guest kernel &4.6 MiB\\
+     OVMF   & 4 MiB && &   &\\
+     Kata agent  & 47.16 MiB  && &&\\
+  
+     \midrule
+        & 73.81 MB&& &   4.6 MiB\\
+      \bottomrule
+  \end{tabular}
+
+  \caption{TCB size comparison between confidential container vs confidential quark in terms of compiled size of guest assets \strut}
+  \label{table:tcb_size_quark_vs_kata}
+\end{table}
+
+Table ~\ref{table:tcb_size_quark_vs_kata} shows the outcomes of comparing the TCB size in the Confidential Container (Kata) and CQuark. Unlike CQuark, which uses the application kernel as the guest kernel, Confidential Container deploys the qemu-linux base virtual machine. Therefore, the guest assets in the Confidential Container 
+context include the Kata agent, OVMF, and Linux Guest kernel. In the Confidential Container version v0.4, the compiled static binary sizes of Kata agent, OVMF, and Guest kernel are 22.65 Mb, 4.0 MB, and 47.16 MB, respectively. This totals a TCB size of 73.81 MB, which is about 16 times greater than that 
+of CQuark.
+
+It is noteworthy that there is potential to further optimize the size of Quark's Trusted Computing Base (TCB).  In Quarkv version 2.0, qlib contributes some redundant code to qkernel. To facilitate code development, the qlib code is shared between qvisor and qkernel. However, our founding shows 
+some code in qlib is only used by functions in qvisor, thus increasing the size of the qkernel’s binary. 
+
+
+
+
+% \begin{table}[htp]
+%     \caption{Software measurement manager measured data during application startup}
+%     \begin{tabularx}{\textwidth}{*{2}{p{0.5\textwidth}}}\toprule
+%                                  & ELF &  Shared Library   & Process Spec  & Stack   & Guest Kernel Args  & Total Measurement \\ \midrul
+%     Measurement For Hello world  &  1.4468 MiB    &   0 MiB  &   3819 Byte   & 305 Byte   &5865 Byte  & 1.457 MiB \\\addlinespace
+%     \bottomrule
+%     \end{tabular}
+%     \label{table: Measurement_For_Hello_world}
+% \end{table}
+
+
+% \begin{table}[!ht]
+%     \sffamily
+%     \caption{Terminologies in SQL \& corresponding in MongoDB}
+%     \label{tab:my_label}
+%     \centering
+%     \begin{tabularx}{\textwidth}{*{2}{p{0.5\textwidth}}}
+%     \toprule
+%                                  & ELF &  Shared Library   & Process Spec  & Stack   & Guest Kernel Args  & Total Measurement \\ \midrule
+%     Measurement For Hello world  &  1.4468 MiB    &   0 MiB  &   3819 Byte   & 305 Byte   &5865 Byte  & 1.457 MiB \\\addlinespace
+%     \dots & \dots \\
+%     \bottomrule
+%     \end{tabularx}
+%     \end{table}
+
+
+
+
 \cleardoublepage
 
 %%% Local Variables:

@@ -57,6 +57,34 @@ DOC_IMG_JPG  = images/timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl.PNG
 
 
 
+DOC_IMG_JPG  = images/micro_benchmark_app_life_cycle_bencmark_pattern.png
+
+DOC_IMG_JPG  = images/application_start_microtest_baseline_time_distribution.PNG
+
+DOC_IMG_JPG  = images/application_start_microtest_baseline_time_overhead_each_cmp.PNG
+
+
+DOC_IMG_JPG  = images/overhead_attestation_agent_as_file_num_increasing.PNG
+DOC_IMG_JPG  = images/overhead_secret_injector_as_file_num_increasing.PNG
+DOC_IMG_JPG  = images/overhead_software_measurement_manager_as_elf_size_increasing.PNG
+DOC_IMG_JPG  = images/startup_time_change_as_elf_size_increasing.PNG
+DOC_IMG_JPG  = images/startup_time_change_as_file_type_secret_increasing.PNG
+
+
+
+
+DOC_IMG_JPG  = images/time_disribution_startup_redis_nginx.PNG
+DOC_IMG_JPG  = images/reds_nginx_startup_comp.PNG
+DOC_IMG_JPG  = images/reds_nginx_exit_comp.PNG
+DOC_IMG_JPG  = images/redis_throughput.PNG
+DOC_IMG_JPG  = images/nginx_throughput.PNG
+
+
+
+
+
+
+
 # latex stuff
 LUALATEX    ?= lualatex --synctex=1
 BIBER       ?= biber
