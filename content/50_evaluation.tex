@@ -598,6 +598,11 @@ of CQuark.
 It is noteworthy that there is potential to further optimize the size of Quark's Trusted Computing Base (TCB).  In Quarkv version 2.0, qlib contributes some redundant code to qkernel. To facilitate code development, the qlib code is shared between qvisor and qkernel. However, our founding shows 
 some code in qlib is only used by functions in qvisor, thus increasing the size of the qkernel’s binary. 
 
+\subsection{Summary}
+In this chapter, I conducted both qualitative and quantitative analyses to evaluate my work. In the qualitative analysis, I identified potential security vulnerabilities in Vanilla Quark and explained how my work mitigates these vulnerabilities. Regarding the quantitative analysis, 
+I developed a testing framework to characterize the performance of CQuark. The obtained results showed that CQuark engenders significant overhead compared to Vanilla Quark. 
+This overhead is visible in longer program creation times, reduced runtime program throughput, reduced speed of issuing instructions to the program, increased Trusted Computing Base (TCB) size, etc.
+
 
 
 
