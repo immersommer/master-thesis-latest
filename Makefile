@@ -39,7 +39,16 @@ DOC_IMG_JPG  = images/attestation.PNG
 DOC_IMG_JPG  = images/resourcerequrie.PNG
 DOC_IMG_JPG  = images/Container_Lifecycle_state.PNG
 
-# evaluation images
+
+
+# evaluation images for secureity analyse
+DOC_IMG_JPG  = images/generic_policy.PNG
+DOC_IMG_JPG  = images/analysis_workload.PNG
+
+
+
+
+# evaluation images for performance
 DOC_IMG_JPG  = images/perf_system_call_interceptor_yaml.PNG
 DOC_IMG_JPG  = images/ben_results_syscall_interceptor.PNG
 DOC_IMG_JPG  = images/perf_attestation_report_yaml.PNG
@@ -78,6 +87,13 @@ DOC_IMG_JPG  = images/reds_nginx_startup_comp.PNG
 DOC_IMG_JPG  = images/reds_nginx_exit_comp.PNG
 DOC_IMG_JPG  = images/redis_throughput.PNG
 DOC_IMG_JPG  = images/nginx_throughput.PNG
+
+
+DOC_IMG_JPG  = images/Random_Read.PNG
+DOC_IMG_JPG  = images/Random_Write.PNG
+DOC_IMG_JPG  = images/Sequential_Read.PNG
+DOC_IMG_JPG  = images/Sequential_Write.PNG
+
 
 
 

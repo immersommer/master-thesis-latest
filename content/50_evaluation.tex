@@ -13,8 +13,37 @@
 \ldots evaluation \ldots
 
 \todo{Write evaluation}
+In previous chapters, we analyzed the security issues of the upstream quark in confidential computing, and proposed the design and implementation of Confidential Quark as a countermeasure. In this chapter, we evaluate the security and performance of Confidential Quark from both 
+qualitative and quantitative perspectives.
 
 \section{Qualitative Analysis}
+In this section, we provide a synopsis of the security vulnerabilities uncovered during the security analysis in Chapter 3, targeting the vanilla quark environment. Furthermore, we detail our implementation strategies for addressing these vulnerabilities.
+\subsection{Common Setup}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/analysis_workload.PNG}
+    \caption[Qkernel Attestation Report Syscall Benchmark Deployment]{Sample program for qualitative analysis. This program outputs "hello world", command line arguments, and the environment variable "foo" to the standard output while also attempting to read the secret "root-ca.pem" under the directory "/secret"}
+    \label{fig:analysis_workload}
+\end{figure}
+
+
+This section provides an overview of the general configuration in the analysis. Firstly, we installed and configured the Confidential Quark environment following the instructions in the quark demo repository. This involved creating and configuring 
+the Kubernetes cluster, compiling Securectl, Confidential Quark, Vanilla Quark, and the Key Broker service. It is important to note that, in the following demonstration, 
+we use the policy in Figure \ref{fig:generic_policy} for Cquark and the application in Figure \ref{fig:analysis_workload} as our samples, unless otherwise specified. The application is already containerized, allowing us to deploy it to both the cquark and vanilla quark environments via YAML files. 
+Specific steps for the demo experiments in the ensuing subsections are available on GitHub.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/generic_policy.PNG}
+    \caption[Qkernel Attestation Report Syscall Benchmark Deployment]{The shield policy used by the enclave.  The policy is uploaded to the Key Broker Service (KBS) by enclave owner. KBS verifies the integrity of the enclave's runtime environment 
+    using the hash in app{\_}lauch{\_}ref{\_}measurment and sends the policy to the enclave securely. The policy stipulates that enclave is in production mode, in which the enclave use the hash from runtime\_reference\_measurements to validate the 
+    integrity of the binaries and dynamic link libraries loaded from host at application runtime. The policy also permits privileged users to create terminals and issues cat and ls commands, alongside cryptographic protection for the results 
+    of the commands and application logs (see privileged{\_}user{\_}config). Conversely, non{\-}privileged users' allocation of terminals is blocked, and they can only issue ls commands (refer to the option unprivileged{\_}user{\_}config). The option 
+    qkernel\_log\_config in policy further enables the qkernel's logging system interceptor, while the logging level is Off, resulting in no output from the log system. Lastly, the guest system call interceptor is activated, and the policy configures 
+    it to global mode (syscall{\_}interceptor{\_}config). N.b., the white list "syscall" contains 0-451 system calls, some of which are excluded from the figure due to space constraints.}
+    \label{fig:generic_policy}
+\end{figure}
 
 
 \begin{table}[H]
@@ -117,24 +146,30 @@ Our benchmarks  consist of micro-benchmarks and macro-benchmarks. The microbench
 real world applications run by CQuark vs unmodified Quark, and to get a view of the additional overhead incurred by cquark for protecting application’s confidentiality.
 
 
-The benchmarking in this section is structured around the following subsections. First, we describe the hardware and software setup for benchmarking in Section 5.1. We then evaluate the speed of obtaining three different types of attestation reports (emulated hardware reports, software reports signed by the kbs key or by the application key) using a microbenchmark that executes a certain number of a system call in a loop and records the time required to execute the system call (Section 2.3). We found that the speed of obtaining the emulated hardware report is 50\% slow than that of obtaining the other two reports due to VM exit. 
+The benchmarking in this section is structured around the following subsections. First, we describe the hardware and software setup for benchmarking in Section 5.1. We then evaluate the speed of obtaining three different types of attestation reports (emulated hardware reports, software reports signed 
+by the kbs key or by the application key) using a microbenchmark that executes a certain number of a system call in a loop and records the time required to execute the system call (Section 2.3). We found that the speed of obtaining the emulated hardware report is 50\% slow than that of obtaining the other two reports due to VM exit. 
 
-Subsequently, in Section 2.4, we evaluate the overhead of the guest system call interceptor using a micro test that executes a certain number of a specific system call in a loop in upstream quark and cquark, respectively. The results show that the guest system interceptor imposes an overhead of 1.47x and 17x for system calls that are handled only by the guest and system calls that must be handled by the host, respectively
+Subsequently, in Section 2.4, we evaluate the overhead of the guest system call interceptor using a micro test that executes a certain number of a specific system call in a loop in upstream quark and cquark, respectively. The results show that the guest system interceptor imposes an overhead of 1.47x 
+and 17x for system calls that are handled only by the guest and system calls that must be handled by the host, respectively
 
-Unlike upstream quark, which stores file-type secrets in the host, cquark stores file-type secrets directly on guest memory. Therefore, in Section 2.5, we evaluate the speeds of a application accessing file-type secrets in upstream quark and cquark using a similar approach as in Section 2.4. The results reveal that in cquark, the speed of accessing file-type secrets is improved by a factor of 1.17.
+Unlike upstream quark, which stores file-type secrets in the host, cquark stores file-type secrets directly on guest memory. Therefore, in Section 2.5, we evaluate the speeds of a application accessing file-type secrets in upstream quark and cquark using a similar approach as in Section 2.4. 
+The results reveal that in cquark, the speed of accessing file-type secrets is improved by a factor of 1.17.
 
 
 Later, in Section 2.6, we present latency performance benchmark results for sending commands to containers in cquark and upstream quark. Compared to the speed of sending commands using kubectl exec in upstream quark, the authentication and access control for the exec endpoint in cquark introduces 1.15 times overhead. Furthermore, We compare the speed of sending the same command with kubectl and securectl in cquark. The results show that despite the additional encryption and decryption required by the commands sent by securectl, the commands are executed 1.1 times faster than those sent by kubectl.
 
+Then after conducting an evaluation of the performance of accessing binary-mapped memory regions in cquark, we observed that cquark outperforms vanilla quark in this regard. Sequential access in cquark is 1.86 times faster than in vanilla quark, while random reading and writing of binary-mapped memory regions exhibit approximately 1.08 times faster speed in cquark. These results can be attributed to cquark's measurement of binary files during program startup, which prompts the qkernel to load the files into memory, thus preventing erroneous page handling during runtime.
 
 In Section 2.7, we conducted an evaluation of the latency overhead introduced by the new cquark components during application deployment using a "hello world" program.  Specifically, the evaluation involved testing the latency overhead of the https kbs client, secret injector, shared library measurement manager, hardware evidence driver, and software measurement manager Throughout the experiments, we adjusted a critical parameter to observe how each component affects the overall application startup time Findings indicate that the https kbs client constitutes the bulk of the overhead when the size of the measurement data is less than 100 MB, while the overhead introduced by the secret injector and hardware evidence driver is negligible in any case. Further details, including the benchmark configuration and results can be found on page XX.
 
 
 In Section 2.8, we conclude the performance benchmarking exercise by conducting macro benchmarking using nginx and redis as workloads. Our benchmarks focus on exploring the performance differences between applications running in cquark and upstream quark in terms of startup time, exit time, and the speed of processing requests during runtime. Our findings reveal that in cquark, redis and nginx require 1.49X and 1.55X startup times than in upstream quark, respectively. The difference primarily arises from the contrast in data size measured during application startup, i.e., 67.15 Mib in Nginx and 16.258 MiB in Redis. In terms of application exit time, Redis and Nginx exhibit nearly identical performance when running on cquark and upstream quark. Furthermore, we utilized Redis-benchmark and Apache HTTP server benchmarking tool as load generators to gauge the application runtime performance. Our experiment results indicate that Nginx and Redis running in cquark encounter performance declines of approximately 9\% and 20\%,respectively,due to guest system interceptor.
 
+In Subsection 2.9, we evaluated the TCB overhead incurred by our implementation and compared the TCB size of the confidential container with that of the Cquark. Our findings reveal that our implementation increases the quark guest kernel binariy by approximately 1.47 times. Nevertheless, the TCB of cquark is only roughly one-sixteenth of the size of the confidential container.
+
 \subsection{Hardware and Software Setup}
 
-In this section, a summary of the hardware and software settings utilized for the benchmarks is provided. Regarding hardware, all measurements were performed on an a server with AMD EPYC 7443P 24-Core cpu and 4 DDR4-3200 Mhz-16GB RAM. In terms of software, the host OS is Ubuntu 20.04.6 LTS and Linux 5.19.0 kernel. . To establish a low-noise environment for benchmarking with reproducible results and low variability, the CPU governor was set to performance mode, and Hyper-Threading and Turbo Boost were disabled.  Moreover, all binaries used for testing, i.e. Qvisor, Qkernel, and All binaries used for testing, namely Qvisor, Qkernel, and the "hello-world" application, were built in release mode. Note that, unless otherwise mentioned, the unchanged version of Quark, i.e., upstream Quark is v0.2.0 in the following.
+In this section, a summary of the hardware and software settings utilized for the benchmarks is provided. Regarding hardware, all measurements were performed on an a server with AMD EPYC 7443P 24-Core cpu and 4 DDR4-3200 Mhz-16GB RAM. In terms of software, the host OS is Ubuntu 20.04.6 LTS and Linux 5.19.0 kernel. To establish a low-noise environment for benchmarking with reproducible results and low variability, the CPU governor was set to performance mode, and Hyper-Threading and Turbo Boost were disabled.  Moreover, all binaries used for testing, i.e. Qvisor, Qkernel, and All binaries used for testing, namely Qvisor, Qkernel, and the "hello-world" application, were built in release mode. Note that, unless otherwise mentioned, the unchanged version of Quark, i.e., upstream Quark is v0.2.0 in the following.
 
 
 Regarding the tools for measuring latency, since all benchmark objects are located in the guest, we use the guest system call clock\_gettime(monotonic) for time measurement and print the results to the host using the qkernel logging system. The benchmarking framework can analyze the benchmarking results by parsing the cquark log located under host directory /var/log/quark.
@@ -155,7 +190,7 @@ acquires various attestation reports.
 \end{figure}
 
 To this end, we prepared a Rust microbenchmark that measures the mean and variance of the time requisite for obtaining the three types of reports and prints the results to its standard output. To ensure stable outcomes, the test program submits 10,000 requests for each type of report to the kernel. 
-As the benchmark program is containerized, we can deploy the benchmark to Cquark using the YAML file in Figure ~\ref*{fig:perf_attestation_report_yaml}.
+As the benchmark program is containerized, we can deploy the benchmark to Cquark using the YAML file in Figure ~\ref{fig:perf_attestation_report_yaml}.
 
 \begin{figure}[H]
     \centering
@@ -324,8 +359,97 @@ privileged instructions require additional cryptographic protection to ensure th
 To investigate the issue further, we conducted time  measurements of processing time for each component during the privileged vs unprivileged instruction execution lifecycle. Here the components refer to the tool the user employed 
 to issue instructions, i.e., kubectl or securecli,  Kubernetes components for instructions transmission, like containerd, etc., and Qkernel for instruction execution.
 Figure ~\ref{fig:timeshare_issuing_cmd_in_cquark_kubectl_securectl} presents the results obtained. The time incurred by qkernel for executing unprivileged and privileged instructions (color-filled boxes) distinctly shows that the latter takes approximately 0.5 milliseconds more than the former does. These latency overheads derive from the decryption and 
-integrity checks that kernel performs for each privileged instruction, as well as the cryptographic protection for the instruction result. However, comparing the time taken by kubectl and securectl to process user requests (dashed filled boxes), securectl is significantly faster. Thus, this 
+integrity checks that kernel performs for each privileged instruction, as well as the cryptographic protection for the in
+struction result. However, comparing the time taken by kubectl and securectl to process user requests (dashed filled boxes), securectl is significantly faster. Thus, this 
 offsets the cryptographic protection overhead for privileged instructions.
+
+\subsection{Micro-benchmark – Latency Test for accessing binary-mapped memory region}
+
+This section presents the results of a microbenchmark test that assesses the speed of accessing binary mapped memory regions during runtime under vanilla quark and cquark.
+% //%or \small or \footnotesize etc.
+% \begin{lstlisting}[language=C,frame=single,caption=Program for testing speed of accessing binary-mapped memory region Variant,label=code3,basicstyle=\tiny]
+%     #define ARRAY_LEN (unsigned long)(1024*1024*100)    
+%     char array[ARRAY_LEN] = {[ 0 ... (1) ] = 'a'} ;
+
+%     int main {
+%         struct timespec start, end;
+%         clockid_t clk_id = CLOCK_MONOTONIC;  // CLOCK_REALTIME CLOCK_BOOTTIME CLOCK_PROCESS_CPUTIME_ID
+%         struct timespec nanos;
+%         clock_gettime(CLOCK_MONOTONIC, &nanos);
+%         srand(nanos.tv_nsec); 
+    
+%         for(int i = 0; i < ARRAY_LEN; i++) {
+%            index[i] = get_random();
+     
+%         }
+     
+%         clock_gettime(clk_id, &start);
+%         for(int i = 0; i < ARRAY_LEN; i++) {
+%            int current_idx = index[i];
+%            //sequential read
+%            // char a = array[i];
+%            //sequential write
+%            // array[i] = 'b';
+%            //random read
+%            // char a = array[current_idx];
+%            //random write
+%            // array[current_idx] = 'b';
+%         }
+%         clock_gettime(clk_id, &end);
+     
+%         unsigned long long  start_ns = to_ns(start);
+%         unsigned long long  end_ns = to_ns(end);
+%         printf("start %ju, end  %jun", start_ns, end_ns);
+
+%         return 0;
+
+%     }
+
+ 
+% \end{lstlisting}
+
+The benchmark utilizes a program (add reference here) containing a global initialized array located in the binary data segment and a for loop. Within the for loop, the program can access the array by means of four access mode: random read, random write, sequential read, and sequential write. We conduct the 
+test in three binary data segment mapped memory sizes, i.e. 5MB, 10MB and 100MB. For each case, the test framework carries out 30 executions of the program in vanilla quark and cquark in each access mode and calculates the average cost of accessing the array. Note that the size of the binary data 
+segment mapped memory region is controlled by the size of the array.
+
+
+\begin{figure}[ht] 
+    \begin{subfigure}[b]{0.5\linewidth}
+      \centering
+      \includegraphics[width=0.9\linewidth]{images/Sequential_Read.PNG} 
+      \caption{Sequential Read} 
+      \label{fig7:a} 
+      \vspace{4ex}
+    \end{subfigure}%% 
+    \begin{subfigure}[b]{0.5\linewidth}
+      \centering
+      \includegraphics[width=0.9\linewidth]{images/Sequential_Write.PNG} 
+      \caption{Sequential Write} 
+      \label{fig7:b} 
+      \vspace{4ex}
+    \end{subfigure} 
+    \begin{subfigure}[b]{0.5\linewidth}
+      \centering
+      \includegraphics[width=0.9\linewidth]{images/Random_Read.PNG} 
+      \caption{Random Read} 
+      \label{fig7:c} 
+    \end{subfigure}%%
+    \begin{subfigure}[b]{0.5\linewidth}
+      \centering
+      \includegraphics[width=0.9\linewidth]{images/Random_Write.PNG} 
+      \caption{Random Write} 
+      \label{fig7:d} 
+    \end{subfigure} 
+    \caption{Benchmark Result - Latency Test for accessing binary-mapped memory region}
+    \label{fig7} 
+\end{figure}
+
+
+
+These results shown in Figure ~\ref{fig7:a} and ~\ref{fig7:b} reveal that cquark improves the performance of sequentially reading and writing binary-mapped memory regions. Specifically, Sequential accessing in cquark is 1.86 times faster than in vanilla quark. This performance improvement is due to the fact that measuring binary loaded from 
+host during the program startup prompted qkernel to load the program's binaries from disk into the guest memory. Consequently, the program can access these memory areas at runtime without necessitating page fault handling. For the same reason, random reading and writing of binary-mapped memory 
+regions exhibit around 1.08 times faster speed in cquark than in vanilla quark (Figure ~\ref{fig7:c} and Figure ~\ref{fig7:d}).
+
 
 
 \subsection{Micro-benchmark – Latency Test for Application Startup}
@@ -615,7 +739,7 @@ of CQuark.
 It is noteworthy that there is potential to further optimize the size of Quark's Trusted Computing Base (TCB).  In Quarkv version 2.0, qlib contributes some redundant code to qkernel. To facilitate code development, the qlib code is shared between qvisor and qkernel. However, our founding shows 
 some code in qlib is only used by functions in qvisor, thus increasing the size of the qkernel’s binary. 
 
-\subsection{Summary}
+\section{Summary}
 In this chapter, I conducted both qualitative and quantitative analyses to evaluate my work. In the qualitative analysis, I identified potential security vulnerabilities in Vanilla Quark and explained how my work mitigates these vulnerabilities. Regarding the quantitative analysis, 
 I developed a testing framework to characterize the performance of CQuark. The obtained results showed that CQuark engenders significant overhead compared to Vanilla Quark. 
 This overhead is visible in longer program creation times, reduced runtime program throughput, reduced speed of issuing instructions to the program, increased Trusted Computing Base (TCB) size, etc.
