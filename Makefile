@@ -51,6 +51,15 @@ DOC_IMG_JPG  = images/cmd_env_secrets.PNG
 DOC_IMG_JPG  = images/c_quark_deployment.PNG
 
 
+DOC_IMG_JPG  = images/vanilla_quark_deployment_result.png
+DOC_IMG_JPG  = images/vanilla_quark_deployment_result_file_secret_mount_location.png
+
+DOC_IMG_JPG  = images/kbs_secret_deployment.png
+DOC_IMG_JPG  = images/cquark_deployment_result.PNG
+DOC_IMG_JPG  = images/cquark_deployment_result_file_secret_mount_location.png
+
+
+
 
 
 

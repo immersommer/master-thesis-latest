@@ -93,6 +93,62 @@ we deploy it to either the cquark or vanilla quark environment using the YAML fi
 
 
 
+\subsection{Deploying Secrets via untrusted Entities (Kubelet, Containerd, Qvisor)}
+
+
+Vanilla Quark benefits from Kubernetes to manage and deploy secrets. This involves submitting three types of secrets i.e., file type, command line type, and environment variable type secrets to the Kubernetes through YAML files. Subsequently, Kubernetes offers the ability to effortlessly pass 
+these secrets to the application at the time of container creation.  An example of deploying application in vanilla enviroment is displayed in Figure ~\ref{fig:vanilla_quark_deployment_result}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/kbs_secret_deployment.png}
+    \caption[Shell script for deploying secret to KBS’s localfs backend]{Shell script for deploying secret to KBS’s localfs backend}
+    \label{fig:kbs_secret_deployment}
+\end{figure}
+
+% For instance, here, we use YAML file in Figure 2 to submit the file type secret to Kubernetes, and the YAML file in Figure 3 to submit the command line type and environment variable type secrets as well as deploying the application. Our results, described in Figure 4, illustrate that the program 
+% deployment is successful.  The command-line and environment variable secrets are appropriately printed to the standard output, while the file-type secret are securely mounted under  “secret” directory in the application’s rootfs on the host. 
+
+\begin{figure}[H]
+
+    \subfloat[Application deployment process in vanilla quark\label{fig:vanilla_quark_deployment_result}]{%
+      \includegraphics[clip,width=\columnwidth]{images/vanilla_quark_deployment_result.png}%
+    }
+    
+    \subfloat[The way Kubernetes manages and deploys file type secrets\label{fig:vanilla_quark_deployment_result_file_secret_mount_location}]{%
+      \includegraphics[clip,width=\columnwidth]{images/vanilla_quark_deployment_result_file_secret_mount_location.png}%
+    }
+    
+    \caption{The process of deploying the application in the vanilla quark environment and its results. Figure ~\ref{fig:vanilla_quark_deployment_result} demonstrates the deployment method, wherein an application is deployed using the YAML in Figure ~\ref{fig:vanila_quark_deployment}, and illustrates the program successfully retrieves and 
+    prints the command\-line types, environment variable types, and file-type secrets from k8s. Figure ~\ref{fig:vanilla_quark_deployment_result_file_secret_mount_location} reveals that k8s manages the submitted k8s secret (See figure ~\ref{fig:mongo_secret} ) in the /var/lib/kubelet directory of 
+    the host machine and mounts it to the rootfs of the application on the host under var/lib/quark}
+    
+\end{figure}
+However, managing and deploying secrets by Kubernetes compromise applications’ confidentiality, because  Kubernetes is not a trusted entity. To address this, in CQuark, we have shifted such responsibility from k8s to the Key Broker Service (KBS), which managing secrets and securely injects 
+required secrets directly into an enclave. Ideally, the secret owner must attest kbs and upload the secret to it securely. Regrettably, due to time constraints, this feature is yet to be implemented. To this end, we utilize the script in Figure ~\ref{fig:kbs_secret_deployment} to deploy the 
+secrets in Figures ~\ref{fig:file_secrets} and ~\ref{fig:cmd_env_secrets} onto the designated location on the local file system. During runtime, KBS extracts the secret from this location and employs secure channels to securely transmit it over to the enclave. The application deployment process in the CQuark environment, along with its results, 
+is displayed in Figure ~\ref{fig:cquark_deployment_result_file_secret_mount_location}.
+\begin{figure}[H]
+
+    \subfloat[Application deployment process in confidential quark\label{fig:cquark_deployment_result}]{%
+      \includegraphics[clip,width=\columnwidth]{images/cquark_deployment_result.PNG}%
+    }
+    
+    \subfloat[The way enclave manages the file type secrets\label{fig:cquark_deployment_result_file_secret_mount_location}]{%
+      \includegraphics[clip,width=\columnwidth]{images/cquark_deployment_result_file_secret_mount_location.png}%
+    }
+    
+    \caption[The process of deploying the application in confidential Quark environment and its results.]{The process of deploying the application in confidential Quark environment and its results. Figure ~\ref{fig:cquark_deployment_result} illustrates the deployment method, wherein an application is deployed using the YAML file in Figuer ~\ref{fig:c_quark_deployment},  
+    and shows that the program successfully retrieves and prints the command-line types, environment variable types, and file\-type secrets from KBS. In Figure ~\ref{fig:cquark_deployment_result_file_secret_mount_location} , we first use securectl to allocate a terminal inside the enclave and view the file type secret located in the /secret directory. 
+    We can see that the secret root-ca.pem is stored in the /secret. We then exite the terminal and exam the rootfs of the application on the host, which showed that the secret directory is not visible on the host side.}
+\end{figure}
+
+
+Regarding file-type secrets, as detailed in Chapter 5, the enclave retains the file-type secret on guest memory and establishes a guest sub-file system under the /secret directory. This file system enables applications to access file-type secrets. Notably, because both the file system and secret 
+files exist only inside the enclave, the directory and its contents remain invisible to the application rootfs on the host (see Figure ~\ref{fig:cquark_deployment_result_file_secret_mount_location}). Consequently, secrets remain inaccessible to attackers who attempt to acquire them by investigating the application rootfs on the host.
+
+
+
 
 \begin{table}[H]
     \tiny
