@@ -159,3 +159,14 @@
     stringstyle=\color{GreenString},
     string=[b]"
 }
+
+
+\newlength{\subcolumnwidth}
+\newenvironment{subcolumns}[1][0.45\columnwidth]
+ {\valign\bgroup\hsize=#1\setlength{\subcolumnwidth}{\hsize}\vfil##\vfil\cr}
+ {\crcr\egroup}
+\newcommand{\nextsubcolumn}[1][]{%
+  \cr\noalign{\hfill}
+  \if\relax\detokenize{#1}\relax\else\hsize=#1\setlength{\subcolumnwidth}{\hsize}\fi
+}
+\newcommand{\nextsubfigure}{\vfill}

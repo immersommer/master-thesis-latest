@@ -9,33 +9,66 @@
 % vorzunehmen. Es wird empfohlen zunächst die eigenen Erwartungen
 % bezüglich der Ergebnisse zu erläutern und anschließend eventuell
 % festgestellte Abweichungen zu erklären.
-
-\ldots evaluation \ldots
-
-\todo{Write evaluation}
 In previous chapters, we analyzed the security issues of the upstream quark in confidential computing, and proposed the design and implementation of Confidential Quark as a countermeasure. In this chapter, we evaluate the security and performance of Confidential Quark from both 
 qualitative and quantitative perspectives.
-
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/mongo_secret.PNG}
+        \caption{YAML file for deploying K8s secret}
+        \label{fig:mongo_secret}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/vanila_quark_deployment.PNG}
+        \caption{YAML file for deploying application in vanilla quark}
+        \label{fig:vanila_quark_deployment}
+    \end{subfigure}
+    \hfill
+       \caption[Artifacts for deploying applications in Vanilla Quark]{Artifacts for deploying applications in Vanilla Quark. The YAML file on the left is used to submit the Kubernetes secret with the name my\-mongo\-ssl\-certs to the cluster. 
+       This secret includes two files, namely root\-ca.pem and mongodb.pem. Meanwhile, the YAML file on the right on the right is used to deploy application. This file passes three command line secrets, namely cmd\_secret1\-3, an environment variable secret named FOO, and mounts the 
+       Kubernetes secret (file type secret) to the secret directory of the application rootfs.}
+       \label{fig:three graphs}
+\end{figure}
 \section{Qualitative Analysis}
 In this section, we provide a synopsis of the security vulnerabilities uncovered during the security analysis in Chapter 3, targeting the vanilla quark environment. Furthermore, we detail our implementation strategies for addressing these vulnerabilities.
+
 \subsection{Common Setup}
+
+This section provides an overview of the common configuration for the analysis. Firstly, we set up the Confidential Quark and vanilla Quark environments following the guidelines presented in the Quark demo repository. These include creating the Kubernetes cluster and compiling securectl, 
+confidential quark, and key broker service. To deploy a vanilla quark-based application, we need to upload the Kubernetes secret in Figure ~\ref{fig:mongo_secret} and use the YAML file (~\ref{fig:vanila_quark_deployment}). 
+
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{images/analysis_workload.PNG}
-    \caption[Qkernel Attestation Report Syscall Benchmark Deployment]{Sample program for qualitative analysis. This program outputs "hello world", command line arguments, and the environment variable "foo" to the standard output while also attempting to read the secret "root-ca.pem" under the directory "/secret"}
-    \label{fig:analysis_workload}
+    
+    \begin{minipage}{0.7\textwidth}
+    \begin{subcolumns}[0.62\textwidth]
+      \subfloat[YAML file for deploying application\label{fig:c_quark_deployment}]{\includegraphics[width=\subcolumnwidth]{images/c_quark_deployment.PNG}}
+
+    \nextsubcolumn[0.33\textwidth]
+      \subfloat[KBS managed file type secret\label{fig:file_secrets}]{\includegraphics[width=\subcolumnwidth]{images/file_secrets.PNG}}
+
+    \nextsubfigure
+      \subfloat[KBS managed cmd \&\& envv type secrets\label{fig:cmd_env_secrets}]{\includegraphics[width=\subcolumnwidth]{images/cmd_env_secrets.PNG}}
+    \end{subcolumns}
+    \end{minipage}
+    
+    \caption[The artifacts used to deploy the application in Confidential Quark]{The artifacts used to deploy the application in Confidential Quark. Figures ~\ref{fig:file_secrets} and ~\ref{fig:cmd_env_secrets} show the file type secret root\-ca.pem, as well as the environment variables, and the command line type secret managed by kbs. The YAML in Figure  is
+    a utilized to deploy the application in cquark. In this file, we specify the IP address of KBS, and the URL for enclave to fetch the secrets and enclave policy from KBS. The enclave can use the above information to establish a secure channel with the KBS and 
+    deploy the secret to the application process.}
+    \label{fig:cquark_deployment}
 \end{figure}
 
 
-This section provides an overview of the general configuration in the analysis. Firstly, we installed and configured the Confidential Quark environment following the instructions in the quark demo repository. This involved creating and configuring 
-the Kubernetes cluster, compiling Securectl, Confidential Quark, Vanilla Quark, and the Key Broker service. It is important to note that, in the following demonstration, 
-we use the policy in Figure \ref{fig:generic_policy} for Cquark and the application in Figure \ref{fig:analysis_workload} as our samples, unless otherwise specified. The application is already containerized, allowing us to deploy it to both the cquark and vanilla quark environments via YAML files. 
-Specific steps for the demo experiments in the ensuing subsections are available on GitHub.
 
+The enclave policy file in Figure ~\ref{fig:generic_policy}, secrets in Figures ~\ref{fig:file_secrets}  and ~\ref{fig:cmd_env_secrets}, and the YAML file in Figure ~\ref{fig:c_quark_deployment}  are used for 
+application deployment in Cquark. 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{images/generic_policy.PNG}
+    \includegraphics[width=0.8\textwidth, scale=0.8]{images/generic_policy.PNG}
     \caption[Qkernel Attestation Report Syscall Benchmark Deployment]{The shield policy used by the enclave.  The policy is uploaded to the Key Broker Service (KBS) by enclave owner. KBS verifies the integrity of the enclave's runtime environment 
     using the hash in app{\_}lauch{\_}ref{\_}measurment and sends the policy to the enclave securely. The policy stipulates that enclave is in production mode, in which the enclave use the hash from runtime\_reference\_measurements to validate the 
     integrity of the binaries and dynamic link libraries loaded from host at application runtime. The policy also permits privileged users to create terminals and issues cat and ls commands, alongside cryptographic protection for the results 
@@ -44,6 +77,21 @@ Specific steps for the demo experiments in the ensuing subsections are available
     it to global mode (syscall{\_}interceptor{\_}config). N.b., the white list "syscall" contains 0-451 system calls, some of which are excluded from the figure due to space constraints.}
     \label{fig:generic_policy}
 \end{figure}
+\todo{update the policy file,  enclave mode is missing}
+Notably, for the following demonstration, Cuqark commit xx and vanilla quark commit xx are utilized, and the policy (Figure ~\ref{fig:generic_policy}) and application (Figure ~\ref{fig:analysis_workload}) are used by default unless stated otherwise. As the application is already containerized, 
+we deploy it to either the cquark or vanilla quark environment using the YAML files in Figures ~\ref{fig:c_quark_deployment} and ~\ref{fig:vanila_quark_deployment}, respectively.  All artifacts related to the demo experiments covered in subsequent subsections are uploaded to GitHub.
+
+\todo{add cquark vanila quark commit}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/analysis_workload.PNG}
+    \caption[Sample program for demo in qualitative analysis]{Sample program for demo in qualitative analysis. This program outputs "hello world", command line arguments, and the environment variable "foo" to the standard output while also attempting to read the secret "root-ca.pem" under the directory "/secret"}
+    \label{fig:analysis_workload}
+\end{figure}
+
+
 
 
 \begin{table}[H]
