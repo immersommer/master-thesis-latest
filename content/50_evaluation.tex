@@ -148,6 +148,116 @@ Regarding file-type secrets, as detailed in Chapter 5, the enclave retains the f
 files exist only inside the enclave, the directory and its contents remain invisible to the application rootfs on the host (see Figure ~\ref{fig:cquark_deployment_result_file_secret_mount_location}). Consequently, secrets remain inaccessible to attackers who attempt to acquire them by investigating the application rootfs on the host.
 
 
+\subsection{Executing arbitrary command in container}
+In vanilla quark, anyone can execute commands on an application without any restrictions, thereby posing a potential risk to the confidentiality of the application.  For instance, If the application stores confidential information under the /var/log path, an attacker could use the "cat" 
+command to view the unauthorized file content (see figure ~\ref{fig:vanila_execute_cat_cmd}).
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/vanila_execute_cat_cmd.png}
+    \caption[Issues a cat command to the program running in vanilla quark]{Issues a cat command to the program running in vanilla quark.}
+    \label{fig:vanila_execute_cat_cmd}
+\end{figure}
+
+
+Cquark addresses this issue by categorizing commands into two: unprivileged user commands issued by kubectl and privileged user commands issued by securectl. Here, unprivileged users refer to untrusted entities such as the cluster operator, 
+whereas privileged users are specifically defined as application owner. Cquark empowers the application owner to establish a shield/enclave policy, which outlines the allowed commands for non-privileged users and the directories where the commands can run. 
+In Figure ~\ref{fig:cuqark_unprivileged_user_cat_rejected}, the attacker's attempt to issue the cat command using kubectl is refused because the shield policy prohibits unprivileged users from issuing cat commands (refers to the option single\_shot\_command\_line\_mode\_configs of 
+unprivileged user config in policy ~\ref{fig:generic_policy} ).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/cuqark_unprivileged_user_cat_rejected.png}
+    \caption[Use Kubectl to issue unprivileged commands to programs running in confidential quark]{Use Kubectl to issue unprivileged commands to programs running in cquark.  The attempt to execute non-privileged commands "ls /" and "cat /var/log/dpdk" is met with rejection by Cquark. 
+    The "ls /" command is disallowed as the enclave policy prohibits the execution of any unprivileged commands in the root directory, while "cat /var/log/dpdk" was rejected as it is not included in the unprivileged command whitelist (the option single\_shot\_command\_line\_mode\_configs of 
+    unprivileged user config in policy ~\ref{fig:generic_policy}) }
+    \label{fig:cuqark_unprivileged_user_cat_rejected}
+\end{figure}
+
+Instead, as shown in Figure ~\ref{fig:cuqark_privileged_user_cat_allowed}, the application owner is allowd to send a cat command to the enclave and view see the contents of file /var/log/dpkg.log.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/cuqark_privileged_user_cat_allowed.png}
+    \caption[Use Securectl to issue privileged commands to programs running in cquark]{Use Securectl to issue privileged commands to programs running in cquark.  The "ls /" command is rejected as the enclave policy prohibits the execution of any privileged commands in the root directory 
+    , while "cat /var/log/dpdk" and ls /var are allowed because ls and cat are in the privileged command whitelist and the directories "/var" and "/var/log" are within the range of directories that are allowed to execute privileged commands (option single\_shot\_command\_line\_mode\_configs of 
+    privileged user config in policy ~\ref{fig:generic_policy}).}
+    \label{fig:cuqark_privileged_user_cat_allowed}
+\end{figure}
+
+
+Additionally, to prevent attackers from executing commands by allocating a terminal in the application, we prohibit non-privileged users from creating a terminal using kubectl by disabling the xx option in the policy. However, privileged users can still create a terminal by using securectl, 
+as the enable\_terminal of privileged user config in policy ~\ref{fig:generic_policy} remains enabled (Figuer ~\ref{fig:cquark_terminal}).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/cquark_terminal.png}
+    \caption[Attempting to allocate a terminal through both securectl and kubectl]{Attempting to allocate a terminal through both securectl and kubectl。The request from kubectl is rejected because the enclave policy only allows privileged users to spawn a terminal using securectl 
+    (option enable\_terminal of unprivileged/privileged user config in policy ~\ref{fig:generic_policy})}
+    \label{fig:cquark_terminal}
+\end{figure}
+
+The outcome of the privileged command may contain confidential data. As this data is transmitted via k8s - an untrusted entity - the enclave encrypts it to ensure its protection from unauthorized access. After the encrypted execution result is returned to securectl, it decrypts it 
+using the key shared between itself and enclave (option privileged\_user\_key\_slice in policy ~\ref{fig:generic_policy}). This process is depicted in Figuer ~\ref{fig:cquark_priviled_cmd_result_protection}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/cquark_priviled_cmd_result_protection.png}
+    \caption[Process for securectl to handle privileged level commands]{Process for securectl to handle privileged level commands. This includes decrypting, verifying the integrity of the returned data, and printing the result}
+    \label{fig:cquark_priviled_cmd_result_protection}
+\end{figure}
+
+\subsection{Application log in plaintext managed by untrusted entity}
+Vanilla Quark allows any user to access the application log messages via kubectl log (see Figure 3). 
+Yet, these log messages may contain sensitive data of an application.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/vanilla_queak_app_log.png}
+    \caption[Accessing application log using kubectl in vanilla quark environment]{Accessing application log using kubectl in vanilla quark environment}
+    \label{fig:vanilla_queak_app_log}
+\end{figure}
+
+To prevent attackers from accessing the application log through kubectl log, the enclave in CQuark encrypts the application logs. Thus, only privileged users, namely the application owners, can view the logs by using securectl (as shown in Figure ~\ref{fig:cquark_log_from_secure_ctl}).
+ On the other hand, non-privileged users who use kubectl log can only access the logs in ciphertext (as depicted in Figure ~\ref{fig:cquark_log_from_kubectl}).
+
+\begin{figure}[H]
+
+    \subfloat[Accessing application log using securectl in confidential quark\label{fig:cquark_log_from_secure_ctl}]{%
+      \includegraphics[clip,width=\columnwidth]{images/cquark_log_from_secure_ctl.png}%
+    }
+    
+    \subfloat[Accessing application log using kubectl in confidential quark\label{fig:cquark_log_from_kubectl}]{%
+      \includegraphics[clip,width=\columnwidth]{images/cquark_log_from_kubectl.png}%
+    }
+    
+    \caption[Accessing application log through kubectl and securectl in confidential quark]{Accessing application log through kubectl and securectl in confidential quark. Figures 1 and 2 show that privileged users in cquark, i.e., 
+    application owners, have normal access to the application logs, while non\-privileged users using kubectl logs only obtain encrypted garbled code.}
+\end{figure}
+\subsection{Storing Qkernel Log on host in plaintext}
+In Vanilla Quark, guest kernel log messages are saved in the /var/log/quark directory on the host.  This arrangement could result in an untrusted entity like k8s operator, who has the access to the host,  obtain sensitive information from the logs(refer to Figure ~\ref{fig:vanilla_qkernel_Log}).
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/vanilla_qkernel_Log.png}
+    \caption[Accessing guest kernel log in vanilla quark]{Accessing guest log in vanilla quark. Note that both qvsivor and qkernel generate logs that are saved in the same file, i.e., /var/log/quark/quark.log. To distinguish between the logs, the logs generated by qkernel are prefixed with the keyword "Qkernel."}
+    \label{fig:vanilla_qkernel_Log}
+\end{figure}
+
+
+To mitigate the security risk, CQuark enables application owners to specify the logging level of the guest kernel logging system in the shield policy. Presently, this logging system supports five log levels, ranging from Off (least detailed) to Trace (most detailed). The logging system only prints 
+logs at a level equal to or below the level specified in the shield policy to host.  Currently, the log level in the enclave policy is configured to Off. As a result, guest kernel logging system will not print any logs to host (as illustrated in Figure ~\ref{fig:cquark_qkernel_log}).
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/cquark_qkernel_log.png}
+    \caption[Accessing guest kernel log in confidential quark]{Accessing guest kernel log in confidential quark.  Note that both qvsivor and qkernel generate logs that are saved in the same file, i.e., /var/log/quark/quark.log. To distinguish between the logs, the logs generated by qkernel are prefixed with the keyword "Qkernel."}
+    \label{fig:cquark_qkernel_log}
+\end{figure}
+
+
+
+\subsection{Vulnerability Out of Scope}
+
+
 
 
 \begin{table}[H]

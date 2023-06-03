@@ -59,6 +59,19 @@ DOC_IMG_JPG  = images/cquark_deployment_result.PNG
 DOC_IMG_JPG  = images/cquark_deployment_result_file_secret_mount_location.png
 
 
+DOC_IMG_JPG  = images/vanila_execute_cat_cmd.png
+DOC_IMG_JPG  = images/cuqark_unprivileged_user_cat_rejected.png
+DOC_IMG_JPG  = images/cuqark_privileged_user_cat_allowed.png
+DOC_IMG_JPG  = images/cquark_terminal.png
+DOC_IMG_JPG  = images/cquark_priviled_cmd_result_protection.png
+
+
+DOC_IMG_JPG  = images/vanilla_qkernel_Log.png
+DOC_IMG_JPG  = images/vanilla_queak_app_log.png
+DOC_IMG_JPG  = images/cquark_qkernel_log.png
+DOC_IMG_JPG  = images/cquark_log_from_kubectl.png
+DOC_IMG_JPG  = images/cquark_log_from_secure_ctl.png
+
 
 
 
