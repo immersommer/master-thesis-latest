@@ -73,7 +73,7 @@ DOC_IMG_JPG  = images/cquark_log_from_kubectl.png
 DOC_IMG_JPG  = images/cquark_log_from_secure_ctl.png
 
 
-
+DOC_IMG_JPG  = images/application_failed_to_start_due_to_syscall_interceptor.png
 
 
 # evaluation images for performance
