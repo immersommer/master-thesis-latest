@@ -73,7 +73,11 @@ DOC_IMG_JPG  = images/cquark_log_from_kubectl.png
 DOC_IMG_JPG  = images/cquark_log_from_secure_ctl.png
 
 
-DOC_IMG_JPG  = images/application_failed_to_start_due_to_syscall_interceptor.png
+DOC_IMG_JPG  = images/cquark_launch_measurement_demo_kbs.png
+DOC_IMG_JPG  = images/cquark_launch_measurement_demo.png
+DOC_IMG_JPG  = images/cquark_restart_administration_demo.png
+DOC_IMG_JPG  = images/cquark_runtime_runtime_binary_measurement_demo.png
+DOC_IMG_JPG  = images/cquark_runtime_runtime_lib_measurement_demo.png
 
 
 # evaluation images for performance
