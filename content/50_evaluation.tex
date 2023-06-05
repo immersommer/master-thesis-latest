@@ -64,7 +64,6 @@ In this section, we provide a synopsis of the security vulnerabilities uncovered
 \end{figure}
 
 
-
 The enclave policy file in Figure ~\ref{fig:generic_policy}, secrets in Figures ~\ref{fig:file_secrets}  and ~\ref{fig:cmd_env_secrets}, and the YAML file in Figure ~\ref{fig:c_quark_deployment}  are used for 
 application deployment in Cquark. 
 \begin{figure}[H]
@@ -235,6 +234,7 @@ To prevent attackers from accessing the application log through kubectl log, the
     \caption[Accessing application log through kubectl and securectl in confidential quark]{Accessing application log through kubectl and securectl in confidential quark. Figures 1 and 2 show that privileged users in cquark, i.e., 
     application owners, have normal access to the application logs, while non\-privileged users using kubectl logs only obtain encrypted garbled code.}
 \end{figure}
+
 \subsection{Storing Qkernel Log on host in plaintext}
 In Vanilla Quark, guest kernel log messages are saved in the /var/log/quark directory on the host.  This arrangement could result in an untrusted entity like k8s operator, who has the access to the host,  obtain sensitive information from the logs(refer to Figure ~\ref{fig:vanilla_qkernel_Log}).
 \begin{figure}[H]

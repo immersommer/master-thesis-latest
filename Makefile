@@ -43,6 +43,8 @@ DOC_IMG_JPG  = images/Container_Lifecycle_state.PNG
 
 # evaluation images for secureity analyse
 DOC_IMG_JPG  = images/generic_policy.PNG
+
+
 DOC_IMG_JPG  = images/analysis_workload.PNG
 DOC_IMG_JPG  = images/mongo_secret.PNG
 DOC_IMG_JPG  = images/vanila_quark_deployment.PNG
