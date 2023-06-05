@@ -870,8 +870,8 @@ The benchmark results in figure ~\ref{fig:application_start_microtest_baseline_t
 and the software measurement manager doubled the program startup time. Notably, the remote attestation and provisioning agent contributed the most to the latency overhead, which is expected, given its necessity to establish the TLS connection with the relying party, complete the remote 
 attestation process, and fetch the enclave policy following the KBS attestation protocol. With regards to the secret injector, the hardware evidence object driver, which is primarily responsible for loading secrets into the application process and generating a simulated hardware report accordingly,  
 exhibited a delay overhead of 0.90 milliseconds and 1.73 milliseconds, respectively. However, this delay is negligible compared to the overhead caused by the remote attestation and provisioning agent (~837 milliseconds).  Furthermore, based on the data presented in 
-Table ~\ref{table: Measurement_For_Hello_world}, the software measurement manager is found to measure approximately 1.45 MiB of data during program startup, leading to an overhead of only about 10 milliseconds.
-\todo{update table, remove the stack}
+Table ~\ref{table: Measurement_For_Hello_world}, the software measurement manager is found to measure approximately 1.47 MiB of data during program startup, leading to an overhead of only about 10 milliseconds.
+
 
 \begin{table}[htbp]
     \centering
@@ -879,10 +879,10 @@ Table ~\ref{table: Measurement_For_Hello_world}, the software measurement manage
     \caption{Software measurement manager measured data during application startup\strut}
     \begin{tabularx}{1\textwidth}{@{} l L L L L L L@{}}
     \toprule
-        Matrics    & ELF &  Shared Library   & Process Spec  & Stack   & Guest Kernel Args  & Total Measurement\\
+        Matrics    & ELF &  Shared Library   & Process Spec    & Guest Kernel Args  & Total Measurement\\
     \midrule
 
-        \vn{Measurement}     &  1.447 MiB    &   0 MiB  &   3819 Byte   & 305 Byte   &5865 Byte  & 1.457 MiB\\
+        \vn{Measurement}     &  1.447 MiB    &   0 MiB  &   304 Byte      &25004 Byte  & 1.47`' MiB\\
     \bottomrule
     \end{tabularx}
     \label{table: Measurement_For_Hello_world}
@@ -983,18 +983,17 @@ resulting in an increased startup time.
 \end{figure}
 
 
-\todo{data is not corret in table}
 \begin{table}[htbp]
     \centering
     \footnotesize
 
     \begin{tabularx}{1\textwidth}{@{} l L L L L L L@{}}
     \toprule
-        Matrics    & ELF &  Shared Library   & Process Spec  & Stack   & Guest Kernel Args  & Total Measurement\\
+        Matrics    & ELF &  Shared Library   & Process Spec     & Guest Kernel Args  & Total Measurement\\
     \midrule
 
-        \vn{Measurement for Redis}     &  3.64 MiB   &   12.61 MiB  &   3476 Byte   & 310 Byte   &5865 Byte  & 16.26 MiB\\
-        \vn{Measurement for Nginx}     &  5.5 MiB    &   61.64 MiB  &   3352 Byte  & 2169 Byte  &5865 Byte  & 67.15 MiB\\
+        \vn{Measurement for Redis}     &  3.64 MiB   &   12.61 MiB  &   304 Byte   &25004 Byte  & 16.27 MiB\\
+        \vn{Measurement for Nginx}     &  5.5 MiB    &   61.64 MiB  &   304 Byte   &25004 Byte  & 67.16 MiB\\
     \bottomrule
     \end{tabularx}
     \caption{Software Measurement Manager measured Data during Application Startup\strut}
@@ -1003,7 +1002,7 @@ resulting in an increased startup time.
 
 
 To validate our hypothesis, we measured the overhead induced by the remote attestation and provisioning agent, the secret injector, the hardware evidence driver, and the software measurement manager, as well as the size of the data measured by the software measurer during the application 
-startup in confidential Quark. The relevant details can be found in Figure  ~\ref{fig:time_disribution_startup_redis_nginx} and Table ~\ref{table:Measurement_For_Nginx_Redis}. Our findings show that the software measurer measured 16.25 MiB and 67.15 MiB of data for Redis and Nginx respectively, 
+startup in confidential Quark. The relevant details can be found in Figure  ~\ref{fig:time_disribution_startup_redis_nginx} and Table ~\ref{table:Measurement_For_Nginx_Redis}. Our findings show that the software measurer measured 16.27 MiB and 67.16 MiB of data for Redis and Nginx respectively, 
 leading to a latency of 60.69 ms and 324 ms. Additionally, even though both applications have the same setup for the remote attestation and provisioning agent, the difference in latency overhead from the remote attestation and provisioning agent due to possible network transmission jitter 
 was approximately 65 ms. Moreover, the latency generated from the hardware evidence driver and secret injection was less than 1 ms in both cases, which was insignificant compared to the software measurer and remote attestation and provisioning agent's overhead. To summarize, 
 Nginx's startup time is longer compared to Redis due to two key reasons - network jitter and Nginx requires the software measurement manager to process more data during setup.
