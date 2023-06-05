@@ -176,7 +176,7 @@ unprivileged user config in policy ~\ref{fig:generic_policy} ).
     \label{fig:cuqark_unprivileged_user_cat_rejected}
 \end{figure}
 
-Instead, as shown in Figure ~\ref{fig:cuqark_privileged_user_cat_allowed}, the application owner is allowd to send a cat command to the enclave and view see the contents of file /var/log/dpkg.log.
+Instead, as shown in Figure ~\ref{fig:cuqark_privileged_user_cat_allowed}, the application owner is allowd to send a cat command to the enclave and view the contents of file /var/log/dpkg.log.
 
 \begin{figure}[H]
     \centering
@@ -188,8 +188,8 @@ Instead, as shown in Figure ~\ref{fig:cuqark_privileged_user_cat_allowed}, the a
 \end{figure}
 
 
-Additionally, to prevent attackers from executing commands by allocating a terminal in the application, we prohibit non-privileged users from creating a terminal using kubectl by disabling the xx option in the policy. However, privileged users can still create a terminal by using securectl, 
-as the enable\_terminal of privileged user config in policy ~\ref{fig:generic_policy} remains enabled (Figuer ~\ref{fig:cquark_terminal}).
+Additionally, to prevent attackers from executing commands by allocating a terminal in the application, we prohibit non-privileged users from creating a terminal using kubectl by setting enable\_terminal to fasle in unprivileged user config section in the policy ~\ref{fig:generic_policy}. 
+However, privileged users can still create a terminal by using securectl, as the enable\_terminal of privileged user config in policy ~\ref{fig:generic_policy} remains enabled (Figuer ~\ref{fig:cquark_terminal}).
 
 \begin{figure}[H]
     \centering
@@ -199,7 +199,7 @@ as the enable\_terminal of privileged user config in policy ~\ref{fig:generic_po
     \label{fig:cquark_terminal}
 \end{figure}
 
-The outcome of the privileged command may contain confidential data. As this data is transmitted via k8s - an untrusted entity - the enclave encrypts it to ensure its protection from unauthorized access. After the encrypted execution result is returned to securectl, it decrypts it 
+The outcome of the privileged command may contain confidential data. As this data is transmitted via Kubernetes\cite*{k8s} - an untrusted entity - the enclave encrypts it to ensure its protection from unauthorized access. After the encrypted execution result is returned to securectl, it decrypts it 
 using the key shared between itself and enclave (option privileged\_user\_key\_slice in policy ~\ref{fig:generic_policy}). This process is depicted in Figuer ~\ref{fig:cquark_priviled_cmd_result_protection}.
 
 \begin{figure}[H]
@@ -210,7 +210,7 @@ using the key shared between itself and enclave (option privileged\_user\_key\_s
 \end{figure}
 
 \subsection{Application log in plaintext managed by untrusted entity}
-Vanilla Quark allows any user to access the application log messages via kubectl log (see Figure ~\ref{fig:vanilla_queak_app_log}). 
+Vanilla Quark allows any user to access the application log messages via kubectl log\cite*{kubectl} (see Figure ~\ref{fig:vanilla_queak_app_log}). 
 Yet, these log messages may contain sensitive data of an application.
 \begin{figure}[H]
     \centering
@@ -219,7 +219,7 @@ Yet, these log messages may contain sensitive data of an application.
     \label{fig:vanilla_queak_app_log}
 \end{figure}
 
-To prevent attackers from accessing the application log through kubectl log, the enclave in CQuark encrypts the application logs. Thus, only privileged users, namely the application owners, can view the logs by using securectl (as shown in Figure ~\ref{fig:cquark_log_from_secure_ctl}).
+To prevent attackers from accessing the application log through kubectl log\cite*{kubectl}, the enclave in confidential quark encrypts the application logs. Thus, only privileged users, namely the application owners, can view the logs by using securectl (as shown in Figure ~\ref{fig:cquark_log_from_secure_ctl}).
  On the other hand, non-privileged users who use kubectl log can only access the logs in ciphertext (as depicted in Figure ~\ref{fig:cquark_log_from_kubectl}).
 
 \begin{figure}[H]
@@ -246,7 +246,7 @@ In Vanilla Quark, guest kernel log messages are saved in the /var/log/quark dire
 \end{figure}
 
 
-To mitigate the security risk, CQuark enables application owners to specify the logging level of the guest kernel logging system in the shield policy. Presently, this logging system supports five log levels, ranging from Off (least detailed) to Trace (most detailed). The logging system only prints 
+To mitigate the security risk, confidential quark enables the application owner to specify the logging level of the guest kernel logging system in the shield policy. Presently, this logging system supports five log levels, ranging from Off (least detailed) to Trace (most detailed). The logging system only prints 
 logs at a level equal to or below the level specified in the shield policy to host.  Currently, the log level in the enclave policy is configured to Off. As a result, guest kernel logging system will not print any logs to host (as illustrated in Figure ~\ref{fig:cquark_qkernel_log}).
 \begin{figure}[H]
     \centering
@@ -257,8 +257,8 @@ logs at a level equal to or below the level specified in the shield policy to ho
 \end{figure}
 
 \subsection{No restriction to application's syscalls (guest system call)}
-Vanilla Quark does not provide any functionality to restrict the available system calls for an application. Consequently， an attacker can trick an application into executing a vulnerable system call to snoop on the application's confidential data. To address this issue, CQuark introduces a guest 
-system call interceptor in the qkernel, which enables application owners to restrict the guest system calls that an application can invoke through the shield policy in Figure ~\ref{fig:generic_policy}.
+Vanilla Quark does not provide any functionality to restrict the available system calls for an application. Consequently， an attacker can trick an application into executing a vulnerable system call to snoop on the application's confidential data. To address this issue,  confidential quark introduces a guest 
+system call interceptor, which enables application owner to restrict the guest system calls that an application can invoke through the shield policy in Figure ~\ref{fig:generic_policy}.
 
 \begin{figure}[H]
     \centering
@@ -273,10 +273,10 @@ the application process failed to start. The failure occurred because it lacked 
 \subsection{Lack of runtime measurements}
 
 The application binary and it’s runtime libraries in Vanilla Quark are stored on the host machine. The code is loaded into the guest memory only at runtime, which creates a potential vulnerability that an attacker may exploit to force the 
-application to execute corrupted code, thereby compromising confidential information. In response, CQuark provides two types of security measures:
+application to execute corrupted code, thereby compromising confidential information. In response, Confidential Quark provides two types of security measures:
 
 \subsubsection{Application launch measurement}
-During program startup (after the enclave starts and until the application runs), the enclave measures the data it loads from the host, including the guest kernel configuration, the application process spec, and the application binary. The result 
+During program startup (from the enclave starts until the application runs), the enclave measures the data it loads from the host, including the guest kernel configuration, the application process spec, and the application binary. The result 
 of these measurements is known as the application launch hash, which is included in the remote attestation report sent to KBS. KBS subsequently compares the hash value to the reference hash value in the enclave policy, which was previously uploaded 
 by the application owner. If the hash values do not coincide, KBS denies the transfer of any sensitive information to the enclave.
 \begin{figure}[H]
@@ -293,15 +293,15 @@ by the application owner. If the hash values do not coincide, KBS denies the tra
     \label{fig:cquark_launch_measurement}
 \end{figure}
 
-A demonstration is shown in Figure ~\ref{fig:cquark_launch_measurement}. Regarding the setup, we modified the program in Figure ~\ref{fig:analysis_workload} (correspondent to image qualitative\-analyze) and created a new image labeled qualitative\-analyze\-fake. The altered image was then deployed to 
-the micro\-cquark pod in an attempt to obtain the image "qualitative\-analyze" 's secrets. However, as shown in Figure ~\ref{fig:cquark_launch_measurement_demo_kbs}, KBS rejected the request initiated by micro-cquark due to a mismatch between the application startup hash from the micro\-cquark
- pod and the reference application launch hash generated by qualitative-analyze image. In essence, the modification of the program caused the binary contents to change, resulting in startup measurements of the application launched from the 
- qualitative\-analyze\-fake image that does not correspond with the startup reference hash (for the original program) depicted in the enclave policy (Figure ~\ref{fig:generic_policy}). This experiment confirmed kbs would reject enclave requests if there is any modification 
+A demonstration is shown in Figure ~\ref{fig:cquark_launch_measurement}. Regarding the setup, we modifie the program\cite*{qualitativ_workload} in Figure ~\ref{fig:analysis_workload} (correspondent to image qualitative\-analyze) and create a new image labeled qualitative\-analyze\-fake. 
+The altered image is then deployed to the micro\-cquark pod in an attempt to obtain the image "qualitative\-analyze" 's secrets. However, as shown in Figure ~\ref{fig:cquark_launch_measurement_demo_kbs}, KBS rejecte the request initiated by micro-cquark due to a mismatch between the 
+application startup hash from the micro\-cquark pod and the reference application launch hash generated by qualitative-analyze image. In essence, the modification of the program caused the binary contents to change, resulting in startup measurements of the application launched from the 
+ qualitative\-analyze\-fake image that does not correspond with the startup reference hash (for the original program) depicted in the enclave policy (Figure ~\ref{fig:generic_policy}). This experiment confirmed KBS would reject enclave requests if there is any modification 
  of data loading during the application startup process.
 
 
 \subsubsection{Shared library/executable measurement at runtime}
-Regarding dynamic libraries and binaries loaded during program runtime, the enclave  measure the loaded data and compare the hash with the runtime reference hash in the enclave policy.
+Regarding runtime libraries and binaries loaded during application runtime, the enclave  measure the loaded data and compare the hash with the  reference hash in the enclave policy.
 
 \begin{figure}[H]
     \centering
@@ -310,8 +310,8 @@ Regarding dynamic libraries and binaries loaded during program runtime, the encl
     \label{fig:cquark_runtime_runtime_lib_measurement_demo}
 \end{figure}
 
-Figure ~\ref{fig:cquark_runtime_runtime_lib_measurement_demo} shows a demo of measuring the runtime library. As part of the setup, We reset the reference hash of  library "/lib/x86\_64-linux-gnu/libgcc\_s.so.1" in the enclave policy to empty and configure the logging level 
-of Qkernel in the enclave policy to Info(refer to Figure ~\ref{fig:generic_policy}). Next, we deployed the program using the YAML in Figure ~\ref{fig:cquark_deployment} and observe the qkernel logs  The log reveales that the enclave encountered 
+Figure ~\ref{fig:cquark_runtime_runtime_lib_measurement_demo} shows a demo of measuring the runtime library. As part of the setup, We reset the reference hash of  library "/lib/x86\_64-linux-gnu/libgcc\_s.so.1" in the enclave policy to empty and 
+configure the logging level of Qkernel in the enclave policy to Info(refer to Figure ~\ref{fig:generic_policy}). Next, we deployed the program using the YAML in Figure ~\ref{fig:cquark_deployment} and observe the qkernel logs  The log reveales that the enclave encountered 
 a crash due to a difference between the measurement of the loaded library and the corresponding reference hash stored in the policy. This finding highlights the enclave's ability to reject execution when an adversary seeks to deceive the enclave 
 into loading harmful library code.
 
@@ -324,9 +324,9 @@ into loading harmful library code.
 
 
 Figure ~\ref{fig:cquark_runtime_runtime_binary_measurement_demo} is a demo of measuring binary loaded at application runtime  As part of the setup, We reset the reference hash of ls binary in the enclave policy to empty and configure the logging level of Qkernel in the enclave policy to 
-Info(Figure ~\ref{fig:generic_policy}). Subsequently, we facilitated deployment of the program using the YAML file in Figure ~\ref{fig:cquark_deployment} and executed the 'ls' command via 'kubeclt exec', causing the enclave to load the 
-corresponding binary from the host. However, the command failed to elicit a response. Upon analysis of the Qkernel log, we confirmed that the Qkernel crashed due to a mismatch between the reference hash of 'ls' binary and its actual hash. 
-This finding highlights the enclave's ability to refuse execution when an adversary attempts to trick the enclave into loading harmful binary code.
+Info(Figure ~\ref{fig:generic_policy}). Subsequently, we facilitated deployment of the program using the YAML file in Figure ~\ref{fig:cquark_deployment} and executed the 'ls' command via 'kubeclt exec'\cite*{kubectl}, causing the enclave to load the 
+corresponding 'ls'binary from the host. However, the command failed to elicit a response. Upon analysis of the Qkernel log, we confirmed that the Qkernel crashed due to a mismatch between the reference hash of  binary and its actual hash. 
+This finding highlights the enclave's ability to refuse execution when an adversary attempts to trick the enclave into loading harmful binary code during application runtime.
 
 \subsection{Missing administration to application restartup}
 
@@ -339,16 +339,16 @@ This finding highlights the enclave's ability to refuse execution when an advers
 
 
 
-In the event of an unexpected application process exit, k8s may elect to recreate a pod to run the crashed program, or restart the program within the original pod if it still exists. In the latter scenario, the Qkernel must reload the application 
-binaries from the host, as well as the application process specification. Given that the application secrets are already stored within the enclave, remote attestation is skiped during application restart , meaning that the relying party is unable 
-to verify the integrity of the host loaded data during the rebuild process. This opens the possibility for an attacker to provide the enclave with corrupted code. To address this risk, cquark stores the hash value of the initial application 
-startup, known as app\_ref\_measurement. During the application rebuild process, cquark measures host-loaded data and calculate the hash value known as tmp\_measurement.  Cquark will compare these two hash values to ensure that the re-creation 
+In the event of an unexpected application process exit, Kubernetes may elect to recreate a pod to run the crashed program, or restart the program within the original pod if it still exists\cite*{k8s}. In the latter scenario, the Qkernel must reload the application 
+binary from the host, as well as the application process specification. Given that the application secrets are already stored within the enclave, remote attestation is skiped during application restart , meaning that the relying party is unable 
+to verify the integrity of the host loaded data. This opens the possibility for an attacker to provide the enclave with corrupted code. To address this risk, Enclave in confidential quark stores the hash value of the initial application 
+startup, known as app\_ref\_measurement, on guest memory. During the application rebuild process, cquark measures host-loaded data and calculate the hash value known as tmp\_measurement.  Enclave will compare these two hash values to ensure that the re-creation 
 process is correct.
 
-The processes described above are exemplified in Figure ~\ref{fig:cquark_restart_administration_demo}. In this example, we configure the Qkernel log level to 'Info' in the enclave policy displayed in Figure 3, and add the keywords 
-'stdin: true' and 'tty: true' to the container spec of the YAML file used to deploy the application (as shown in Figure ~\ref{fig:cquark_deployment}). These keywords keep the application's stdin open and signal to k8s that it should also 
-be regarded as a terminal. In the demo, we first create the application using the modified YAML file. Once the application started, we use 'kubectl attach -it' to establish a connection with the application's stdin and halted the program using 'ctrl c'. The output of the second 'kubectl get' command in Figure ~\ref{fig:cquark_restart_administration_demo} confirmed 
-that the program had succesfully restarted. After analyzing the Qkernel log, we find that Qkernel measured the process spec and application binary loaded from the host during application recreation. This measurement is saved in the 
+The processes described above are exemplified in Figure ~\ref{fig:cquark_restart_administration_demo}. In this example, we configure the Qkernel log level to 'Info' in the enclave policy displayed in Figure \ref{fig:generic_policy}, and add the keywords 
+'stdin: true' and 'tty: true' to the container spec of the YAML file used to deploy the application (as shown in Figure ~\ref{fig:cquark_deployment}). These keywords keep the application's stdin open and signal to Kubernetes that it should 
+be regarded as a terminal. In the demo, we first create the application using the modified YAML file. Once the application started, we use 'kubectl attach -it' to establish a connection with the application's stdin and halted the program using 'ctrl c'. The output of the second 'kubectl get' 
+command in Figure ~\ref{fig:cquark_restart_administration_demo} confirmed that the program had succesfully restarted. After analyzing the Qkernel log, we find that Qkernel measured the process spec and application binary loaded from the host during application recreation. This measurement is saved in the 
 'tmp\_measurement' variable and compared to the hash value, 'app\_ref\_measurement' before the program process entered the user space.
 
 
