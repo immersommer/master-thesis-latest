@@ -55,7 +55,7 @@ space process, command execution and terminal allocation, paravirtualized file s
 \subsection{Application Secrets Deployment}
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\textwidth]{images/quark-agent-work-flow.png}
+    \includegraphics[width=0.8\textwidth]{images/quark-agent-work-flow.png}
     \caption[Quark Agent Workflow]{Quark Agent Workflow. The Quark agent is located in the qkernel. It is responsible for receiving requests from quark-shim, like creating application processes, creating exec processes, deleting a
     pplication processes, etc.}
     \label{fig:quark_agent_work_flow}
@@ -243,15 +243,22 @@ vulnerable system call. For example, an attacker can start a malicious exec proc
 owner is allowed to specify the available system calls for the application. 
 For more details on the mitigation please refer to section XX.
 
-\subsection{Guest Kernel Arg}
+\subsection{Guest Kernel Args}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.5\textwidth,height=0.4\textheight]{images/quark_config.PNG}
+  \caption[Configuration file for Qkernel, Qvisor, and Quark shim]{Configuration file for Qkernel, Qvisor, and Quark shim. The file is installed as a global configuration file for quark in the /etc/quark/ directory. When quark-shim or qvisor starts, it reads this file and completes the relevant configuration}
+  \label{fig:quark_config}
+\end{figure}
+
 Qkernel is a binary which is loaded into the guest memory during Qvisor setting up the guest. To properly configure the Qkernel,  Qvisor also passes several command-line arguments to the Qkernel, including the number of vcpus, the socket file 
-descriptor that the quark-agent listens to, and a configuration file. This configuration file specifies the runtime behavior of the Qkernel, such as whether to enable the ucall interface, whether to enable RDMA, and so on. A malicious configuration 
+descriptor that the quark-agent listens to, and a configuration file shown in Figure~\ref{fig:quark_config}. This configuration file specifies the runtime behavior of the Qkernel, such as whether to enable the ucall interface, whether to enable RDMA, and so on. A malicious configuration 
 files can lead to the disclosure of the secrets stored in Qkernel. For example, turning on RDMA would allow an untrusted remote party has the direct access to the Qkernel’s memory. For this reason, the Qkernel should measure the configuration file 
 and send it as part of the application startup hash to the relying party for integrity checking. 
 
 \subsection{Guest kernel Log}
 Qkernel logs is stored by qvisor in the host /var/log/quark directory via Hcall::HYPERCALL\_PRINT. Currently, the Qkernel logging system supports five levels of logging, OFF, Error, Info, Debug, Trace. Here OFF is the minor level, i.e. the least 
-detailed, and Trace is the highest level, i.e. the most detailed log. The user can configure the highest level of logging for qkernel through DebugLevel ketword in the configuration file. For example, when the DebugLevel is info, qkernel 
+detailed, and Trace is the highest level, i.e. the most detailed log. The user can configure the highest level of logging for qkernel through DebugLevel ketword in the configuration file (Figure~\ref{fig:quark_config}). For example, when the DebugLevel is info, qkernel 
 prints logs in level error, and info. 
 
 A malicious k8s administrator may set the DebugLevel keyword to Trace and then analyze the qkernel logs stored in the host to obtain sensitive information. 
@@ -259,6 +266,8 @@ This problem can be solved by measuring the guest kernel arg. However, both Qvis
 line argument when lauching the guest. If the k8s administrator sets the DebugLevel keyword to trace in order to view the qvisor's logs, the Qkernel will have to print very detailed log messages, which may contain application’s secrets. 
 To break the coupling between the qvisor and qkernel logging system configuration, we should offload the qkernel logging system configuration from this configuration file and allow the application owner to specify the maximum logging level of the 
 Qkerenl logging system in a policy. This policy is obtained at application startup via remote attestation. Until then, the logging level of the qkernel is set to the default level OFF, i.e. no logs will be printed.
+
+
 
 
 % For this reason, we should offload the configuration of the logging system from the qkernel configuration file and allow the application owner to specify the maximum logging level for the specified client kernel logging system in the protection 

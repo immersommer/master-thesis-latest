@@ -137,6 +137,7 @@ DOC_IMG_JPG  = images/termianl_workflow.png
 DOC_IMG_JPG  = images/page_fault_handling.png
 DOC_IMG_JPG  = images/load_shared_libarart.png
 DOC_IMG_JPG  = images/loader_flow.png
+DOC_IMG_JPG  = images/quark_config.PNG
 
 # latex stuff
 LUALATEX    ?= lualatex --synctex=1
