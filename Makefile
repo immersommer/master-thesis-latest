@@ -130,10 +130,13 @@ DOC_IMG_JPG  = images/Sequential_Write.PNG
 
 
 
-
-
-
-
+# security analises
+DOC_IMG_JPG  = images/quark-agent-work-flow.png
+DOC_IMG_JPG  = images/normorl_io.png
+DOC_IMG_JPG  = images/termianl_workflow.png
+DOC_IMG_JPG  = images/page_fault_handling.png
+DOC_IMG_JPG  = images/load_shared_libarart.png
+DOC_IMG_JPG  = images/loader_flow.png
 
 # latex stuff
 LUALATEX    ?= lualatex --synctex=1
