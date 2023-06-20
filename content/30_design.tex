@@ -21,374 +21,290 @@
 %\ldots design \ldots
 
 %\todo{write design}
+This chapter presents a design proposal for a shielding interface that protects applications from being compromised by the OCI interface. Our discussion revolves around the design's various components, functions, interactions, and security 
+implications. Our proposed design includes the following parts:
 
-DESIGN
+\textbf{Remote attestation and secret provisioning Infrastructure.} This infrastructure forms the cornerstone of secure application deployment and operation by ensuring proper application launch and safeguarding the integrity and confidentiality of 
+secrets provisioned by the application owner. Secrets management and deployment are offloaded from Kubernetes and Quark Shim to a trusted relying party. The shield relies on this infrastructure to measure the application launch process and 
+establish secure communication with the relying party for secret retrieval.
 
+\textbf{A new pattern for EXEC requests.} This pattern is designed to address three security concerns, namely issuing unauthorized commands to the application, unrestricted allocation of a terminal using kubectl exec -it, and lack of protection for 
+commands issued by the application owner. We will explain this further in Section 3.2.
+ 
 
+\textbf{A mechanism for protecting guest processes' stdio.} This mechanism ensures the protection of the confidentiality and integrity of application logs and terminal data streams belonging to the application owner and prevents attackers from stealing 
+the execution results of privileged commands.
 
+\textbf{System call interception.} A user-configurable guest system call interception policy.
 
+\textbf{Qkenrell Log management.} A user-configurable guest logging protection policy.
 
-\section{Recap}
-
-\subsection{k8s overview}
-
-    \begin{figure}[H]
-        \centering
-        \includegraphics[width=0.8\textwidth]{images/IMG_4416.PNG}
-        \caption[k8s arch]{k8s arch}
-        \label{fig:k8s}
-    \end{figure}
-
-    The tenant connects to the api server located on the master node via the https protocol and issues commands to the cluster via this channel
-    
-    The master node establishes a connection to the kubelet service located on each worker node via the https protocol. Through this channel, it can manage the lifecycle of the worker nodes and the pods running on them. Furthermore, commands sent from the tenant to the master node 
-    are also sent to the worker nodes through this link, including creating a pod, deleting a pod, etc.
-    
-    The kubelet at each worker node acts as an agent, listening for requests/commands from the master and calling other services located on the same node to fulfill the request.
-    
-    In the case of container/image management related requests, it makes a call to a host choosed high level container runtime.
-    These High-level container managers, such as containerd, and cri-o, are responsible for managing the container lifecycle and images, while the actual creation/deletion of pods/containers is done by the lower-level container runtime or so called shim process.
-
-    Furthermore, it is worth noting that in order to facilitate communication between kubelet and different high level container runtimes, kubelet proposes an abstract interface called CRI interface. This interface defines a set 
-    of endpoints for how high levek container runtime manage the lifecycle of pods/containers and images. Therefore, it must be implemented by any high-level container runtime that wishes to integrate into the k8s environment. This interface breaks the dependency between kubelet 
-    and a specific high-level container manager and greatly improves the extensibility of k8s.
-    
-    Similar to the idea of defining a CRI interface, the high-level container runtime also defines an abstract interface for communicating with shim processes that run containers in different ways. In the case of containerd, this abstract interface is called the shim v2 API. 
-    This interface defines endpoints for creating/deleting containers, issuing commands to a container or allocating terminal in a container etc.
+In the following sections, we first describe the remote attestation and provisioning infrastructure in Section 4.1. We then introduce the new pattern of EXEC requests, the mechanism for protecting the standard IO of guest processes, the guest 
+system call interceptor, and the guest log management policy in Sections 4.2, 4.3, 4.4, and 4.5, respectively. Finally, we propose modifications to the OCI interface in Section 4.6.
 
 
-\subsection{quark overview}
+\section{General Architecture}
+The secure virtual machine provides a trusted execution environment that encapsulates the guest, including the Qkernel and application. This environment is also known as an enclave. However, since the Qkernel uses the Qcall, Ucall, and Hcall 
+interface to access host services, the shielding layer is added to the Qkernel to prevent attackers from exploiting these interfaces to launch attacks on the enclave. The shield layer controls the communication between the Qkernel and untrusted 
+hosts via Ucall, Qcall, and Hcall, modifying the communication according to the shield policy set by the application owner. As this shielding layer is part of the Qkernel, its state is protected by the secure virtual machine.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/genaral_architechture.png}
+    \caption[General Architecture]{General Architecture. The green components in the figure are trusted ,and the red components are not trusted.}
+    \label{fig:genaral_architechture}
+\end{figure}
+
+
+On the application owner's side, we introduce Securectl, which establishes a secure channel between the application owner and the enclave. The tool runs in an environment trusted by the application owner and provides an interface to communicate 
+with the application and control the shield. The secret manager manages the application's secrets and runs in the cloud, protected by a secure virtual machine. The application owner can authenticate the secret manager using the remote attestation 
+mechanism and then upload the secrets through a secure channel. The secret manager validates the application startup process against the policy uploaded by the application owner and securely sends the secrets to the shield. The shield is responsible 
+for secret deployment and ensures that the secret is not compromised while the application runs.
+
+\section{Quark Attestation and Provisioning Infrastructure}
+This section presents the Quark attestation and provisioning infrastructure, which is designed to facilitate secure application deployment and provides a means for applications to obtain attestation reports at runtime. In particular, it offers mitigation for the following three security issues identified in the security analysis:
+
+Untrusted Kubernetes and Quark-shim manage and deploy applications' secrets.
+Corrupted application binaries may be loaded during the application build process.
+Lack of measurement of Qkernel command line parameters.
+
+\subsection{Overview}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/Qkernel_attestation_infrastructurc.png}
+    \caption[Quark Attestation and Provisioning Infrastructure]{Quark Attestation and Provisioning Infrastructure}
+    \label{fig:Qkernel_attestation_infrastructurc}
+\end{figure}
+
+The management and deployment of application secrets are delegated from Kubernetes to the Quark attestation and provisioning infrastructure, as illustrated in Figure~\ref{fig:Qkernel_attestation_infrastructurc}. The infrastructure comprises two 
+parts- the secret manager and several components in the enclave shielding layer. These components include the remote attestation and provisioning agent, the secret injector, the Qkernel attestation driver, and the software measurement manager.
+
+The secret manager is responsible for managing and provisioning secrets to the enclave. It runs in a cloud-based trusted execution environment. This guarantees the confidentiality of its managed secrets. The application owner validates the secret 
+manager before securely uploading secrets to it. The secrets include the shielding layer's policy, the application's startup parameters, environment variables, and files. The cluster administrator deploys applications. The software measurement 
+manager will measure the application binaries and Qkernel startup parameters to ensure correct deployment. The results are sent to the secret manager as part of the enclave's attestation report for integrity check. The report is generated by TEE 
+hardware with the help of the Qkernel attestation driver.
+
+During remote attestation and provisioning, the remote attestation and provisioning agent prove its identity to the secret manager and retrieves secrets. This process is done following the KBS attestation protocol. The shielding layer's components 
+are then initialized with the policy, and application-related secrets are deployed to the application process by the secret injector. Specifically, the application startup parameters and environment variables are inserted into the stack of the 
+application process. For file-type secrets, the injector keeps them in enclave memory as the host is untrusted. To make these file type secrets accessible to the application, the injector creates a subfile system for these secrets using Qkernel's 
+virtual file system interface. The file system is mounted in the /secret directory, and the application can access these secrets the same way as any other files in the host rootfs. The difference is that access to these secrets is redirected to the shielding layer instead of the host. In this way, we offload the secret management and deployment from Kubernetes.
+
+Finally, the infrastructure allows applications to obtain attestation reports at runtime through the guest system call interface. For more information, please refer to Section XX.
+
+\subsection{Secret Uploading}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/upload_secret.png}
+    \caption[Secret Uploading Workflow]{Secret Uploading Workflow. Note that in the figure, the application owner uses Securectl to attest secret manager and upload secrets.}
+    \label{fig:upload_secret}
+\end{figure}
+
+The process of uploading secrets to the secret manager requires two steps to be taken by the application owner. Firstly, the application owner needs to attest the secret manager. Secondly, a secure channel must be established for the secret uploading.
+This process is illustrated in Figure~\ref{fig:upload_secret}. We assume the secret manager is running in the AMD SEV SNP~\cite*{SEV_SNP_white_book}. Initially, 
+the secret manager requests SNP to generate a key pair for the TLS connection. The private key of this pair is then stored in the secret manager's memory, which is protected by the TEE.
+Since the key pair can only be used by the secret manager, it can be considered as an identifier for the secure channel. To bind the secret manager to the identifier of the secure channel,
+the hash of the public key is added to the attestation report of the secret manager. Upon receiving the report, the application owner requests a certificate chain from the AMD KDC using 
+the CHIP\_ID and TSB parameters in the report~\cite*{snp_kdc}. The certificate chain is then used by the application owner to verify the signature of the report. Then using the information in the report,
+the application owner can ensure that the remote secret manager is genuine and that the hash of the public key used to establish the TLS matches the hash of the public key in the report. 
+By fulfilling these steps, the application owner can determines that the entity on the other side of the secure channel is the intended secret manager. Thus, the channel can 
+safely be leveraged for the secrets uploading.
+
+\subsection{Secure Application Deployment}
+
+The objective of secure application deployment is to ensure the confidentiality and integrity of an application's sensitive data and the shielding layer's policy. To achieve this goal, a new deployment mechanism is proposed to offload secrets 
+management and deployment from Kubernetes, as illustrated in Figure~\ref{fig:attestation_provisioning}.
+
+The cluster operator still uses YAML to deploy applications but without including any secrets. Instead, the application secrets and the policy of the shielding layer are uploaded to the secret manager. The cluster operator only needs to provide the 
+IP address of the secret manager and secrets'URL in the YAML. This IP address is used by the remote attestation and provisioning agent to establish a connection with the secret manager during the application process creation, while the URLs are 
+employed by the agent to request secrets via the HTTP GET method.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/attestation_provisioning.png}
+    \caption[Secure Application Deployment Workflow]{Secure Application Deployment. The green components are running in the enclave. The cluster operator is not trusted. The Secret Manager is responsible for managing the secrets as a relying party, attesting  enclave, and provisioning the secrets.}
+    \label{fig:attestation_provisioning}
+\end{figure}
+
+Upon receiving an application creation request, the quark agent located in the enclave creates the application process based on a process specification. This involves loading the application binaries from the host machine, setting up the file 
+system for the application process, etc. To ensure the integrity of the loaded binaries, the software measurement manager extends the loaded binaries with a hash called the enclave start measurement, through which the loaded binaries are bound to 
+the enclave start hash. Note that this measurement is constructed at the enclave start, which also includes a measurement of the Qkernel command-line arguments.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/attestation_report_format.png}
+    \caption[SNP attestation report]{SNP attestation report.}
+    \label{fig:attestation_report_format}
+\end{figure}
+
+Subsequently, the remote attestation and provisioning agent requests the Qkernel attestation driver to generate an attestation report. Depending on the type of TEE, the driver will generate a different attestation report. Assuming the enclave runs 
+in AMD SNP, the driver will request the SNP firmware to generate the attestation report. Then, the attestation and provisioning agent will connect to the secret manager using the IP address in the YAML and use this report to prove the enclave's 
+identity and get secrets from the secret manager following the KBS attestation protocol. The attestation report is shown in Figure 6. It is protected with the VCEK signature and contains:
+\begin{itemize}
+    \item SNP firmware's measurements for the VM boot process
+    \item Tamper-resistant 64-byte user-defined data.
+    \item Host data.
+    \item VCEK signature.
+    \item Others
+\end{itemize}
+
+
+The secret manager verifies the report's signature using the certificate chain required fro AMD KDC~\cite*{snp_kdc}. By examining the virtual machine boot process measurements, the secret manager can confirm that the enclave is using the correct Qkernel binary. 
+Since Qkernel is loaded into the enclave memory using SNP\_LAUNCH\_UPDATE~\cite*{snp_firmware} during virtual boot by Qvisor, snp firmware also measures the Qkernel binary. Notably, the code of the shielding layer is part of the Qkernel binary.
+
+The user-defined data in the attestation report is a hash, including the enclave startup measurement and a hash of the TEE-generated public key. The enclave startup measurement is created by the software manager and incorporates all the sensitive 
+data that the enclave loads from the host after the enclave starts until the application is loaded. This includes the Qkernel command line parameters, the binaries loaded during the application startup, and the secret manager's public key. By 
+comparing the enclave startup measurement with the reference hash provided by the application owner, the secret manager can verify that the enclave is appropriately configured and that only legitimate binaries are loaded.
+
+To establish a secure channel for secrets provisioning, the KBS attestation protocol~\cite*{kbs_Attestation_protocol} necessitates that the enclave generates an asymmetric key pair from TEE. During the authentication phase of the protocol, the public key is sent to the secret 
+manager with an attestation report. In the second phase, the secret manager uses this public key to encrypt the secret requested by the enclave. By incorporating the public key hash in the enclave's attestation report, the secret manager can 
+determine that the public key belongs to the enclave, and only the enclave can decrypt the encrypted secret.
+
+To prevent an attacker from hijacking the secret manager's address and impersonating the secret manager, the remote attestation and provisioning agent use the secret manager's public key to verify the secret manager's identity during the TLS 
+handshake. Note that Kubernetes mount the public key of the secret manager as a file on the application's rootfs. To this end, an attacker can provide a bogus public key to the remote attestation and provisioning agent to trick it into establishing 
+a connection with the fake secret manager. To address this, the remote attestation and provisioning agent reads the secret manager's public key into the guest's memory and add the key's measurements to the enclave startup measurement. This way, 
+the secret manager can verify that the remote attestation and provisioning agent uses the correct public key. When an attacker presents the remote attestation and provisioning agent with a fake secret manager's public key, the TLS handshake fails 
+due to a mismatch between the public key and the certificate of the real secret manager. Even if the TLS is established, the real secret manager will reject the authentication request from the agent because the enclave startup measurement does not 
+match the reference hash.
+
+Since all enclaves use a standard Qkernel binary and applications are created from standard images, the attestation evidence cannot uniquely identify an enclave. Instead, the evidence only certifies that the attester is an enclave running in a 
+TEE with the correctly loaded application. Hence, If the secret manager identifies the enclave only based on the attestation evidence, an enclave belonging to one stakeholder could steal the secrets of another stakeholder. To circumvent this, 
+the application owner should assign a unique ID to each enclave. This ID should be added to the host data field in the attestation report by Qvisor during enclave setup using SNP\_LAUNCH\_FINISH~\cite*{snp_firmware}. This field is immutable after launching the enclave, 
+so the ID is bound to the enclave's attestation evidence. When the secret manager receives an enclave's attestation report, it can use this ID to determine its identity. In the authentication phase of the KBS attestation protocol, the secret 
+manager assigns a cookie identifier to an enclave's HTTP request, binding the enclave's ID and attestation result to the cookie identifier. In the second phase, the secret manager maps the cookie identifier in the attester's resource request message 
+to its attestation result and the enclave's ID. The secret manager uses this information and the data owner-defined policy to determine whether to grant access to a particular secret to the attester. 
+
+The attester's resource request URL has the following format: <repository>/<type>/<tag>, where <repository> is similar to the concept of container image repository, <type> is used to distinguish between different resource types, and <tag> is used 
+to distinguish between different versions of a resource. In the secret manager, each user has a unique repository. The secret manager allows users to specify which enclaves with which IDs can access this repository. In this way, we effectively avoid 
+cross-leakage of secrets between different stakeholders.
+
+\subsection{Application Runtime Attestation Service}
+
+An application may need to authenticate itself to a remote end at runtime. Quark attestation and provisioning infrastructure enable applications to obtain attestation reports through the guest system call interface. 
+Depending on the application's needs, one of three report formats can be obtained: an attestation report generated by the TEE hardware and two software attestation reports created by the shielding layer. The latter contains:
+\begin{itemize}
+    \item Enclave start-up measurement.
+    \item Enclave ID.
+    \item Signature.
+    \item Sixty-four bytes of application-specified data.
+  \end{itemize}
+
+The application can choose to sign the software report with a key issued by the secret manager or by a key it provided. The secret manager key is sent to the enclave along with the application's secret during the creation of the application process. 
+Software reports offer additional possibilities for how the application proves its identity to the remote end. In other words, the remote end can verify the report without the assistance of the hardware provider. Upon verification of the report, 
+the remote end can ensure that the application is as expected by using the enclave start-up measurement. Additionally, application-defined data in a software report is tamper-proof, similar to user data in SNP reports. As previously discussed, the 
+enclave ID guarantees that the remote end can determine the application's identity, which prevents secret cross-leakage.
+
+
+
+\section{Enclave Runtime Measurement}
+Enclave runtime measurements are crucial due to the security analysis findings discussed in Chapter~\ref{sec:security_analyse}. Qkernel command line parameters, the application binary, and shared libraries are loaded from the host. Thus, an attacker can modify them 
+to breach the enclave's confidentiality. However, AMD SEV SVP does not facilitate enclave runtime measurements~\cite*{snp_firmware}, and INTEL TDX only allocates four registers for this purpose~\cite*{Intel_tdx_whitepaper}. Consequently, we provide a software measurement manager in the shielding 
+layer to measure the data loaded from the host while the enclave is running. The software measurement manager obtains the following important measurements by measuring these data.
+
+\textbf{Enclave startup measurement.} This value refers to the measures of host-loaded data from the enclave starting until the enclave finishes loading the application binaries. To config the application's execution environment, the enclave may have to 
+execute multiple binaries first. For example, Nginx startup necessitates the enclave to execute a docker-entry.sh shell script\cite*{nginx}. The shell script then executes several Linux commands. Each is a binary. Therefore, the enclave startup measurement may 
+comprise binaries, shared libraries, Qkernel boot parameters, and the secret manager's public key. The attestation and provisioning agent include this measurement in the attestation report, which is conveyed to the secret manager. The secret manager 
+compares the measurement to the reference value provided by the enclave owner to ensure that the enclave is genuine.
+
+\textbf{Application startup measurement.} This value records the measure of all binaries and shared libraries loaded from the time the enclave receives the application creation request to the point when the enclave completes loading the application binaries. 
+This measurement is a subset of the enclave startup measurement and is stored in the enclave memory. It serves as a reference hash with the application restart measurement.
+
+\textbf{Measurement of binaries at application runtime.} The application process loads its shared libraries after it enters the user space. Moreover, the enclave creates a process and loads the corresponding binary from the host when a user initiates a 
+command to the application. The software measurement manager measures the loaded binaries or shared libraries to prevent an attacker from serving compromised binary to the enclave. However, unlike the enclave startup measurement, which is forwarded 
+to the secret manager, the runtime measurements are verified by the software manager. The shielding layer's policy holds reference measurements for the runtime binaries, as shown in Figure~\ref{fig:measurement}. In this case, the software measurement manager measures 
+the binaries and compares the result with reference values from the policy. If the two values differ, the enclave will panic. This ensures that during application runtime, the correct binaries are loaded.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/measurement.png}
+    \caption[Reference Value in Shielding Layer's Policy for Runtime Binary Measurement]{Reference Value in Shielding Layer's Policy for Runtime Binary Measurement}
+    \label{fig:measurement}
+\end{figure}
+
+\textbf{The application restart measurement.} In the event of an application crash where the enclave is not exited, Kubernetes will attempt to restart the application within the enclave. The enclave will therefore recreate the application process, load the relevant 
+binaries, and inject secrets stored in the enclave's memory. An attacker may exploit this situation by injecting malicious code into the enclave to retrieve secrets, thereby breaching the enclave's confidentiality. One potential solution is to 
+measure the loaded binaries or shared libraries during the application restart and send the result to the secret manager for verification. However, this approach is costly as it involves generating an attestation report and communicating with the 
+secret manager via the network. Therefore, the software measurement manager stores application startup measurement and uses it as a reference hash for application restart measurement. If the two do not match, the enclave will panic. In doing so, 
+the enclave ensures that the binary loaded at restart is identical to the binary loaded during the initial application launch. As the binary's measurements during the first launch are sent to the secret manager for integrity checking, comparing the 
+two hashes guarantees the integrity of the loaded binary during application restart.
+
+Regarding obtaining the reference values for enclave startup measurement and measurement of individual binaries loaded at application runtime, we implemented a developer mode for the enclave. When running in developer mode, the enclave prints the 
+enclave and application runtime measurements for each binary and shared library to the Qkernel log on the host. The application owner should operate the enclave in a trusted environment to obtain these reference values.
+
+
+\section{New Pattern for EXEC Requests}
+
+\subsection{Overview}
+
 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{images/IMG_4415.PNG}
-    \caption[quark]{quark}
-    \label{fig:quark}
-\end{figure}
-In this section, we introduce the components that constitute quark runtime, and how quark is integrated into the k8s ecosystem.
-
-As we can see from the diagram, quark runtime consists of three main components.
-\begin{itemize}
-    \item  shim process: The shim process is a qvisor binary that is started by containerd. Since containerd executes this binary with the shim keyword as a program argument, The process that executes this binary enters shim mode. This process  is therefore also called the shim process. The shim process starts a ttrpc server as a means of communication with cotnainerd, which implements the endpoints defined in the containerd shim v2 API. Therefore, containerd can send commands to the ttrpc server to inform the shim process to complete the appropriate operations, including creating, deleting a container, etc.
-    \item  qvisor (VMM) and qkernel: qkernel and qvisor belong to the same process on the right side of the graph. Similar to the relationship between qemu and the guest Linux operating system, qvisor acts as a virtual machine manager and is responsible for providing various services to the guest OS qkernel, such as IO emulation, system call emulation, etc., while qkernel is responsible for managing the guest processes, preparing the file system for the guest processes, etc.
-\end{itemize}
-As we mentioned in the previous section, when cri-plugin get a container creation command from kubelet, it first sends a create pod command to the shim process and let the shim process to create a special 
-pause container as a sandbox container. In the case of the quark runtime, the shim process spawns a subprocess to execute the qvisor binary. This qvisor subprocess first creates a virtual 
-machine with the qkernel as the guest operating system, then informs the qkernel to start this pause container and starts a socket server "controller hander" as a means of communication with 
-the shim process. Then, shim sends start application container request to "controller hander", and passes the metadata related to the container to qkernel, 
-which will then start the application container based on the metadata.
-
-Qkernel has 2 path to access the external services (services provided by qvisor/kernel)
-\begin{itemize}
-    \item  Ucall path (fast path): please see section \ref*{Qcall_hypercall_ucall}
-    \item  Qcall/ Hyper call （slow path）: please see section \ref*{Qcall_hypercall_ucall}
-\end{itemize}
-
-\section{Overview of confidential quark in cloud environments}
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/IMG_4414.PNG}
-    \caption[confidential quark]{confidential quark}
-    \label{fig:confidential_quark}
-\end{figure}
-In this section, we describe the components that make up a confidential quark, and the cloud infrastructure required to support remote attestation, and secret provisioning.
-In the figure, we divide the components of the cluster into trusted and untrusted components, where the trusted components are in green ,which includes CAS and qkernel running in trusted VMs, and the other components in orange are untrusted.
-
-CAS running in a HW based TEE is a trusted component that manages data owner uploaded secrets and policies, authenticates the qkernel, and makes secrets available to qkernel in a secure manner. Data owners can verify that CAS is trusted by means of remote attestation, before uploading the secrets required by the application container and the policy required by the qkernel shield to the CAS via tls channel.
-
-The qkernel, which serves as the guest operating system, is protected by a secure virtual machine along with the application container process running in the guest user space. In this case, the guest's memory and the cpu registers being used are encrypted. Consequently, entities running outside of the guest, such as qvisor, cotnainerd, cannot view the contents of the guest.
-In the following, for simplicity, we refer to the SVM-protected qkernel and application container uniformly as the confidential qkernel. 
-
-The confidential qkernel also allows remote entities, in our case, the CAS, to attests against it dynamicly. This is achieved by the confidential qkernel sending its remote attestation report to CAS. 
-This report is typically generated by the SVM running the confidential qkernel and contains a set of measurements about the confidential qkernel. With the help of hardware vendor's remote attestation infrastructure, CAS can determine that the 
-confidential qkernel is running in an expected environment.
-
-We delegate the deployment and management of the confidential quark to an untrusted entity, the "cloud operator," i.e., the orange villain in the lower left corner of the diagram. The cloud operator can deploy confidential quarks using 
-common kubectl commands or yaml files. The difference from deploying a legacy workload is that when deploying a confidential quark, the cloud operator needs to pass 
-the IP address of the CAS as an environment variable to the confidential quark, and later the shield running inside a confidential quark will use this IP address to find the CAS and complete the remote attestation and secret injection. We elaborate on the process of secure deployment in the next section.
-
-Delegating the management of the confidential quark may compromise the confidentiality of the container running in it.  An obvious example is the kubectl exec endpoint. With this endpoint, one can issue any command to a container running in the confidential qkernel. 
-When the qkernel receives the command, the qkernel starts a guest user level process to execute a binary corresponding to the command. Since the access to memory ,registers, and files from inside the SVM is in plaintext, the process can easily obtain 
-the secrets held by the confidential qkernel and return them to the cloud operator. We address this problem by defining the permissions for each role in the cluster, following the principle of least privilege. 
-For the detailed explaination, we refer the reader to section “Endpoints related”.
-
-
-\section{Secure deployment(in theory)}
-\label{Secure_deployment}
-
-\subsection{How applications obtain secrets?}
-
-Popular applications obtain secrets in three ways
-\begin{itemize}
-    \item  environment variables
-    \item  application arguments
-    \item  files.
-\end{itemize}
-
-\subsection{How to provide secret to application?}
-
-\begin{itemize}
-    \item  The secrets related to environment variables and application arguments are  delivered to the qkernel by a secure channel, after CAS confirms that the qkernel is running in an expected environment through its attestation report
-    \item  File-related secrets are encrypted and mounted to a specific location on the container's file system.
-    \begin{itemize}
-        \item After attestation, CAS passes the decryption key and the mount path of the file to the shield of qkernel.
-        \item The shield then loads the file, decrypts it and keeps it in the guest memory before the container starts running.
-        \item Any processes in guest that accesses the file always read the plain text version stored in guest memory instead of the encrypted one stored on the host machine
-      \end{itemize}
-    \item
-\end{itemize}
-
-\subsection{How attestation work and how to build the secure channel between CAS and Qkernel}
-
-We use the Key Broke service attestation protocol to establish a communication channel between a Key Broke client (KBC) and a trusted Key Broker Service (KBS), 
-through which the KBS can verify that the KBC is running in a trusted environment and inject secrets into the KBC in a secure manner. It allows KBS to attest against KBC in a Request-Challenge-Attestation-Response (RCAR) manner and subsequently insect secrets to KBC securely. 
-To facilitate the authentication of the KBS identity by the KBC and to prevent rogue attackers from hijacking the KBS address to spoof the KBC, the protocol uses HTTPS. More specifically, the protocol requires that the public key of the KBS be distributed to the KBC in an efficient manner so that 
-the KBC can authenticate the KBS identity during the tls handshake later on.  Note that in our context, the KBC is the confidential qkernel, while the CAS is the key broker service.
-
-The protocol is divided into two phases. In the first phase (authentication phase), the KBS authenticates the KBC by requiring the attestation report from it. In the second phase (Resource Requests phase), KBS allow KBCs to request protected resources from it. 
-KBS uses the public part of an asymmetric key received from KBC in the first phase to encrypt the secret of the KBC request. Notice that the hash of this key is included in attestation report of the KBC and signed by the HW-TEE. Therefore, KBS 
-can confirm that the key comes from the KBC and only the KBC can decrypt the encrypted secret. For performance degradation due to multiple attestations in case the KBC requires multiple resources, resulting in multiple requests to the KBS, 
-it uses the standard HTTP cookie mechanism.  Since the HTTP cookie binds the authentication result of phase one, KBC can request secrets from KBS within the valid time of the HTTP cookie without having to go through the authentication phase again.
-
-The following 2 diagrams detail how KBS and KBC work in stages 1 and 2 in order to complete the secret provisioning in an effective and secure fashion.
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/attestation.PNG}
-    \caption[Authentication phase]{Authentication phase}
-    \label{fig:Authentication}
+    \includegraphics[width=0.8\textwidth]{images/new_pattern_of_exec.png}
+    \caption[New Pattern for EXEC Requests]{New Pattern for EXEC Requests}
+    \label{fig:new_pattern_of_exec}
 \end{figure}
 
-As defined in Key Broke service attestation protocol, phase 1 (authentication phase) has 4 step: 
-\begin{displayquote}
-    \begin{enumerate}
-        \item  Request: The KBC sends the initial Request payload to the KBS, in order to authenticate itself against the KBS, and eventually request resources.
-        \item  Challenge: After receiving the initial Request payload, the KBS responds with the Challenge payload. This is how the KBS sends the attestation challenge to the KBC. Together with the attestation challenge, the KBS also sends a session identifier to the KBC, as an HTTP Cookie. This session identifier can be used to skip steps 2 and 3 after a successful attestation.
-        \item  Attestation: The KBC replies to the attestation challenge from step 2 with an attestation evidence, in order to prove that its environment (HW-TEE) is safe and reliable. The KBC sends an Attestation payload to the KBS, that contains the attestation evidence and the HW-TEE generated, ephemeral public key.
-        \item  Response: The KBS returns a Response payload to a KBC requesting a resource if and only if the Attestation payload was successfully validated. The KBC requests resources by sending HTTP GET requests to resource specific endpoints. Within the valid time of the HTTP Cookie generated by the KBS during step 2, the KBC can directly request resources or services from KBS, without going through steps 2 and 3.
-    \end{enumerate}
-\end{displayquote}
+
+Any user can send an EXEC request to an application. As analyzed in Chapter~\ref{sec:security_analyse}, when a user issues a command to an application or allocates a terminal, Kubernetes will send an EXEC request to the Quark agent located in the enclave. After receiving 
+the request, the Quark agent creates a process to execute the command binary (For a terminal allocation request, the command is /bin/bash). Note that the o only difference between issuing a command and allocating a terminal is that the terminal 
+keyword is true in the process specification of the exec request for allocating a terminal. Thus, we refer to both issuing a command and allocating a terminal collectively as the EXEC request. Since the Quark agent lacks authentication and access 
+control for EXEC requests, an attacker can send arbitrary EXEC requests to an application. Therefore, a new pattern for EXEC requests is proposed, illustrated in Figure~\ref{fig:new_pattern_of_exec}.
+
+The pattern divides EXEC requests into two categories, namely privileged and unprivileged EXEC requests. Privileged EXEC requests are issued by privileged users, i.e., the application owner, while non-privileged requests are issued by untrusted 
+entities. An untrusted entity here refers to someone other than the application owner. Privileged and unprivileged users send privileged or unprivileged requests to the enclave using secretctl or kubectl, respectively. Both requests are redirected 
+to the enclave through the Kubernetes  API server and the CRI, Shim V2 API interface. Upon receiving the EXEC request, the Quark agent forwards it to the Exec request checker. The Exec request checker will authenticate and access control the request 
+according to the enclave policy, as shown in Figure 5. The Quark agent will decide whether to create the EXEC process based on the results returned by the Exec request checker.
+
+
+\subsection{Protection for Privileged Exec Request}
+Since privileged EXEC requests are transmitted through the Kubernetes  component to the enclave, the authenticity, integrity, and confidentiality of the commands and their parameters in requests must be protected. In addition, we must implement a mechanism 
+to distinguish between privileged and unprivileged requests. This can be achieved through the frame structure as in Figure~\ref{fig:new_pattern_of_exec} and the use of authenticated encryption operations with associated data, i.e., the Advanced 
+Encryption Standard Galois/Counter Mode (AES-GCM)~\ref{aes_gcm}. The frame structure encapsulates the AES-GCM's random number (nonce) for secret decryption, the authentication Tag, the encrypted payload, and the keyword 'Privileged'. Since the Open Container 
+Initiative requires that commands and their arguments be passed as a vector of strings, the encrypted payload, nonce, and tag are encoded in base64. The plaintext payload contains the keyword 'Privileged,' the session ID, a counter, the command, 
+and its parameters.
+
+AES-GCM~\ref{aes_gcm} ensures the confidentiality, authenticity, and integrity of privileged EXEC requests. Besides, it is easy to deploy as it requires only a shared key. After a successful remote attestation, a key is shared between the application owner and 
+the enclave. The application owner can use this key to encrypt privileged commands and their parameters. When the enclave receives a privileged request, the exec request checker can use the key to confirm that the request was generated by a 
+privileged user who knows the key (authentication), verify the request's integrity, and decrypt the request.
+
+
+The keyword "Privileged" is used to distinguish privileged from non-privileged commands. The Kubernetes API requires the user to pass a command, and it's parameters as an array of strings, where the first element is the command and the remaining elements 
+are the parameters, e.g. ["cat", "/var/log"]~\cite*{k8s}. Privileged-level commands are passed to the enclave as string arrays through the Kubernetes  API, just like non-privileged-level commands. Thus, the string arrays corresponding to privileged-level commands have 
+the following format ["Privileged", "Encrypted cmd + arg," "Tag ","Nonce"]. When the exec request checker receives an EXEC request, it can determine if it is privileged by checking the first element of the command array. Note that the command array 
+is part of the EXEC request process specification known as args.
+
+
+The  monotonic counter and session are designed to prevent reply attacks. Since the privileged Exec requests are transmitted to the enclave by Kubernetes , an attacker can intercept a privileged request and send it continuously to the enclave to 
+interfere with its operation. In addition, it can analyze the execution result of an EXEC request. Although the result is encrypted, it may get different results from executing the same command twice. In this case, it may be possible to derive the 
+plaintext by analyzing the changes in the ciphertext.   Therefore, we introduce a monotonic counter for privileged-level EXEC requests. This counter is assigned by the enclave to privileged users. When the value of the monotonic counter in an EXEC 
+request is smaller than the reference value stored in the enclave, the request is rejected. Since there may be more than one privileged user, it is not easy to share the counter. Therefore, we introduce sessions. In this case, the enclave will 
+assign each privileged user a random session id and a unique counter. This id and counter are stored in the enclave and will be sent to a privileged user via a secure channel. The privileged user can use the session id and counter to construct a 
+privileged EXEC request. Note that the counter is added by one after each EXEC request.
+
+
+With the session and counter, we avoid the following two reply attacks. First, the attacker sends a request that belongs to an illegal session, i.e., the session id is not stored by the enclave. Second, the attacker has sent an outdated request to 
+the enclave. This means that the counter value in a request is less than the current counter value recorded in the enclave for the requested session ID. In this case, the enclave will refuse to execute it.
+
+\subsection{Session Assignment}
+
+Figure~\ref{fig:session_base_auth} demonstrates how a privileged user gets a session. In the login phase, a privileged user submits a login request using securectl. The login request is a privilege EXEC. However, the payload of the privileged EXEC 
+request contains the keyword Login plus a random number instead of a real Linux command. The random number is used to prevent reply attacks. When the request is received and verified by the enclave,  it assigns a session id and a unique counter to 
+the privileged user. These two values are stored in the enclave and returned to securectl. The enclave returns these two values via the stdout of the exec process.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{images/resourcerequrie.PNG}
-    \caption[Resource Requests phase]{Resource Requests phase}
-    \label{fig:resourcerequrie}
+    \includegraphics[width=0.8\textwidth]{images/session_base_auth.png}
+    \caption[Session Assignment]{Session Assignment}
+    \label{fig:session_base_auth}
 \end{figure}
-As defined in Key Broke service attestation protocol,  kbc can request resources or services from kbs during 2 phase in the following way:
-\begin{displayquote}
-    The KBS implementation keeps track of attestation results and binds them to a cookie identifier. During the second phase, the KBS can then decide if a specific resource could be released to a given attester, by mapping the cookie identifier the attester includes in 
-    its resource request message to its attestation results.
 
-    To request a protected resource from the KBS, the attester sends a GET request to a resource specific endpoint. If the attester is allowed to access the resource, the KBS will respond to the 
-    GET request with an HTTP response which content is set to a KBS Response JSON payload.
-\end{displayquote}
-
-\subsection{The whole procedure}
-\begin{itemize}
-    \item   The data owner generate a symitric key A and use it to encrypt file-related secrets.
-    \item  The data owner define the policy for qkernel shield, where the policy contains the key A, environment variable and arguments-related secret in plaintext, and the mount path of file-related secret.
-    \item  The data owner attests cas, and uploads the policy if the attestation succeeds.
-    \item  The data owner passed the encrypted file-related secret to cloud operator and the location to mount it, then informs cloud operator to create a confidential qkernel.
-    \item  The cloud operator then mounts the file-related secrets to the container's file system and starts the container. Note that the IP address of the CAS is passed to the container as an environment variable when the container is started.
-    \item  The shield inside the confidential qkernel then starts and sends the POD's attestation report to CAS via https.
-    \item  CAS verify the attestation report with the help of Intel/AMD remote attestation infrastructure. If the verification succeeds, CAS sends the policy file to the shield over https channel.
-    \item  Shield in turn loads the encrypted file-related secrets from the host, decrypts them, and keep them in the guest's memory. 
-    \item  Shield then reads the secrets related to environment variables and application arguments from the policy file and uses them as environment variables and  arguments for the application container process.
-\end{itemize}
-
-
-\section{Runtime issue}
-\subsection{Shared library loading during runtime}
-Motivation: Loading shared libraries during runtime may corrupt the container's confidential execution environment.
-For example, during container running, one issues the ls command to the container. After qkernel receives the command, qkernel finds the executable file "ls" in the /bin directory and creates a new process to execute the file. This process in turn loads shared library files from the host side， including ld-linux-x86-64.so.2， 
-libc.so.6，libpcre2-8.so.0， libdl.so.2， libpthread.so.0. These librarys may contain vulnerable gadgets that could be used in spectre attack.
-Since such side channel attack is caused by hardware vulnerability, most hardware based TEEs can not protect the workload from it. Therefore, this could lead an Adversary to exploit vulnerabilities in the shared libraries to attack containers running in the confidential qkernel.
-
-Mitigation: Shiled checks the libraries' signatures using the signer's public key obtained from the policy file before loading them into guest memory. Note that it is assumed that the signer has performed a security audit on the signed library to ensure that there are no vulnerabilities in the library files.
-
-\subsection{volume managed by k8s}
-\label{volume_managed_by_k8s}
-Motivation: Applications that require storage may write their secrets to k8s managed volumes.
-Nowadays, many applications require the use of disks to store non-volatile data. Such applications include various database applications. Thereby, to facilitate these applications to run in the cloud, cloud providers offer various storage services, 
-the most notable of which is Amazon Simple Storage Service (S3). In the context of k8s, these storage services are also uniformly referred to as volume. One can create a volume object of arbitrary size and mount it to a specified path in the container file 
-system when creating the container. This is super convenient in terms of deployment. However, since the volume is provided by the cloud provider, any data stored on the volume is at risk of being compromised. To this end, we must find a way to use volumes while protecting 
-the confidentiality of the data.
-
-Mitigation: The idea is straightforward: the shield should encrypt the data before it is written out of the confidential qkernel and decrypt the data read into the confidential qkernel from the host. 
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/IMG_4413.PNG}
-    \caption[shielded file system]{shielded file system}
-    \label{fig:shielded_filesystem}
-\end{figure}
-Since we only want to protect the data written to the volume mounted to a specific path rather than encrypting the entire filesystem, we have to solve the file path resolution issue, which includes the 
-resolution of hard links, soft links, and relative and absolute paths. To avoid developing complex path resolution algorithms and to maximize the reuse of the existing filesystem infrastructure in the qkernel, we create a new filesystem type, the "shield filesystem," on 
-the mount path of the volume and reuse the qkernel objects such as file, dentry, and inode.
-
-In the diagram, we assume that the volume is mounted to the /data/secret directory of the container filesystem. During container initialization (during start container req), shield will mount the shield filesystem on this path. This filesystem is located in the qkernel and 
-uses the existing filesystem objects in the qkernel, i.e. "file," "dentry," to resolve the file path. After completing the path resolution, a function defined in the inode operation list will be triggered. In the case of a write-request, the shielded\_write function will be called.
-shielded\_write function uses the file system encryption key to encrypt the data and protect the integrity of the data. The encrypted data is then written to the volume on the host machine.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/fileencption.png}
-    \caption[file content encryption]{file content encryption}
-    \label{fig:file_content_encryption}
-\end{figure}
-Encrypting the contents is done by querying the shield-preserved data structure using a unique inode id. shield preserves a file protection data structure for each inode in the shielded file system. This structure contains the various metadata needed by shielded\_write/shielded\_read to encrypt and 
-decrypt the file. This metadata comprises a list of nonces, an authentication tag for each individual chunk, the size of the file, etc. Because each inode has a unique id, the shielded\_write/shielded\_read functions can easily find the structure corresponding to an inode.
-When shielded\_read is called, it requests the file content from the host in a chunked fashion and performs the necessary authentication checks before the decryption. This chunk-wised protection mechanism may add certain overhead to the file access in case the file access does not 
-coincide with the chunk boundary.
+When the enclave receives the exec request, it creates a process based on the exec request's process specification. However, the keyword "Login" is not a Linux command. Thus, the enclave replaces the command executed by the exec process with "ls." 
+Once the process completes running ls and writes the result to the process's STDOUT, the STDIO shield intercepts the data written to STDOUT and replaces it with the privileged user-assigned session ID and counter. Since the login request is 
+privileged, its output is cryptographically protected.
 
 
 
-
-\subsection{There may be more issues}
-\subsubsection{Shared memory}
-\subsubsection{Message queue}
-
-\section{Endpoints related}
-\subsection{Overview of endpoints defined in CRI runtime service}
-\begin{itemize}
-    \item  attach:Attach to a running container
-    \item  exec:Run a command/termianl in a running container
-    \item  logs: Fetch the logs of a container
-    \item  port-forward: Forward local port to a pod
-
-    \item  inspect: Display the status of one or more containers
-    \item  inspectp: Display the status of one or more pods
-    \item  ps:  List containers
-    \item  pods: List pods
-    
-    \item  create: Create a new container
-    \item  start: Start one or more created containers
-    \item  run:Run a new container inside a sandbox
-    \item  runp:Run a new pod
-    \item  rm:Remove one or more containers
-    \item  rmp:Remove one or more pods
-    \item  stop:Stop one or more running containers
-    \item  stopp: Stop one or more running pods
-
-    \item  update: Update one or more running container's resources (CPU, memory etc.)
-    \item  stats: List container(s) resource usage statistics
-    \item  statsp: List pod resource usage statistics
-\end{itemize}
-
-All endpoints can be classified into four categories according to their usage:
-\begin{itemize}
-    \item  Debug-purpose endpoints:attach, exec, logs, port-forward:
-    \item  Endpoints for Pod/container lifecycle management: create, start, run, runp, rm, rmp, stop, stopp
-    \item  Endpoints for collecting container/pod metadata stored in high level container runtime: inspect, inspectp, ps, pods
-    \item  Endpoints for Pod/container raw resources management (cpu, memory, etc.,): update, stats, statsp
-\end{itemize}
-
-Conclusion.
-\begin{itemize}
-    \item  The debug-related endpoints can be exploited by malicious attackers and compromise confidential qkernel. Thus we analyze these endpoints in detail in the later sections
-    \item  Endpoints about container lifecycle management do not reveal any secret, but we have to consider 2 cases:
-    \begin{itemize}
-        \item  For the start container req from start endpoint, we have to consider how to pass secrets to the legacy application container----> solution: see section \ref*{Secure_deployment} "secure deployment“
-        \item  When the start container req reaches the shim process, the shim process may mount the k8s managed volume, this means during runtime an application may write secrets to the cloud provider managed volume ----> solution: need shield file system, see section \ref*{volume_managed_by_k8s} "volume managed by k8s"
-    \end{itemize}
-    \item Endpoints for collecting container/pod metadata stored in high level container runtime do not reveal any secrets kept in confidential qkernel. Because requests from these Endpoints only collect container/pod metadata stored in high level container runtime (conainerd), i.e. these requests are not sent to the confidential qkernel
-    \item  Endpoints for Pod/container raw resources management: does not reveal any secrets stored in the confidential qkernel, because these Endpoints only collect the use of raw resources by the confidential qkernel.
-\end{itemize}
-
-
-\subsection{Exec endpoint}
-\subsubsection{Terminal mode(done)}
-We provide option in policy to disable the termianl mode
-However, it is important to note that the confidential qkernel does not protect the stdin/out of the terminal when terminal allocation is allowed. 
-
-The reason is that we argue that terminal allocation should be rejected in production, i.e., termianl should only be used in the development phase. In a multi-stakeholder scenario, secrets may come from different stakeholders. When one stakeholder 
-gains access to the container through terminal, the confidential qkernel cannot restrict that stakeholder from reading the secrets of other stakeholders. More specificlly, when the qkernel receives a terminal allocation request, it starts a process 
-that executes the /bin/sh executable. The commands sent by the stackholder to the container through the termianl will be executed by this process. Since the process is running inside the confidential guest, the guest's memory, the cpu registers being 
-used, and the files in the container file system are all in plaintext to the process. So the process can read the others secrets and return it to the stakeholder.
-
-In a production environment, if one wants to send commands to a container running under the protection of the confidential qkernel, he should use the Single cmd line mode. In this mode, the qkernel allows one to send a request each time to the container to execute a command. 
-When the qkernel receives the request, the qkernel whether the issuer has permission to execute the command by reading the policy file. In this way, we effectively avoid secrets disclosure in multi-stakeholder
-scenarios.
-
-\subsubsection{Single cmd line mode(done)}
-In this mode, the qkernel allows one to send a request each time to the container to execute a command. 
-When the qkernel receives the request, the qkernel checks whether the issuer has permission to execute the command by reading the policy file.
-
-In mode, qkernel adopts the role based access control mechanism, and defines for each role the commands it can execute and the directories in which these commands can be executed. 
-The following figure shows a fragment of the policy file. In this policy, we have defined three roles: data owner, code owner, and host (cloud provider). The host role, for example, is allowed 
-to execute cat and ls commands in the /var directory and its subdirectories. If the host sends a request to the container to execute command not defiend in the policy, the qkernel will refuse 
-to execute the request.
-\begin{lstlisting}[language=json,firstnumber=1]
-    {
-        "singleShohCommandLineModeConfigs": [
-            {   
-                "role": "DataOwner",
-                "allowedCmd": ["cat", "ls", "cd", "rm",],
-                "allowedDir": ["/usr/data_owner/"]
-            },
-            {   
-                "role": "CodeOwner",
-                "allowedCmd": ["cat", "cp"],
-                "allowedDir": ["/usr/code_owner/"]
-            },
-            {   
-                "role": "Host",
-                "allowedCmd": ["cat", "ls"],
-                "allowedDir": ["/var"]
-            }
-        ]
-    
-    
-    }
-\end{lstlisting}
-
-
-
-\subsubsection{How qkenel identify the request issuer}
-\begin{itemize}
-    \item  cmd issuer first require an access token from CAS, this access token contain the request information and the role of the cmd issuer
-    \item  cmd issuer then send the encrypted request along with the access token to qkernel through the k8s channel
-    \item  qkernel verifies the token by sending it to CAS. If the token is valid, CAS sends a HTTP response that contains the "true" keyword and other related information
-    \item  qkernel finaly exec the cmd according to the policy defined for the role
-\end{itemize}
-\subsubsection{How to prevent the host from viewing the request contents (cmd and its associate arguments), as well as the request result}
-The request itself and its execution results are encrypted and integrity-protected using AES-GCM.
-
-\subsection{Log endpoint (done)}
-Logs streaming from the container's stdout/err are encrypted and integrity-protected using AES-GCM.
-\subsection{Attach endpoint}
-Since the stdout/err of the container is encrypted, a client without the decryption key cannot get any useful data through the channel established by the Attach endpoint.
-
-\subsection{Port-forward endpoint}
-Port-forward endpoint is out of scope
-
-\section{Secure Client(in theory)}
-
-\begin{itemize}
-    \item  Prepare the policy and secrets including:
-    \begin{itemize}
-        \item  encrypts the file-related secrets using key A (File-related secret encryption key)
-        \item  requests the cloud operator to mount the encrypted secret to a certain path
-        \item  embeds key A  and the mount path to policy so that qkernel can find and decrypt it.
-        \item  Add arguments and environment variable-related secrets to the policy file
-    \end{itemize}
-    \item Attest the CAS and upload the policy
-    \item  Get access token from CAS, encrypt the Single cmd line mode request, and decrypt its result using "Exec request and result encryption key"
-    \item  decrypt the container's log using the "Log encryption key" got from cas
-    \item  issue dynamic attestation request to qkernel
-\end{itemize}
-
-
-\section{Keys}
-
-\begin{itemize}
-    \item  File-related secret encryption key (symmetric): each role possesses its own key for file-related secret encryption. It is generate by role and loaded to qkernel through a secure channel for file-related secret decryption.
-    \item  File system encryption key (symmetric): the key is used for encrypting files in the shield file system. It is generated by CAS and transmitted to confidential qkernel through a secure channel.
-    \item  Exec request and result encryption key (symmetric): each role possesses its own key for encrypting the exec req (for example, the command and its arguments).  It is generate by role and loaded to qkernel through a secure channel for decrypting the exec request and encrypting the result of the exec request.
-    \item  Indentification key of CAS(asymmetric): The public part of the key is transmitted to qkernel in a effenciant way.  This public key allows the qkernel to validate the identity of the CAS during the HTTPS (tls) handshake, thus effectively preventing an adversary from hijacking the CAS address to masquerade as a CAS and spoof the qkernel.
-    \item  Log encryption key (symmetric): This key is generated by CAS and loaded into qkernel via a secure channel. it is used by qkernel to encrypt the logs coming out of the container's stdout/err stream. A trusted client with appropriate privileges can obtain the key from cas and decrypt the logs.
-\end{itemize}
 \cleardoublepage
 
 %%% Local Variables:

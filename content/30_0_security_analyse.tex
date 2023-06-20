@@ -22,12 +22,13 @@
 
 %\todo{write design}
 
-This chapter aims to analyze the potential vulnerabilities in Vanilla Quark, through which an adversary can obtain access to confidential information of an application. The first section defines the threat model(Section 3.1). Subsequently, this chapter scrutinizes the Vanilla Quark's security from the perspective of the Open Container Initiative (OCI) interface (Section 3.2).
+This chapter aims to analyze the potential vulnerabilities in Vanilla Quark, through which an adversary can obtain access to confidential information of an application. The first section defines the threat model(Section~\ref{sec:Threat_model}). 
+Subsequently, this chapter scrutinizes the Vanilla Quark's security from the perspective of the Open Container Initiative (OCI) interface (Section~\ref{sec:security_analysis}).
 
 
 
 \section{Threat model}
-
+\label{sec:Threat_model}
 We employs the OWASP application threat modeling methodology\cite*{OWASP_Threat_Modeling} to create a threat model comprising four aspects: Actors, assets , external dependencies, and attack surface.
 
 \textbf{Actors}. Our model involves the cloud provider and the tenant. While the cloud provider is accountable for providing the hardware and software necessary for running and orchestrating applications, the tenant distrusts the cloud provider 
@@ -45,6 +46,7 @@ orchestration, even if the workloads are running within a TEE. Although the OCI 
 since the implementation of OCI in the guest interacts with the host through the Hypercall, Qcall, or Ucall interface, we also considered attacks from this interface.
 
 \section{Security Analysis}
+\label{sec:security_analysis}
 
 This section provides an in-depth security analysis of the implementation of the OCI runtime interface within Quark.  Notably, Qlib serves solely as a development concept since Qlib code is incorporated into the Qkernel and Qvisor binaries during 
 the compilation. Therefore, the following sections use Qkernel and Qvisor to refer to the respective binaries containing the qlib code.
@@ -138,7 +140,7 @@ to obtain the application’s environment variable type secret. In response to t
 commands issued by other users. With regards to executing these commands, the Quark agent operates in accordance with the last privilege principle to authenticate and access control on the exec requests. Therefore, unauthorized requests will be 
 denied. For further details, please refer to section X.
 
-\textbf{The commands issued by privileged users may contain confidential data}. Currently, user-issued commands are sent to Quark-shim by conatinerd  as part of the exec request’s metadata via the shim-v2 API\cite*{shim_v2}. Quark-shim processes the exec request in 
+\textbf{The commands issued by privileged users may contain confidential data but are unprotected during transmission}. Currently, user-issued commands are sent to Quark-shim by conatinerd  as part of the exec request’s metadata via the shim-v2 API\cite*{shim_v2}. Quark-shim processes the exec request in 
 a way similar to that used to create an application process. When Quark-shim receives an exec request, it generates a process specification based on the metadata, which includes the command to be executed and other relevant data such as 
 terminal information. Quark-shim forwards this specification to the Quark agent via a Unix socket. The Quark agent then creates a guest userspace process to execute the command (see Figure 1). However, As Quark-shim and Containerd are 
 untrusted, there is a potential for the commands to be compromised or modified during transit. To address this vulnerability, we should apply end-to-end cryptographic protection for privileged-level commands. The encryption occurs at the user end 
@@ -191,9 +193,9 @@ or Ucall interface. In response, the host kernel processes the request and share
   \label{fig2} 
 \end{figure}
 
-\subsubsection{load compromised application binary during startup}
+\subsubsection{Loading compromised application binary during startup}
 \label{sec:app_binary_loading}
-Load compromised application binary during startup. The application binary is stored in the host's space. During the setup of the application process, the Qkernel loader opens the application binary using Hcall::Openat, reads its ELF header 
+The application binary is stored in the host's space. During the setup of the application process, the Qkernel loader opens the application binary using Hcall::Openat, reads its ELF header 
 into the qkernel using the file Ucall::read, and then requests the Qkernel virtual memory manager to create a process image for the application, i.e., creating a private virtual memory area (VMA) for each loadable segment that is defined in the 
 ELF file (Figure~\ref{fig2:a}). When the application process runs， accessing an address within the VMA will trigger a page fault. This is handled by the qkernel page fault handler. The workflow for the page fault handling can be found in FigureFigure~\ref{fig2:b}. Since the VMA of 
 a loadable segment is private, the page fault handler uses hcall::mmap to request Qvisor to map the relevant loadable segment into the guest physical space, then allocate a page from the page pool on the Qkernel heap, and copies the contents of 
@@ -215,7 +217,7 @@ In this way, we ensure the correctness of the application binary loaded into the
 \end{figure}
 
 
-\subsubsection{load compromised binary at runtime}
+\subsubsection{Loading compromised binary at runtime}
 
 Dynamic libraries are binary files stored on the host and loaded at application runtime by the interpreter. When the application is a dynamically linked executable, the interpreter's code is executed first upon the application process launched.  
 As depicted in Figure~\ref{fig:load_shared_libarart}, the interpreter uses the open, read, and mmap system calls to create private memory mappings (VMA) for the loadable segments in the shared library.  Accessing an address within the VMA triggers 
@@ -236,14 +238,14 @@ and process specifications. from the host and provide the relaunched application
 which causes an incorrect process setup or executing of compromised code. To mitigate this threat, Qkernel should measure the application recreation process and compare the measurement result with the initial application startup measurement stored 
 on guest memory. If the 2 hashes don’t match,  Qkernel should panic.
 
-\subsection{Guest System Call}
+\subsection{No restriction to the available System Calls for Applications}
 Seccomp section in the OCI runtime specification\cite*{oci-spec} define a way for user to rescrict the available system calls for applications.  Unfortunately, Qkernel does not support seccomp\cite*{seccomp}. If a guest process is compromised, 
 those unnecessary system calls can be abused to attack the qkernel and other processes. In the field of computer security, component hijacking\cite*{DBLP:journals/corr/WuGLD16} is an attack pattern in which an attacker can attack the kernel and other processes by hijacking a process and forcing it to execute a 
 vulnerable system call. For example, an attacker can start a malicious exec process, which uses a vulnerable system call to steal application secrets stored in Qkernel. To this end, we implement a guest system call interceptor. The application 
 owner is allowed to specify the available system calls for the application. 
 For more details on the mitigation please refer to section XX.
 
-\subsection{Guest Kernel Args}
+\subsection{No control over guest kernel arguments}
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.5\textwidth,height=0.4\textheight]{images/quark_config.PNG}
@@ -256,7 +258,7 @@ descriptor that the quark-agent listens to, and a configuration file shown in Fi
 files can lead to the disclosure of the secrets stored in Qkernel. For example, turning on RDMA would allow an untrusted remote party has the direct access to the Qkernel’s memory. For this reason, the Qkernel should measure the configuration file 
 and send it as part of the application startup hash to the relying party for integrity checking. 
 
-\subsection{Guest kernel Log}
+\subsection{Qkernel Log Misconfiguration}
 Qkernel logs is stored by qvisor in the host /var/log/quark directory via Hcall::HYPERCALL\_PRINT. Currently, the Qkernel logging system supports five levels of logging, OFF, Error, Info, Debug, Trace. Here OFF is the minor level, i.e. the least 
 detailed, and Trace is the highest level, i.e. the most detailed log. The user can configure the highest level of logging for qkernel through DebugLevel ketword in the configuration file (Figure~\ref{fig:quark_config}). For example, when the DebugLevel is info, qkernel 
 prints logs in level error, and info. 
@@ -269,6 +271,23 @@ Qkerenl logging system in a policy. This policy is obtained at application start
 
 
 
+\section{Summary}
+In this chapter, the threat model is first defined in section~\ref{sec:Threat_model}. Based on this model, the security issues in Quark are examined from various perspectives. These vulnerabilities found include:
+\begin{itemize}
+  \item Application secrets are managed and deployed by untrusted Kubernetes and Quark-shim
+  \item Absence of end-to-end encryption for terminal data streams
+  \item  Lack of cryptographic protection for application log
+  \item Anyone can issue commands to an application
+  \item Any user can allocate a terminal
+  \item The commands issued by application owner may contain confidential data but are unprotected during transmission.
+  \item Loading compromised application binary during startup
+  \item Loading compromised binary/shared library at runtime
+  \item Lack of management over application restart
+  \item No restriction to the available system calls for applications
+  \item No control over guest kernel arguments
+  \item Guest kernel Log misconfiguration
+
+\end{itemize}
 
 % For this reason, we should offload the configuration of the logging system from the qkernel configuration file and allow the application owner to specify the maximum logging level for the specified client kernel logging system in the protection 
 % policy.

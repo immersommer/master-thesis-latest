@@ -139,6 +139,22 @@ DOC_IMG_JPG  = images/load_shared_libarart.png
 DOC_IMG_JPG  = images/loader_flow.png
 DOC_IMG_JPG  = images/quark_config.PNG
 
+# design
+DOC_IMG_JPG  = images/genaral_architechture.png
+
+DOC_IMG_JPG  = images/Qkernel_attestation_infrastructurc.png
+DOC_IMG_JPG  = images/upload_secret.png
+
+DOC_IMG_JPG  = images/attestation_provisioning.png
+
+DOC_IMG_JPG  = images/attestation_report_format.png
+DOC_IMG_JPG  = images/measurement.png
+DOC_IMG_JPG  = images/new_pattern_of_exec.png
+DOC_IMG_JPG  = images/session_base_auth.png
+
+
+
+
 # latex stuff
 LUALATEX    ?= lualatex --synctex=1
 BIBER       ?= biber
