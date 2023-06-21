@@ -151,6 +151,17 @@ DOC_IMG_JPG  = images/attestation_report_format.png
 DOC_IMG_JPG  = images/measurement.png
 DOC_IMG_JPG  = images/new_pattern_of_exec.png
 DOC_IMG_JPG  = images/session_base_auth.png
+DOC_IMG_JPG  = images/normal_io_shiled.png
+DOC_IMG_JPG  = images/differenciate_fds.png
+DOC_IMG_JPG  = images/terminal_shiled2.png
+DOC_IMG_JPG  = images/terminal_shiled3.png
+DOC_IMG_JPG  = images/syscall_interceptor.png
+DOC_IMG_JPG  = images/policy_system_call.png
+DOC_IMG_JPG  = images/qkernel_Log_config.png
+DOC_IMG_JPG  = images/exec_policy.png
+
+
+
 
 
 
