@@ -162,7 +162,12 @@ DOC_IMG_JPG  = images/exec_policy.png
 
 
 
+# implementation
+DOC_IMG_JPG  = images/amd_snp_driver.png
+DOC_IMG_JPG  = images/measure_binary.png
+DOC_IMG_JPG  = images/measure_load_shared_libarart.png
 
+DOC_IMG_JPG  = images/exec_req_authentication_flow_chart.png
 
 
 
