@@ -335,7 +335,9 @@ reference values in the enclave policy. Alternatively, if the library is loaded 
 measurement during application startup. This approach ensures correct shared library is loaded during application restarts.
 
 \subsection{Other Measurements}
-\todo{How to measurea other stuff like qkenrel config file and sm publick key}
+Software measurement manager uses the SHA-512 hash function. This function accepts an array of bytes and returns a hash. Since the Qkernel configuration file is a structure, the software manager first serializes it into a JSON string and then converts it into a byte array. The generated array will 
+be used as input to the hash function to extend the enclave startup measurement. The secret manager's public key is a byte array. After the software measurement manager reads it into the enclave from the directory /usr/local/secret\_manager\_cert.pem, it can be used directly to extend the enclave 
+startup measurement.
 
 \subsection{Implementation Detail}
 The data structure presented in Listing~\ref{lst:shared_Lib_measurement_implementation_detail} maintained the metadata for the software measurement manager. The variables is\_app\_loaded, load\_app\_start, and load\_app\_end are employed to track the periods during which measurements are taken. 
@@ -346,7 +348,6 @@ assigned to shared libraries and binarise during the measurement process, respec
 
 
 \begin{lstlisting}[language=rust, caption= Interface for accessing the file type secrets, label={lst:shared_Lib_measurement_implementation_detail}]
-
 pub struct SoftwareMeasurementManager {
     enclave_mode: EnclaveMode,
     is_app_loaded: bool,
@@ -362,7 +363,6 @@ pub struct SoftwareMeasurementManager {
     startup_shared_lib_measurement_results:  BTreeMap<String, String>,
     restart_shared_lib_measurement_results:  BTreeMap<String, String>,
 }
-    
 \end{lstlisting}
 
 Since the order in which shared libraries are loaded may vary each time the application starts, software managers use BTreeMap to record the measurement results for each shared library during application startup and restart, i.e., startup\_shared\_lib\_measurement\_results and restart\_shared\_lib.
@@ -499,8 +499,10 @@ pub fn qlog_magager_init()
 \end{lstlisting}
 
 
+\section{Summary}
+In this chapter, we explain how the design in Chapter~\ref{sec:design} was implemented. In the next chapter, we evaluate the performance and security of the system.
 
-\todo{add summary}
+
 \cleardoublepage
 
 
