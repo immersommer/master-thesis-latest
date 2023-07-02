@@ -21,9 +21,6 @@
 %\ldots design \ldots
 
 %\todo{write design}
-
-This chapter aims to analyze the potential vulnerabilities in Vanilla Quark, through which an adversary can obtain access to confidential information of an application. The first section defines the threat model(Section~\ref{sec:Threat_model}). 
-Subsequently, this chapter scrutinizes the Vanilla Quark's security from the perspective of the Open Container Initiative (OCI) interface (Section~\ref{sec:security_analysis}).
 This chapter aims to analyze the potential vulnerabilities in Vanilla Quark, through which an adversary can obtain access to confidential information of an application. The first section defines the threat model (Section~\ref{sec:Threat_model}). 
 Subsequently, this chapter scrutinizes Vanilla Quark's security from the perspective of the Open Container Initiative (OCI) interface~\cite*{oci-runtime-spec} (Section~\ref{sec:security_analysis}).
 
@@ -36,7 +33,7 @@ in a confidential computing environment. Therefore, any software components with
 
 \textbf{Assets.} Our objective is to secure the Kubernetes workload (application) itself, i.e., preserving the integrity of the application binary and its dependencies, maintaining the confidentiality and integrity of the application's data during runtime, and protecting the secrets provided to the application by its owner.
 
-\textbf{External Dependencies.} We assume that the Guests, including Qkernel and Kubernetes workloads, operate within an encrypted virtual machine. This prevents malicious hypervisor(Qvisor) or powerful cloud operators from accessing the workload's sensitive 
+\textbf{External Dependencies.} We assume that the guests, including Qkernel and workloads, operate within a TEE. This prevents malicious hypervisor(Qvisor) or powerful cloud operators from accessing the workload's sensitive 
 data through guest memory and registers. Furthermore, we exclude attacks related to denial of service~\cite*{DOS_ATTACK}, side channels~\cite*{217454}, networks, or file systems.
 
 
@@ -47,18 +44,10 @@ the host through the Hypercall, Qcall, or Ucall interface, we also considered at
 
 \section{Security Analysis}
 \label{sec:security_analysis}
-
-This section provides an in-depth security analysis of the implementation of the OCI runtime interface within Quark.  Notably, Qlib serves solely as a development concept since Qlib code is incorporated into the Qkernel and Qvisor binaries during 
-the compilation. Therefore, the following sections use Qkernel and Qvisor to refer to the respective binaries containing the qlib code.
-
-The subsequent subsections thoroughly examine the potential pitfalls of the OCI implementation in Quark in the context of confidential computing from seven perspectives. These include application secrets deployment, handling  STDIO of guest user 
-space process, command execution and terminal allocation, paravirtualized file system sharing, guest system call,  guest kernel arguments, and guest logging system. The Design chapter further proposes mechanisms to mitigate these vulnerabilities.
-
-
 This section provides a security analysis of the OCI runtime interfaces~\cite*{oci-runtime-spec} implemented within Quark. Notably, Qlib serves solely as a development concept since its code is incorporated into the Qkernel and Qvisor binaries 
 during the compilation. Therefore, the following sections use Qkernel and Qvisor to refer to the respective binaries containing the Qlib code.
 
-The subsequent sections examine the potential pitfalls of the OCI implementation in Quark in the context of confidential computing from seven perspectives:
+The subsequent sections examine the potential pitfalls of the OCI implementation in Quark from seven perspectives:
 
 \begin{itemize}
   \item Application secrets deployment.
@@ -74,40 +63,35 @@ The Chapter~\cite*{sec:design} further proposes mechanisms to mitigate the vulne
 
 
 \subsection{Application Secrets Deployment}
-\begin{figure}[H]
+\begin{figure}[htp]
     \centering
     \includegraphics[width=0.8\textwidth]{images/quark-agent-work-flow.png}
-    \caption[Quark Agent Workflow]{Quark agent Workflow. The Quark agent is located in the qkernel. It is responsible for receiving requests from Quark-shim, like creating application processes, creating exec processes, deleting application processes, etc.}
+    \caption[Quark Agent Workflow]{Quark agent workflow}
     \label{fig:quark_agent_work_flow}
 \end{figure}
 
 
 \textbf{Untrusted Kubernetes and the Quark shim process manage and deploy application secrets}. 
-These secrets may be injected into the application through command line arguments, mounted files, or environment variables. When deploying the application, Containerd~\cite*{containerd} generates an Application Bundle and transmits it via the 
-shim v2 API~\cite*{shim_v2} to the shim-v2-API server in the Quark-shim process. This bundle contains the rootfs of the application along with an OCI-compatible config.json file~\cite*{oci-runtime-spec}. Quark-shim creates the root filesystem for 
-the container on the host side, mounts the file type secret, and establishes the process specification. This specification contains the command line type and the environment variable type secrets.  The Quark-shim then uses the Unix socket to 
-request the Quark agent in the Qkernel to create an application process based on this process specification. The workflow is shown in Figure~\ref*{fig:quark_agent_work_flow}.
+Untrusted Kubernetes and the Quark shim process manage and deploy ap- plication secrets. These secrets may be injected into the application through command line arguments, mounted files, or environment variables. When deploying the application, Containerd~\cite*{containerd} generates an application 
+bundle and transmits it via the shim v2 API~\cite*{shim_v2} to the shim-v2-API server in the Quark-shim process. This bundle contains the rootfs of the application along with an OCI-compatible config.json file~\cite*{oci-runtime-spec}. Quark-shim creates the root filesystem for the container on the host side, 
+mounts the file type secret, and establishes the process specification based on the config file. The specification contains metadata for creating a process in the guest, including command line arguments,environment variables, the type of STDIO (terminal or normal IO), and the host file descriptor 
+for transmitting data from/to the process STDIO. The Quark-shim then uses the Unix socket to request the Quark agent in the Qkernel to create an application process based on this process specification. The workflow is shown in Figure~\ref*{fig:quark_agent_work_flow}.
 
+Quark-agent operates as a socket server accepting connection requests from the Quark shim through Ucall::Uringop::accept(). These requests include creating and deleting application processes, creating an exec process, etc. Upon receiving a request from the Quark-shim to create an application (EXEC) 
+ process, the Uringop::accept returns a host file descriptor that contains the process specification. As the agent in the Qkernel cannot read its contents directly, it employs Qcall: Msg::ReadControlMsg to request the Qvivor to read the file descriptor and return the specification. Based on the 
+ specification, Quark-agent creates a guest user process. Specifically, the command line arguments and the environment variables are pushed to the process stack, and the STDIO of the process is set accordingly to the type of STDIO specified in the specification. Further details about the process’s 
+ STDIO can be found in section~\ref*{sec:security_analyse_STDIO}.
 
- Quark-agent operates as a socket server accepting connection requests from the Quark shim through Ucall::Uringop::accept(). These requests include creating and deleting application processes, creating an exec process, etc. Upon receiving a request 
- from the Quark-shim to create an application (exec) process, the Uringop::accept returns a host file descriptor that contains the process specification. As the Quark agent in the Qkernel cannot read its contents directly, it 
- employs Qcall: Msg::ReadControlMsg to request the Qvivor to read the file descriptor and return the specification. The specification provides metadata for creating a process, including command line arguments, environment variables, the type of 
- STDIO (terminal or normal IO), and the host file descriptor for transmitting data from/to the process STDIO. Based on the specification, Quark-agent creates a guest user process. Specifically, the command line arguments and the environment 
- variables are pushed to the process stack, and the STDIO of the process is set accordingly to the type of STDIO specified in the specification. Further details about the process’s STDIO can be found in section~\ref*{sec:security_analyse_STDIO}.
-
-
- It is imprudent to Kubernetes to manage application secrets (file type, command line type, environment variable type secrets) and deploy them through Containerd and Quark shim, since they are untrusted. In particular, individuals with access to 
- the cluster can use the kubectl to view or modify the Kubernetes-managed secrets. Additionally, an adversary can manipulate Containerd and Quark shim during application deployment to tamper with the application secrets by modifying the application 
- bundle. Besides, when Quark-agent uses the Qcall interface to request Qvisor to read the process specification containing secrets, Qvisor could potentially steal or modify these secrets. To this end, we suggest offloading secret deployment and 
- management from Kubernetes, Quark-shim, and Qvisor. For a detailed explanation of the mitigation, please refer to section~\ref*{sec:design_Secret_Uploading}.
+It is imprudent to let Kubernetes to manage application secrets and deploy them through Containerd and Quark shim, since they are untrusted. In particular, individuals with access to the cluster can use the kubectl to view or modify the  secrets. Additionally, an adversary can manipulate Containerd 
+and Quark shim to tamper with the application secrets during application. Besides, when Quark-agent uses the Qcall interface to request Qvisor to read the process specification, Qvisor could potentially steal or modify these secrets. To this end, we suggest offloading secret deployment and management 
+from Kubernetes, Quark-shim, and Qvisor. For a detailed explanation of the mitigation, please refer to section~\ref*{sec:design_Secret_Uploading}.
 
 \subsection{Guest User Space Process STDIO}
 \label{sec:security_analyse_STDIO}
 
-The Quark agent loads the corresponding binary and initiates a guest user-space process for handling the request of either creating an application or executing a command (kubectl exec)~\cite*{k8s}. Thus, Quark handles the application process STDIO 
-in the same way as it handles the exec process STDIO. For instance, when Containerd~\cite*{containerd} wishes to create an exec process in Qkernel, three named pipes are created for the process's standard input, output, and error. These are then 
-passed to Quark-shim via the quark-shim-v2 API~\cite*{shim_v2} along with other metadata. Quark-shim then employs these data to create the exec request's process specification. 
-
+The Quark agent loads the corresponding binary and initiates a guest user-space process for handling the request to create an application or execute a command (kubectl exec)~\cite*{k8s}. Thus, Quark handles the application process STDIO in the same way as it handles the exec process STDIO. For instance, 
+when Containerd~\cite*{containerd} wishes to create an EXEC process in Qkernel, three named pipes are created for the process’s standard input, output, and error. These are then passed to Quark-shim with other metadata. Quark-shim then employs these data to create the  EXEC request’s process 
+specification.
 
 \begin{figure}[ht] 
     \begin{subfigure}[b]{0.5\linewidth}
@@ -129,55 +113,42 @@ passed to Quark-shim via the quark-shim-v2 API~\cite*{shim_v2} along with other 
 \end{figure}
 
 
-The Quark handles the process's STDIO differently based on the terminal keyword in the specification.  
-When the terminal keyword is true, Quark-shim creates an asynchronous terminal IO redirection thread and a TTY pair (TTY master and TTY slave). The  TTY slave is then sent to the Quark-agent, where it is set as stdin, stdout, and stderr of the 
-process. The redirection thread (as illustrated in Figure~\ref{fig1:b}) filters the signals in the STDIN-named pipe and transfers the data between the tty master and the named pipes. The filtered signals include SIGINT, SIGQUIT, and SIGTSTP, 
-which are forwarded to the Quark agent via the Unix socket. The Quark agent will signal the process accordingly. For instance, when the character \verb|^C| (ASCII code 3) appears in the STDIN-named pipe, the redirection thread sends SIGINT to the 
-process, ultimately terminating it. Furthermore, the Qkernel manages the tty slave by implementing a tty module. This module reads and writes the TTY slave through the UCLL interface. The data written to TTY master and slave are processed by the host
-kernel TTY drive. It is responsible for character echoing, automatic translate each line feed (\textbackslash n) into a carriage return followed by a line feed (\textbackslash r\textbackslash n) in the data from TTY slave, and data buffering for 
-data from TTY master. In this case, when the user presses enter (\textbackslash r), the driver moves the data for the buffer to the TTY slave. Note that the terminal works only when the guest user process's stdin is interactive, i.e., the stdin must 
-be a TTY slave.  Conversely, when the terminal keyword is false, Quark-shim directly sends the three named pipes to the Quark agent, which then creates the exec process and uses the three named pipes as standard input, out, and error. Unlike the former case, 
-Qkernel uses the Qcall interface for STDIO data transmission (Figure ~\ref{fig1:a}). 
+The Quark handles the process’s STDIO differently based on the terminal keyword in the specification. 
+ 
+The terminal keyword is true for an interactive process, i.e., the process’s STDIO type is terminal. In this case, as illustrated in Figure~\ref{fig1:b}, Quark-shim creates an asynchronous terminal IO redirection thread and requests a TTY pair from the host kernel (TTY master and TTY slave). The TTY 
+slave is then sent to the Quark agent, where it is set as STDIN, STDOUT, and STDERR of the process. The Qkernel TTY module can read and write the TTY slave through the UCLL interface. Furthermore, the redirection thread (as illustrated in Figure 4.2b) filters the signals in the STDIN-named pipe and 
+transfers the data between the TTY master and the named pipes. The filtered signals include SIGINT, SIGQUIT, and SIGTSTP, which are forwarded to the Quark agent via the Unix socket. The Quark agent then signals the process accordingly. For instance, when the character \textasciicircum C (ASCII code 3) appears in 
+the STDIN-named pipe, the redirection thread sends SIGINT to the process, ultimately terminating it. Besides, the data written to the TTY master and slave are processed by the host kernel TTY drive. For data written to the slave, the driver translates each line feed (\textbackslash n) into a carriage return
+ followed by a line feed (\textbackslash r\textbackslash n). This editing is required because the user-side terminal needs these two characters to start a new line of text. Also, for data written to the TTY master, the driver will buffer it. When the user presses the enter key (\textbackslash r) it 
+ copies the buffered data to the TTY slave. As such, the terminal will not work without the host kernel TTY driver.
 
-While the process is running, Containerd~\cite*{containerd} will keep the three named pipes open. For the application process, stdout and stderr stream output are saved as log information to a location specified by Kubernetes. For the exec process, 
-command execution results are returned to the user via stdout or stderr.
+The terminal keyword is false for a non-interactive process, i.e., the process’s STDIO type is normal IO. In this case, as shown in Figure~\ref{fig1:a}, Quark-shim directly sends the three named pipes to the Quark agent. It then creates the process and uses the pipes as STDIN, STDOUT, and STDERR. 
+Unlike the former case, Qkernel uses the Qcall interface for STDIO data transmission.
 
-\textbf{End-to-end encryption for terminal data streams is missing.} When the terminal keyword is true in a process specification, the STDIO of exec or application processes is of the terminal type. The way untrustworthy Quark- shim process terminal 
-IO threatens the confidentiality and integrity of the application data. In computer security, man-in-the-middle attack\cite*{Man_in_the_middle_attack} is a common attack mode where an attacker can intercept and forward messages between two parties to eavesdrop or alter 
-communications. In the case of Quark, the attacker can use Quark-shim as a man-in-the-middle to intercept confidential data while the terminal redirection thread forwards the data. In severe cases, the attacker can change the commands the application 
-owner sends or tamper with the command results to achieve their ulterior motives.
+While the process is running, Containerd~\cite*{containerd} will keep the three named pipes open. For the application process, STDOUT and STDERR stream output is saved as log information to a location specified by Kubernetes. For the EXEC process, command execution results are returned to the user via 
+STDOUT or STDERR.
 
 
-\textbf{Lack of cryptographic protection for application log}. The standard output and standard error stream data generated by applications are managed uniformly as application logs by Kubernetes. However, this approach is inappropriate since our 
-threat model does not trust the cloud provider. An individual with cluster access can use the" kubectl logs pod-name" to view the application logs. Furthermore, A malicious administrator can log into the host running the application and view the 
-application logs stored in the host file system. As a countermeasure, Qkernel should encrypt the application stdout and stderr stream data. Specific mitigation measures can be found in Section~\ref{sec:design_STDIO_PROTECTION}
-
-
- When the application owner issues commands to the application, the returned execution results are often confidential and sensitive. However, these results are returned by untrusted entities 
-such as qvisor and containerd (as shown in Figure 3). For instance, if the application owner issues the command "cat /var/log/confidential.log" to the application, the Quark-agent would create a process to execute the "cat" binary and write the 
-result to the process's stdout. Notably, the process’s STDIO in this case is set to named pipes. Subsequently, the qkernel's write syscall handler requests the Qvisor through Qcall to write the result to the named pipe, from where the Containerd 
-gets the result and sends it back to the user. This setup gibe both Qvisor and Containerd the ability to temper with the command's results. As such, it is crucial to cryptographically protect the stdout and stderr of processes that execute commands 
-from application owner. Further details on the mitigation measures can be found in Sections XX.
-
-\textbf{Lack of cryptographic protection of exec request results.} When the application owner issues commands to the application, the returned execution results contain sensitive data. However, these results are returned by untrusted entities, i.e., 
-Qvisor and Containerd (as shown in Figure~\ref{fig1:a}).   For instance, if the application owner issues the command" cat /var/log/confidential.log" to the application, the Quark agent would create a process to execute the" cat" binary and write the 
-result to the process's stdout. Notably, the process's STDIO is set to named pipes in this case. Subsequently, the Qkernel's write syscall handler requests the Qvisor through Qcall to write the result to the named pipe, from where the containerd 
-gets the result and sends it back to the user. This setup allows both Qvisor and Containerd to temper with the command's results. As such, it is crucial to cryptographically protect the stdout and stderr of processes that execute commands from the 
-application owner. Further details on the mitigation measures can be found in Sections XXsssssssss.
+\textbf{Lack of cryptographic protection for interactive processes STDIN, STDOUT, and STDERR}. Firstly, If the application owner uses a terminal to communicate with the process, the integrity and confidentiality of transmitted data may be compromised. In computer security, the man-in-the-middle 
+attack~\cite*{Man_in_the_middle_attack} is a common attack mode where an attacker can intercept and forward messages between two parties to eavesdrop or alter communications. In the case of Quark,  Quark-shim, as a man-in-the-middle, can intercept confidential data when redirecting the data between the TTY master and the named 
+pipes. Besides, the log of the interactive process is managed by Kubernetes. An individual with cluster access can use the” kubectl logs pod-name” to view the application logs. To this end, the interactive processes STDIN, STDOUT, and STDERR should be encrypted. Specific mitigation measures can be 
+found in  Section~\ref{sec:design_STDIO_PROTECTION}.
+ 
+ 
+\textbf{The STDOUT and STDERR of a non-interactive process require protection for several reasons.} Firstly, the data from a non-interactive application process’s STDERR and STDOUT is stored as logs in the host. This can result in the leakage of confidential data. Additionally, the EXEC process in 
+single-shot command mode writes the command execution result to its STDOUT. The result is redirected by Qvisor and Containerd to a user. Consequently, an untrusted entity can snoop on the execution results of commands issued by the application owner. Note that the result may contain confidential data. 
+To this end, we must protect the STDOUT and STDERR of a non-interactive process. The mitigation can be found in  Section~\ref{sec:design_STDIO_PROTECTION}.
 
 
 \subsection{Issuing command and Terminal Allocation}
-\textbf{Anyone can issue commands to an application.} Currently, the Quark agent (see section~\ref{sec:security_analyse_STDIO} for an explanation) in the qkernel lacks authentication and access control on the EXEC requests sent from the Quark shim. 
-Therefore, an adversary can issue commands to the application to collect the application's sensitive data. An example of such access can be illustrated by executing kubectl exec pod-name printenv to obtain the application's environment variable 
-type secret. In response to this vulnerability, we have classified the exec commands into two categories: "privileged" commands issued by the application owner and "unprivileged" commands issued by other users. Before executing these commands, the
-Quark agent operates according to the least privilege principle to authenticate and access control on the exec requests. Therefore, unauthorized requests will be denied. For further details, please refer to section~\ref{sec:design_EXEC_Requests}.
+\textbf{Anyone can issue commands to an application.} The Quark agent (see section~\ref{sec:security_analyse_STDIO} for an explanation) lacks authentication and access control on the EXEC requests sent from the Quark shim. Therefore, an adversary can issue commands to the application to collect the 
+application’s sensitive data. For example, use kubectl exec pod-name printenv to obtain the application’s environment variable type secrets. To this end, we should add authentication and access control points within Qkernel. Any unauthorized requests should be denied. For further details, please 
+refer to section~\ref{sec:design_EXEC_Requests}.
 
-
-\textbf{The privileged commands may contain confidential data but are unprotected during transmission.} Currently, the commands are sent to Quark shim by Containerd~\cite*{containerd} as part of the exec request's metadata via the shim- v2 API~\cite*{shim_v2}. 
-Quark-shim processes the exec request similar to that used to create an application process. When Quark-shim receives an exec request, it generates a process specification based on the metadata. This specification includes the command to be executed 
-and the STDIO type. Quark shim forwards this specification to the Quark agent via a Unix socket. The Quark agent then creates a guest userspace process to execute the command (see Figure~\ref*{fig:quark_agent_work_flow}). However, As 
-Quark-shim and Containerd are untrusted, the commands may be compromised or modified during transit. To this end, we should apply end-to-end cryptographic protection for privileged commands. The encryption occurs at the user end and decryption 
-at the Qkernel side, preventing commands from unauthorized access during transmission. For additional information, see section~\ref{sec:design_EXEC_Requests}.
+\textbf{The commands issued by application owner may contain confidential data but are unprotected during transmission.} Currently, the commands are redirected to Qkernel by Containerd~\cite*{containerd} and Quark shim along with other metadata in EXEC request. When Quark-shim receives an EXEC request, it generates 
+a process specification based on the EXEC request’s metadata. This specification includes the command and its parameter, the STDIO type, the environment variables, etc. Quark shim forwards this specification to the Quark agent via a Unix socket. The Quark agent then creates a guest process to 
+execute the command (see Figure~\ref*{fig:quark_agent_work_flow}). Considering the command issued by the application owner may contain confidential information, the commands may be compromised or modified during transit. To this end, we should apply end-to-end cryptographic protection for these 
+commands. For additional information, see section~\ref{sec:design_EXEC_Requests}.
 
 
 \textbf{Any user can allocate a terminal in Kubernetes using one of two methods:}
@@ -186,30 +157,22 @@ at the Qkernel side, preventing commands from unauthorized access during transmi
   \item Creating a terminal process within a pod by using kubectl exec -it pod-name.
   \item Setting stdin: true and tty: true in the container specification during interactive application deployment and then attaching to the application process's stdio using kubectl attach-it pod-name~\cite*{Understanding_sdin}.
 \end{itemize}
+In this case, the process specification sets the keyword terminal to true, i.e., the process STDIO is of terminal type. Since the Quark agent does not validate the keyword terminal when creating an interactive  EXEC process, an adversary can use kubectl exec-it to allocate a terminal, then issue 
+arbitrary commands. To this end, authentication and access control are required before creating an EXEC process. For further information, please see section~\ref{sec:design_EXEC_Requests}.
 
 
-For Quark-shim and Quark-agent, this means that the keyword terminal is set to true in the process specification. In this case, the Quark agent treats the process stdio as terminal, as explained in section XXXXX. However, the Quark agent does not 
-validate the keyword terminal when creating processes, and this may lead to unauthorized access:
-
-any user can attach to an interactive application, then issue commands. Unlike EXEC requests, the attach requests are processed by Containerd~\cite*{containerd}. In this case, Containerd creates an IO redirection thread that transfers data between 
-the STDIO of the user-side process and the three named pipes in Containerd representing the STDIO of the application. As a countermeasure, the easiest way is to encrypt the stdout and stderr of the application. With this approach, even if an 
-attacker attaches to the application, the terminal cannot be used appropriately because the attacker does not possess the key to decrypt the application process's stdout and stderr stream. For more details, please refer to section~\ref{sec:design_STDIO_PROTECTION}.
-
-
-On the other hand, any user with access to the cluster can use the kubectl exec -it to allocate a terminal. This allows an attacker to issue arbitrary commands to an application without restriction. In this case, Quark-agent creates a process based 
-on the process specification of the EXEC request and sets the process STDIO to the terminal type. As a countermeasure, the Quark agent should follow the least privilege principle to verify that this user has permission to set the STDIO to the 
-terminal type before creating the process. For further information, please see section~\ref{sec:design_EXEC_Requests}.
+Moreover, when an application is interactive, anyone can attach to the application and issue commands. Unlike EXEC requests, the attach requests are processed by Containerd~\cite*{containerd}. Specifically, Containerd creates an IO redirection thread that transfers data between the STDIO of the 
+user-side process and the three named pipes in Containerd representing the STDIO of the application. In this case, qkernel has no control over the request. One possible countermeasure is to encrypt the STDOUT and STDERR of the application. In this case, even if an attacker attaches to the application, 
+the terminal cannot be used because the attacker does not possess the key to decrypt the application process’s STDOUT and STDERR stream. For more details, please refer to section~\ref{sec:design_EXEC_Requests}.
 
 
 % the qkernel should measure the terminal keyword in the application 
 % process specification before creating the process. The measurement should then be sent as part of the application's startup hash to the relying party. In this way, the relying party ensures that the stdio of the application is of the correct type.  
 
 \subsection{Paravirtualized File System Sharing}
-
-The application accesses the rootfs on the host system through the Paravirtualized File System Sharing mechanism.   In creating the application, Quark-shim first generates a mount namespace for the Quark sandbox. It then utilizes the information in 
-the application bundle to mount the rootfs of the application into the Quark sandbox path, thus making it available to the Qkernel. During runtime, the application accesses the rootfs on the host system through the Qkernel para-virtualized file 
-system sharing mechanism. For instance, when the application utilizes the guest-read system call to access a file in the rootfs, the guest-read system call handler will request the host to read the target file via Hypercall or Ucall interface. 
-In response, the host kernel processes the request and shares the outcome with the application via the interface above.
+The application accesses the rootfs on the host through the Paravirtualized File System Sharing mechanism. In creating the application, Quark-shim first generates a mount namespace for the Quark sandbox. It then utilizes the information in the application bundle to mount the rootfs of an application 
+into the Quark sandbox path, thus making it available to the Qkernel. During runtime, the application accesses the rootfs on the host through the Qkernel para-virtualized file system. For instance, when the application utilizes the guest-read system call to access a file, the Qkernel will request 
+the host to read the target file via Hypercall or Ucall interface. 
 
 
 \begin{figure}[ht] 
@@ -233,98 +196,78 @@ In response, the host kernel processes the request and shares the outcome with t
 
 \subsubsection{Loading compromised application binary during startup}
 \label{sec:app_binary_loading}
-The application binary is stored in the host’s space. During the setup of the application process, the Qkernel loader opens the application binary using Hcall::Openat, reads its ELF header into the Qkernel using the Ucall::read, and then requests 
-the Qkernel virtual memory manager to create a process image for the application. The memory manager creates a private virtual memory area (VMA) for each loadable segment defined in the ELF file  (Figure~\ref{fig2:a}). When the application process 
-runs, accessing an address within the VMA will trigger a page fault. This is handled by the qkernel page fault handler. 
+The application binary is stored on the host. During the setup of the application process, the Qkernel loader opens the application binary using Hcall::Openat, reads its ELF header into the Qkernel using the Ucall::read, and then requests the Qkernel virtual memory manager to create a private virtual 
+memory area (VMA) for each loadable segment defined in the ELF file (Figure~\ref{fig2:a}). When the application process runs, accessing an address within the VMA will trigger a page fault, which is handled by the Qkernel page fault handler.
+ 
+The workflow for the page fault handling can be found in Figure~\ref{fig2:b}. Since the VMA of a loadable segment is private, the page fault handler uses hcall::mmap to request Qvisor to map the loadable segment into the guest, then allocate a page from the page pool on the Qkernel heap. It copies the 
+segment's contents from the guest's physical address to this page. Finally, a page table entry (guest virtual address -> address of the page) is created. After this, the page fault handler hand over the control to the guest user process.
+ 
+Since the application binary is loaded from the host,  an attacker can induce Qkernel to execute compromised codes. For instance, the loader might request Qvisor to open binary A using Hcall::openat. Nevertheless, instead, Qvisor provides the descriptor of file B. As a result, the loader creates the 
+wrong memory mapping. Consequently, the page fault handler will load the code from file B instead of file A. Furthermore, since the page fault handler uses Hcall::mmap to map the executable into the guest's physical space, an attacker could manipulate the Qvisor to map compromised code. In this case, 
+the page fault handler copies this code to a page, creates a page table entry, and then returns to the application process without an integrity check.  
+ 
+To this end, the application binary should be loaded to the guest and measured when the Qkernel loader creates the VMAs for it. The measurements should be forwarded to relying party for integrity checking. Further detail can be found in Section~\ref{sec:Enclave_Runtime_Measurement}. 
 
-The workflow for the page fault handling can be found in Figure~\ref{fig2:b}. Since the VMA of a loadable segment is private, the page fault handler uses hcall::mmap to request Qvisor to map the relevant loadable segment into the guest physical space, 
-then allocate a page from the page pool on the Qkernel heap, and copies the contents of the segment from the guest physical address to this page. Finally, a page table entry (guest virtual address -> address of the page) is created. After this, 
-the page fault handler hand over the control to the guest user process. 
-
-The fact that the application binary is loaded from the host makes it possible for an attacker to induce Qkernel to execute compromised codes. For instance, the loader might request Qvisor to open binary A using Hcall::openat, but instead, 
-untrusted Qvisor provides the descriptor of file B. As a result, the loader creates the wrong memory mapping. Consequently, the page fault handler will load the code from file B instead of file A. Furthermore, since the page fault handler uses 
-Hcall::mmap to map the executable into the guest physical space, an attacker could manipulate the Qvisor to map compromised code. In this case, the page fault handler simply copies this code to a page, creates a page table entry, and then returns 
-to the application process without an integrity check. This leads to the execution of malicious code. 
-
-To mitigate this vulnerability, after the memory manager creates a VMA for a loadable segment, the Qkernel should immediately read the address range. This facilitates the page fault handler to load the segment into the guest before the application 
-runs. Also, the Qkernel should measure the read content simultaneously. The measurement result should be sent to a relying party for integrity checking. In this way, we ensure the correctness of the application binary loaded into the qkernel.
-
-
-
-\begin{figure}[H]
+\begin{figure}[htp]
   \centering
-  \includegraphics[width=1\textwidth]{images/load_shared_libarart.png}
+  \includegraphics[width=0.6\textwidth]{images/load_shared_libarart.png}
   \caption[Interpreter setups shared library's memory mappings]{Interpreter setups shared library's memory mappings}
   \label{fig:load_shared_libarart}
 \end{figure}
 
 
 \subsubsection{Loading compromised binary at runtime}
-Dynamic libraries are binary files stored on the host and loaded at application runtime by the interpreter. When the application is a dynamically linked executable, the interpreter’s code is executed upon launching the application process. 
-As depicted in Figure~\ref{fig:load_shared_libarart}, the interpreter uses the open, read, and mmap system calls to create private memory mappings (VMAs) for the loadable segments in a shared library. Accessing an address within the VMAs triggers 
-page faults. The page fault handler handles the fault like how it handles page faults when accessing the VMA of the application binary. 
-
-Since the process of how the Qkernel creates memory mapping and later loads code to the guest for shared library and application binary are very similar, the issues encountered in the previous section also apply here. To this end, the Qkernel should 
-measure the shared library by reading the VMA before the mmap system call is returned. This prompts the page fault handler to load the library into the guest. However, since the library’ measuring happens after remote attestation, the Qkernel does 
-not forward the measurements to the relying party. Instead, it verifies these measurements against the reference hash in the policy file obtained from the relying party.
-
-Executing a command at runtime will cause the qkernel to load the binary corresponding to that command. For example, for the exec command, the quark-agent will load the binary corresponding to the command and create a process. The binary loading 
-mechanism has already been discussed in section~\ref{sec:app_binary_loading}.   Therefore, a malicious user can inject malicious code into the Qkernel. The mitigation is similar to the previous section, where Qkernel measures the binaries loaded into Qkernl and checks 
-the correctness of the loaded binaries using the reference hashes in the policy file obtained from the relying party.
+Dynamic libraries are stored on the host and loaded at application runtime by the interpreter. When the application is a dynamically linked executable, the interpreter's code is executed upon launching the application process. As depicted in Figure~\ref{fig:load_shared_libarart}, the interpreter uses the open, read, and mmap 
+system calls to create private memory mappings (VMAs) for the loadable segments in a shared library. Accessing an address within the VMAs triggers page faults. The page fault handler handles the fault like how it handles page faults when accessing the VMA of the application binary.
+Since the process of how the Qkernel creates memory mapping and later loads code to the guest for shared library and application binary are very similar, the issues encountered in the previous section also apply here. 
+ 
+Executing a command at runtime will cause the qkernel to load the binary corresponding- ing to that command. For example, for the exec command, the quark-agent will load the binary corresponding to the command and create a process. The binary loading mechanism has already been discussed in section~\ref{sec:app_binary_loading}. Therefore, a malicious user can inject malicious code into the Qkernel. 
+ 
+Regarding the mitigation, Qkernel should measure the binaries and shared libraries after its VMA is created and checks its correctness using the reference hashes in the policy file obtained from the relying party. Further detail can be found in Section~\ref*{sec:Enclave_Runtime_Measurement}. 
 
 
 \subsubsection{Lack of management of application restarts}
-
-In the event of an unexpected application crash, Kubernetes may recreate a pod to execute the crashed application or restart the program within the original pod if the persists. In the latter case, Qkernel reloads the application binaries 
-and process specifications. from the host and provide the relaunched application with the secret obtained from relying party during the first startup. An attacker may use this opportunity to inject malicious code and process specifications into Qkernel, 
-which causes an incorrect process setup or executing of compromised code. To mitigate this threat, Qkernel should measure the application recreation process and compare the measurement result with the initial application startup measurement stored 
-on guest memory. If the 2 hashes don’t match,  Qkernel should panic.
-
-In an unexpected application crash, Kubernetes may recreate a pod to execute the crashed application or restart the program within the original pod if it still exists\cite*{k8s}. In the latter case, Qkernel reloads the application binaries from the host 
-and provide the application with the secret obtained from relying party during the first startup. An attacker may use this opportunity to inject malicious code into Qkernel, which causes the execution of compromised code. To mitigate this threat, 
-Qkernel should measure the application recreation process and compare the result with the initial application startup measurement stored on guest memory. If the two hashes do not match, Qkernel should panic.
+In an unexpected application crash, Kubernetes may recreate a pod to execute the crashed application or restart the program within the original pod if it still exists~\cite*{k8s}. In the latter case, Qkernel reloads the application binaries from the host and provides the application with the secret 
+obtained from relying party during the first startup. An attacker may use this opportunity to inject malicious code into Qkernel, which causes the execution of compromised code. To mitigate this threat, Qkernel should measure the application recreation process and compare the result with the initial 
+application startup measurement stored on guest memory. If the two hashes do not match, Qkernel should panic.
 
 \subsection{No restriction to the available System Calls for Applications}
-
-The seccomp section in the OCI runtime specification\cite*{oci-spec} defines a way to restrict the available system calls for applications. Unfortunately, Qkernel does not support seccomp\cite*{seccomp}. If a guest process is compromised, a vulnerable 
-system call can be abused to attack the qkernel and other processes. In computer security, component hijacking\cite*{DBLP:journals/corr/WuGLD16} is an attack pattern in which an attacker can attack the kernel and other processes by hijacking a 
-process and forcing it to execute a vulnerable system call. For example, an attacker can start a malicious EXEC process,  which uses a vulnerable system call to steal application secrets stored in Qkernel. 
-
-To this end, we implement a guest system call interceptor. The application owner can specify the available system calls for an application. For more details, please refer to section~\ref*{sec:design_Interceptor}.
+The seccomp section in the OCI runtime specification~\cite*{oci-spec} defines a way to restrict the available system calls for applications. Unfortunately, Qkernel does not support seccomp~\cite*{seccomp}. If a guest process is compromised, a vulnerable system call can be abused to attack the Qkernel and other processes. 
+In computer security, component hijacking~\cite*{DBLP:journals/corr/WuGLD16} is an attack pattern in which an attacker can attack the kernel and other processes by hijacking a process and forcing it to execute a vulnerable system call. For example, an attacker can start a malicious EXEC process, which uses a vulnerable system 
+call to steal application secrets stored in Qkernel. To this end, Qkernel should implement a guest system call interceptor and allow the application owner to specify the available system calls for an application. For more details, please refer to Section~\ref*{sec:design_Interceptor}.
 
 \subsection{No control over guest kernel arguments}
-\begin{figure}[H]
+\begin{figure}[htp]
   \centering
-  \includegraphics[width=0.5\textwidth,height=0.4\textheight]{images/quark_config.PNG}
+  \includegraphics[width=0.3\textwidth]{images/quark_config.PNG}
   \caption[Configuration file for Qkernel, Qvisor, and Quark shim]{Configuration file for Qkernel, Qvisor, and Quark shim. The file is installed as a global configuration file for quark in the /etc/quark/ directory. When quark-shim or qvisor starts, it reads this file and completes the relevant configuration}
   \label{fig:quark_config}
 \end{figure}
 
-Qkernel is a binary loaded into the guest memory during Qvisor setting up the guest. To properly configure the Qkernel, Qvisor also passes several command-line arguments to the Qkernel, including the number of VCPUs, the socket file descriptor that 
-the Quark-agent listens to, and a configuration file shown in Figure~\ref{fig:quark_config}. This configuration file specifies the runtime behavior of the Qkernel, such as whether to enable the Ucall interface, whether to enable RDMA, etc. A wrong configuration file 
-can lead to the disclosure of the secrets stored in Qkernel. For example, turning on RDMA would allow an untrusted party direct access to the Qkernel’s memory. For this reason, the Qkernel should measure the configuration file and send it to the relying party for integrity checking.
+Qkernel is a binary loaded into the guest memory during Qvisor setting up the guest. To properly configure the Qkernel, Qvisor also passes several command-line arguments to the Qkernel, including the number of VCPUs, the socket file descriptor that the Quark-agent listens to, and a configuration 
+file shown in Figure~\ref{fig:quark_config}. This configuration file specifies the runtime behavior of the Qkernel, such as whether to enable the Ucall interface, whether to enable RDMA, etc. A wrong configuration file can disclose the secrets stored in Qkernel. For example, turning on RDMA would allow an untrusted 
+party direct access to the Qkernel’s memory. For this reason, the Qkernel should measure the configuration file and send it to the relying party for integrity checking. For more details, please refer to section~\ref*{sec:Enclave_Runtime_Measurement}.
 
 \subsection{Qkernel Log Misconfiguration}
 \label{sec:Qkernel_Log_Misconfiguration}
+Qkernel uses Hcall::HYPERCALL\_PRINT to store its logs under the host directory /var/log/quark. The Qkernel logging system currently supports five logging levels: OFF, Error, Info, Debug, and Trace. Here OFF is the minor level, i.e., the least detailed, and Trace is the highest level, i.e., 
+the most detailed log. The user can configure the highest level of logging for Qkernel through the DebugLevel keyword in the configuration file shown in Figure~\ref{fig:quark_config}. For example, when the DebugLevel is Info, Qkernel prints logs in level Error and Info. A malicious administrator may set the 
+DebugLevel keyword to Trace and then analyze the Qkernel logs to obtain sensitive information.
 
-Qkernel logs are stored by qvisor in the host /var/log/quark directory via Hcall::HYPERCALL\_PRINT. Currently, the Qkernel logging system supports five logging levels: OFF, Error, Info, Debug, and Trace. Here OFF is the minor level, i.e., 
-the least detailed, and Trace is the highest level, i.e., the most detailed log. The user can configure the highest level of logging for qkernel through DebugLevel keyword in the configuration file (Figure~\ref{fig:quark_config}). For example, when 
-the DebugLevel is Info, qkernel prints logs in level Error, and Info. A malicious administrator may set the DebugLevel keyword to Trace and then analyze the Qkernel logs to obtain sensitive information. 
-
-This problem can be solved by measuring the guest kernel arg. However, both Qvisor and Qkernel are configured using this file. Specifically, Qvisor reads this configuration file after startup and passes a copy into the Qkernel as a command line 
-argument when launching the guest. Suppose the k8s administrator sets the DebugLevel keyword to trace to view the Qvisor’s logs. In this case, the Qkernel will have to print very detailed log messages, which may contain the application’s secrets. 
-To break the coupling between the Qvisor and Qkernel logging system configuration, we should offload the Qkernel logging system configuration from this configuration file and allow the application owner to specify the Qkerenl maximum logging level 
-in a policy. This policy is obtained at application startup via remote attestation. Until then, the logging level of the Qkernel is set to the default level OFF, i.e., no logs will be printed.
+This problem can be solved by measuring the guest kernel arguments. However, both Qvisor and Qkernel are configured using this file. Specifically, Qvisor reads this configuration file after startup and passes a copy to the Qkernel as a command line argument when launching the guest. In confidential 
+computing, Qkernel and Qvisor belong to the application owner and the cloud operator, respectively. They have different interests and do not trust each other. For example, to resolve errors quickly, the cloud operator requires the log level in Qvisor to be set to TRACE, while the application owner 
+requires the log level in Qkernel to be OFF (does not print any logs) to protect the confidential information in the enclave. In the current architecture, Quark cannot satisfy both requirements. To this end, the Qkernel logging system configuration should be offloaded from the global configuration 
+file. The detail can be found in section~\ref{sec:Qkernel_logger}.
 
 
 
 
 \section{Summary}
 In this chapter, the threat model is first defined in section~\ref{sec:Threat_model}. Based on this model, the security issues in Quark are examined from various perspectives. These vulnerabilities found include:
-\begin{itemize}
+\begin{enumerate}
   \item Application secrets are managed and deployed by untrusted Kubernetes and Quark-shim
-  \item Absence of end-to-end encryption for terminal data streams
-  \item  Lack of cryptographic protection for application log
+  \item Lack of cryptographic protection for interactive processes STDIN, STDOUT, and STDERR.
+  \item Lack of cryptographic protection for non-interactive processes STDOUT and STDERR.
   \item Anyone can issue commands to an application
   \item Any user can allocate a terminal
   \item The commands issued by application owner may contain confidential data but are unprotected during transmission.
@@ -335,7 +278,7 @@ In this chapter, the threat model is first defined in section~\ref{sec:Threat_mo
   \item No control over guest kernel arguments
   \item Guest kernel Log misconfiguration
 
-\end{itemize}
+\end{enumerate}
 
 % For this reason, we should offload the configuration of the logging system from the qkernel configuration file and allow the application owner to specify the maximum logging level for the specified client kernel logging system in the protection 
 % policy.

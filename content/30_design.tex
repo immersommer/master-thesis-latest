@@ -199,6 +199,7 @@ enclave ID guarantees that the remote end can determine the application's identi
 
 
 \section{Enclave Runtime Measurement}
+\label{sec:Enclave_Runtime_Measurement}
 Enclave runtime measurements are crucial due to the security analysis findings discussed in Chapter~\ref{sec:security_analyse}. Qkernel command line parameters, the application binary, and shared libraries are loaded from the host. Thus, an attacker can modify them 
 to breach the enclave's confidentiality. However, AMD SEV SVP does not facilitate enclave runtime measurements~\cite*{snp_firmware}, and INTEL TDX only allocates four registers for this purpose~\cite*{Intel_tdx_whitepaper}. Consequently, we provide a software measurement manager in the shielding 
 layer to measure the data loaded from the host while the enclave is running. The software measurement manager obtains the following important measurements by measuring these data.
@@ -387,7 +388,7 @@ EXEC processes, this number is the counter's value in the EXEC request. After re
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{images/terminal_shiled2.png}
+    \includegraphics[width=0.6\textwidth]{images/terminal_shiled2.png}
     \caption[Terminal STDIO Protection in case of using Host Kenrel TTY Driver]{Terminal STDIO Protection in case of using Host Kenrel TTY driver}
     \label{fig:terminal_shiled2}
 \end{figure}
@@ -444,6 +445,7 @@ system interceptor supports only one action, ScmpActErrno, i.e., when the trigge
 \end{figure}
 
 \section{Qkernel Log Manager}
+\label{sec:Qkernel_logger}
 Section~\ref{sec:Qkernel_Log_Misconfiguration} of the security analysis discussed the consequences of misconfiguring the Qkernel logging system. Currently, Quark uses a global file to configure the Qkernel and Qvisor. Users can set the logging levels for both using the keyword 
 "LogLevel" in this file. Quark supports five logging levels: OFF, ERROR, INFO, DEBUG, and TRACE, where OFF means shutting down the logging system (minimum logging level) and TRACE means printing the most detailed log (maximum logging level). 
 Since Qkernel and Qvisor use the same file to configure logging levels, the logging levels are the same for both. However, in confidential computing, Qkernel and Qvisor belong to the application owner and the cloud operator, respectively. They 
