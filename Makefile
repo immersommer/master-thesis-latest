@@ -21,24 +21,20 @@ DOC_BIB     ?= own.bib
 
 # images
 DOC_IMG_JPG  = images/squirrel.jpg # you can specify multiple images here
-DOC_IMG_JPG  = images/cri_overviwe.pdf
-DOC_IMG_JPG  = images/k8s_with_oci_cri.pdf
-DOC_IMG_JPG  = images/k8s_arch.pdf
-DOC_IMG_JPG  = images/quark_design.png
-DOC_IMG_JPG  = images/quark_io.png
 DOC_IMG_JPG  = images/hypercall_qcall_ucall.pdf
-DOC_IMG_JPG  = images/vm_process_tee.pdf
-DOC_IMG_JPG  = images/TDX_diagram.pdf
-DOC_IMG_JPG  = images/IMG_4415.png
-DOC_IMG_JPG  = images/IMG_4416.png
-DOC_IMG_JPG  = images/IMG_4417.png
-DOC_IMG_JPG  = images/IMG_4414.png
-DOC_IMG_JPG  = images/IMG_4413.png
-DOC_IMG_JPG  = images/fileencption.png
 DOC_IMG_JPG  = images/attestation.PNG
 DOC_IMG_JPG  = images/resourcerequrie.PNG
-DOC_IMG_JPG  = images/Container_Lifecycle_state.PNG
 
+DOC_IMG_JPG  = images/k8s.png
+DOC_IMG_JPG  = images/kata.png
+DOC_IMG_JPG  = images/QUARK_ARCH.png
+DOC_IMG_JPG  = images/amd_snp_certificate_chain.png
+DOC_IMG_JPG  = images/amd_attestation_workflow.png
+DOC_IMG_JPG  = images/snp_tdx_compare.png
+DOC_IMG_JPG  = images/td_arch.png
+DOC_IMG_JPG  = images/tdx_attestation_flow.png
+DOC_IMG_JPG  = images/tdx_certi_chain.png
+DOC_IMG_JPG  = images/Container_Lifecycle_state.PNG
 
 
 # evaluation images for secureity analyse

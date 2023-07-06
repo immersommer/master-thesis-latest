@@ -39,6 +39,17 @@
   journal = {Dr. Dobbs Journal}
 }
 
+
+
+@ONLINE{amd_sev_summarize,
+  author = {Ustiukhin, Artemii },
+  title = {{Exploring approaches for secure workload deployment and attestation in virtualization-based confidential computing environment}},
+  url = {https://lutpub.lut.fi/handle/10024/164226},
+  urldate = {2023-06-03}
+}
+
+
+
 @ARTICLE{feske07,
   author = {Norman Feske},
   title = {{A case study on the cost and benefit of dynamic RPC marshalling
@@ -96,12 +107,7 @@ abstract = {It is common sense that cloud-native applications (CNA) are intentio
   urldate = {2022-11-27}
 }
 
-@ONLINE{k8s_runtime_class,
-  author = {Kubernetes community},
-  title = {{Kubernetes Documentation -runtime class}},
-  url = {https://kubernetes.io/docs/concepts/containers/runtime-class/},
-  urldate = {2022-11-27}
-}
+
 
 
 @ONLINE{containerd,
@@ -116,13 +122,6 @@ abstract = {It is common sense that cloud-native applications (CNA) are intentio
   title = {{cri-o website}},
   url = {https://cri-o.io/},
   urldate = {2022-11-27}
-}
-
-@ONLINE{oci-spec,
-  author = {oci community},
-  title = {{Open Container Initiative}},
-  url = {https://opencontainers.org/},
-  urldate = {2022-11-28}
 }
 
 @ONLINE{oci-runtime-spec,
@@ -156,37 +155,32 @@ abstract = {It is common sense that cloud-native applications (CNA) are intentio
   urldate = {2022-11-28}
 }
 
-@ONLINE{railcar,
-  author = {oracle},
-  title = {{railcar}},
-  url = {https://github.com/oracle/railcar},
-  note = {railcar is a rust implementation of the opencontainers initiative's runtime spec.},
-  urldate = {2022-11-28}
-}
-
-@ONLINE{crun,
-  author = {crun community},
-  title = {{crun}},
-  url = {https://github.com/containers/crun},
-  note = {A fast and low-memory footprint OCI Container Runtime fully written in C.},
-  urldate = {2022-11-28}
-}
-
-
-@ONLINE{rkt,
-  author = {rkt community},
-  title = {{rkt}},
-  url = {https://github.com/rkt/rkt},
-  note = {rkt (pronounced like a "rocket") is a CLI for running application containers on Linux.},
-  urldate = {2022-11-28}
-}
 
 @ONLINE{Kata-Containers,
   author = {Kata Containers community},
   title = {{Kata Containers}},
-  url = {https://github.com/kata-containers},
+  url = {https://katacontainers.io/},
   urldate = {2022-11-28}
 }
+
+@ONLINE{Kata_arch,
+  author = {Kata Containers community},
+  title = {{Kata Containers Architecture}},
+  url = {https://github.com/kata-containers/documentation/blob/master/design/architecture.md},
+  urldate = {2022-11-28}
+}
+
+
+
+@INPROCEEDINGS{9198653,
+  author={Kumar, Rakesh and Thangaraju, B},
+  booktitle={2020 IEEE International Conference on Electronics, Computing and Communication Technologies (CONECCT)}, 
+  title={Performance Analysis Between RunC and Kata Container Runtime}, 
+  year={2020},
+  volume={},
+  number={},
+  pages={1-4},
+  doi={10.1109/CONECCT50063.2020.9198653}}
 
 @ONLINE{quark,
   author = {Quark Containers community},
@@ -195,12 +189,6 @@ abstract = {It is common sense that cloud-native applications (CNA) are intentio
   urldate = {2022-11-28}
 }
 
-@ONLINE{gvisor,
-  author = {gvisor community},
-  title = {{gvisor}},
-  url = {https://gvisor.dev/},
-  urldate = {2022-11-28}
-}
 
 @ONLINE{speed_secure_container_slogen,
   title = {{The Speed of Containers, the Security of VMs}},
@@ -261,11 +249,6 @@ series = {HASP '18}
   urldate = {2022-12-10}
 }
 
-@ONLINE{AMD_SEV,
-  title = {{AMD Secure Encrypted Virtualization }},
-  url = {https://developer.amd.com/sev/},
-  urldate = {2022-12-10}
-}
 
 @ONLINE{INTEL_SGX,
   title = {{Intel® Software Guard Extensions }},
@@ -291,14 +274,6 @@ series = {HASP '18}
   urldate = {2022-12-10}
 }
 
-@ONLINE{Execution_Environment_landscape,
-  author = {TAxel Simon, Lily Sturmann},
-  title = {{Current Trusted Execution Environment landscape}},
-  date = {2019},
-  url = {https://next.redhat.com/2019/12/02/current-trusted-execution-environment-landscape/},
-  note = {Slide presentation at the WinHEC 2004},
-  urldate = {2022-12-10}
-}
 
 @ARTICLE{10.3389/fcomp.2022.930741,
 AUTHOR={Geppert, Tim and Deml, Stefan and Sturzenegger, David and Ebert, Nico},   
@@ -366,11 +341,28 @@ series = {HASP '13}
   urldate = {2022-12-10}
 }
 
-@ONLINE{Intel_DCAP,
-  title = {{Intel®SGX Data Center Attestation Primitives}},
-  url = {https://download.01.org/intel-sgx/dcap-1.1/linux/docs/Intel_SGX_DCAP_ECDSA_Orientation.pdf},
-  urldate = {2022-12-10}
+@article{DBLP:journals/corr/abs-2303-15540,
+  author       = {Pau{-}Chen Cheng and
+                  Wojciech Ozga and
+                  Enriquillo Valdez and
+                  Salman Ahmed and
+                  Zhongshu Gu and
+                  Hani Jamjoom and
+                  Hubertus Franke and
+                  James Bottomley},
+  title        = {Intel {TDX} Demystified: {A} Top-Down Approach},
+  journal      = {CoRR},
+  volume       = {abs/2303.15540},
+  year         = {2023},
+  url          = {https://doi.org/10.48550/arXiv.2303.15540},
+  doi          = {10.48550/arXiv.2303.15540},
+  eprinttype    = {arXiv},
+  eprint       = {2303.15540},
+  timestamp    = {Fri, 14 Apr 2023 17:38:15 +0200},
+  biburl       = {https://dblp.org/rec/journals/corr/abs-2303-15540.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
+
 
 @ONLINE{Intel_EPID,
   title = {{Intel® Enhanced Privacy ID (EPID) Security Technology}},
@@ -747,10 +739,24 @@ month = aug,
 
 
 @ONLINE{shim_v2,
-  title = {shim v2 api},
+  title = {containerd shim v2 api},
   url = {https://github.com/containerd/containerd/blob/main/runtime/v2/README.md},
   urldate = {2023-6-10}
 }
+
+@ONLINE{cri0_shim_v2,
+  title = {CRI-O adopts the containerd shin v2 API},
+  url = {https://github.com/cri-o/cri-o/issues/1945},
+  urldate = {2023-6-10}
+}
+
+
+@ONLINE{amd_Sev_snp_ppt,
+  title = {AMD SEV-SNP Attestation: Establishing Trust in Guests},
+  url = {https://www.amd.com/content/dam/amd/en/documents/developer/lss-snp-attestation.pdf},
+  urldate = {2023-6-10}
+}
+
 
 
 @ONLINE{kbs_Attestation_protocol,
