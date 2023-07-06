@@ -360,11 +360,11 @@ Besides the vulnerabilities already discussed, there are other security risks th
 
 
 \textbf{Physical Access Attacks.} An untrustworthy entity, including cloud operators who have physical access to the machine where the application runs, can carry out physical access attacks on the system. One example of such attacks 
-is Offline DRAM Analysis. A partial solution to alleviate the threat is to run guest on AMD SEV SNP or INTEL TDX.  Those interested in learning more about this topic should refer to \cite*{SEV_SNP_white_book}, \cite*{Cheng_Ozga_Valdez_Ahmed_Gu_Jamjoom_Franke_Bottomley_2023}.
+is Offline DRAM Analysis. A partial solution to alleviate the threat is to run guest on AMD SEV SNP or INTEL TDX.  Those interested in learning more about this topic should refer to \cite*{SEV_SNP_white_book}, \cite*{DBLP:journals/corr/abs-2303-15540}.
 
 
 \textbf{Lack of protection to guest memory and register states.} Lack of protection to guest memory and register states.  Insufficient protection for guest memory and register states allows non-trusted entities, such as a hypervisor, to access guest confidential, leading to security breaches. 
-Trusted execution hardware like AMD SEV\cite*{SEV_SNP_white_book} and Intel TDX\cite*{INTELTXD} address this by encrypting guset memory and registers. However, CQuark does not yet support running on the Trusted execution hardware yet.
+Trusted execution hardware like AMD SEV\cite*{SEV_SNP_white_book} and Intel TDX\cite*{Intel_tdx_whitepaper} address this by encrypting guset memory and registers. However, CQuark does not yet support running on the Trusted execution hardware yet.
 
 
 \textbf{Paravirtualized filesystem sharing mechanism.} Vanilla Quark uses this mechanism to share files and volumes stored on the host with applications on the guest. Any modifications made by an application on a file will be reflected on the host. This poses a security risk as an attacker could 

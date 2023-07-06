@@ -135,7 +135,7 @@ CPU and memory isolation, trusted IO, and secure storage~\cite*{Hardware-support
 computations and data~\cite*{7345265}.
 
 
-Hardware-based TEE models can be categorized into two main types: virtual machine-based TEE and process-based TEE~\cite*{10.3389/fcomp.2022.930741}. Examples of virtual machine-based TEEs include Intel TDX~\cite*{Inte_TDX} and AMD SEV SNP~\cite*{SEV_SNP_white_book}, whereas Intel SGX~\cite*{INTEL_SGX} is the most famous process-based TEE. 
+Hardware-based TEE models can be categorized into two main types: virtual machine-based TEE and process-based TEE~\cite*{10.3389/fcomp.2022.930741}. Examples of virtual machine-based TEEs include Intel TDX~\cite*{Intel_tdx_whitepaper} and AMD SEV SNP~\cite*{SEV_SNP_white_book}, whereas Intel SGX~\cite*{INTEL_SGX} is the most famous process-based TEE. 
 While Intel SGX has a smaller TCB, it requires modifications to an application to split it into trusted and untrusted parts. This can result in a degraded user experience. In contrast, VM-based TEEs enable the execution of programs without modification. However, this approach increases the 
 trusted computing base (TCB), making it more susceptible to attacks~\cite*{Execution_Environment_landscape}.
 
