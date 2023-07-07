@@ -86,8 +86,10 @@ Kata container utilizes a highly customized guest kernel that includes only the 
 
 
 \section{Quark containers}
-Quark containers~\cite*{quark} is an OCI-compliant container runtime written in the Rust language. It shares a similar architecture with the Kata container, ensuring an equivalent level of container isolation. The differentiating factor lies in the guest OS used in the Quark: a minimal OS that 
-eliminates redundant code, in contrast to the Linux kernel used by the Kata container. Consequently, Quark exhibits a smaller memory footprint, faster boot time, and higher performance~\cite*{quark_performance_report}.
+Quark containers~\cite*{quark} is an OCI-compliant container runtime written in the Rust language. It shares a similar architecture with the Kata container, ensuring an equivalent level of container isolation. 
+The difference is that the Qaurk uses an application kernel (also known as the forward kernel) as a guest OS. It implements some system calls and forwards others to the host. In comparison to the Kata containers that employ a dedicated kernel as the guest OS, 
+the application kernel eliminates unnecessary code. Consequently, Quark has a smaller memory footprint and faster startup time~\cite*{quark_performance_report}. Moreover, Quark has developed the Ucall and Qcall interfaces to facilitate communication with the host. This approach efficiently avoids expensive VM exits when 
+forwarding system calls to the host.
 
 \begin{figure}[htp]
   \centering
@@ -100,8 +102,8 @@ eliminates redundant code, in contrast to the Linux kernel used by the Kata cont
 The architecture of the Quark container, as depicted in Figure~\ref*{fig:QUARK_ARCH}, comprises five elements: Kubernetes~\cite*{k8s}, the high-level container runtime, Quark shim v2, Qvisor, and Qkernel. The description of Kubernetes and the high-level container runtime can be found in Section~\ref{sec:k8s}. 
 Similarly to the Kata shim, the Quark shim is an OCI-compliant ttrpc server implemented in accordance with the Shim v2 API. As a result, it is capable of executing commands from Containerd~\cite*{containerd}. These commands may include invoking Qvisor to create lightweight virtual machines for 
 containers with Qkernel as the guest OS. Qvisor is a virtualmachine manager similar to Qemu. It utilizes the KVM API to create and manage VMs that use Qkernel as the guest OS. Qkernel, on the other hand, is a minimized application kernel that contains only the necessary code. It implements process 
-management, memory management, file system, and network stack. Notably, Qkernel utilizes the host operating system and Qvisor to manage physical devices, thereby avoid sophisticated IO handling and physical memory management. In addition, Qkernel implements most of the Linux system calls. Thus, The 
-guest process can trigger a system call using the X86 syscall instruction. Note that this call may be redirected by Qkernel to the host through the Hypercall, Qcall, or Ucall interfaces. To accept the request from the Quark shim,  Qkernel implements a socket server called Quark agent. It uses Ucall 
+management, memory management, file system, and network stack. Notably, Qkernel utilizes the host operating system and Qvisor to manage physical devices, thereby avoid sophisticated IO handling and physical memory management. In addition, Qkernel implements most of the Linux system calls, which can be triggered by 
+guest processes using the X86 syscall instruction. To accept the request from the Quark shim,  Qkernel implements a socket server called Quark agent. It uses Ucall 
 and Qcall interfaces to communicate with Quark shim. Unlike the Kata agent, which operates as a user space process, the Quark agent is integrated within the Qkernel, and its code is part of the Qkernel binary.
 
 
@@ -122,8 +124,8 @@ Executing a Hypercall incurs significant overhead due to multiple world switches
 shared memory queue between the Qkernel and the Qvisor and an IO thread in Qvisor. The shared queue facilitates the transfer of requests from Qkernel to Qvisor. The IO thread is responsible for retrieving the requests from the queue and notifying or awakening the Qkernel thread once the Qvisor completes the request. In summary,   
 this mechanism allows Qkernel to access services in Qvisor asynchronously, eliminating the need for VM exit. 
 
-The host operating system is responsible for performing IO read and write operations on physical devices. Therefore, Quark introduces the Ucall mechanism for communicating with the host kernel. This mechanism utilizes the Linux io\_uring and shared queues between Quark and Qkernel. It supports
-both synchronous and asynchronous IO operations. Figure~\ref{fig:hypercall_qcall_ucall} explains the workflow of this mechanism. Initially, a Qkernel thread submits an IO request to the guest submission queue (Figure ~\ref{fig:hypercall_qcall_ucall}c (1)). Subsequently, the Qvisor ucall handler copies the request to the Uring submission queue 
+The host operating system is responsible for performing IO read and write operations on physical devices. Therefore, Quark introduces the Ucall mechanism for communicating with the host kernel. This mechanism utilizes the Linux io\_uring and shared queues between Qvisor and Qkernel. It supports
+both synchronous and asynchronous IO operations. Figure~\ref{fig:hypercall_qcall_ucall} explains the workflow of this mechanism. Initially, a Qkernel thread submits an IO request to the guest submission queue (Figure ~\ref{fig:hypercall_qcall_ucall}c (1)). Subsequently, the Qvisor Ucall handler copies the request to the Uring submission queue 
 (Figure~\ref{fig:hypercall_qcall_ucall} (2)). Once the Uring kernel handler completes processing the IO request, it places the result into the uring completion queue (Figure~\ref{fig:hypercall_qcall_ucall}c (3), (4)). The result includes a user\_data, which is submitted with the initial IO 
 request and contains information about the Qkernel thread. Using this information, the Qvisor Ucall handler can notify or wake the corresponding Qkernel thread. Note that the notification occurs after the IO processing result has been copied to the guest completion 
 queue (Figure~\ref{fig:hypercall_qcall_ucall}c (5), (6)).
