@@ -167,40 +167,37 @@ correctly initialized the shielding layer and application. In other words, if th
 
 \section{Enclave Runtime Measurement}
 \label{sec:Enclave_Runtime_Measurement}
-Enclave runtime measurements are crucial due to the security analysis findings discussed in Chapter~\ref{sec:security_analyse}. Qkernel command line parameters, the application binary, and shared libraries are loaded from the host. Thus, an attacker can modify them 
-to breach the enclave's confidentiality. However, AMD SEV SVP does not facilitate enclave runtime measurements~\cite*{snp_firmware}, and INTEL TDX only allocates four registers for this purpose~\cite*{Intel_tdx_whitepaper}. Consequently, we provide a software measurement manager in the shielding 
-layer to measure the data loaded from the host while the enclave is running. The software measurement manager obtains the following important measurements by measuring these data.
+\begin{figure}[!htb]
+    \centering
+    \includegraphics[width=1\textwidth]{images/soft_ware_manager_meausrment.png}
+    \caption[Enclave runtime measurement]{Enclave runtime measurement}
+    \label{fig:soft_ware_manager_meausrment}
+\end{figure}
+\todo{fix typo in figure recreating creating}
 
-\textbf{Enclave startup measurement.} This value refers to the measures of host-loaded data from the enclave starting until the enclave finishes loading the application binaries. To config the application's execution environment, the enclave may have to 
-execute multiple binaries first. For example, Nginx startup necessitates the enclave to execute a docker-entry.sh shell script\cite*{nginx}. The shell script then executes several Linux commands. Each is a binary. Therefore, the enclave startup measurement may 
-comprise binaries, shared libraries, Qkernel boot parameters, and the secret manager's public key. The attestation and provisioning agent include this measurement in the attestation report, which is conveyed to the secret manager. The secret manager 
-compares the measurement to the reference value provided by the enclave owner to ensure that the enclave is genuine.
+Enclave runtime measurements are crucial due to the security analysis findings discussed in Chapter~\ref{sec:security_analyse}. However, the AMD SEV SVP does not support enclave runtime measurements~\cite*{snp_firmware}, and the INTEL TDX only allocates four registers for this purpose~\cite*{Intel_tdx_whitepaper}. Consequently, we provide a software measurement 
+manager in the shielding layer to measure the data loaded from the host while the enclave is running. As shown in Figure~\ref{fig:soft_ware_manager_meausrment}., The software measurement manager provides the following important hashes:
 
-\textbf{Application startup measurement.} This value records the measure of all binaries and shared libraries loaded from the time the enclave receives the application creation request to the point when the enclave completes loading the application binaries. 
-This measurement is a subset of the enclave startup measurement and is stored in the enclave memory. It serves as a reference hash with the application restart measurement.
+Enclave startup hash. This value refers to the measures of host-loaded data until the application process starts. This includes the secret manager's key, the Qkernel's configuration file, the application's binary, and the multiple binaries and shared libraries loaded to set up the application environment. Additionally, since each Pod starts a pause container 
+first upon startup, the enclave startup hash also contains a measurement of the binaries and shared libraries that were loaded when the pause container was created. The attestation and provisioning agent include this hash in the attestation report, which is conveyed to the secret manager. The secret manager compares the measurement to the reference value provided 
+by the enclave owner to ensure the enclave is properly configured. This hash effectively solves the problems 1,2,3 identified in Chapter 3.
 
-\textbf{Measurement of binaries at application runtime.} The application process loads its shared libraries after it enters the user space. Moreover, the enclave creates a process and loads the corresponding binary from the host when a user initiates a 
-command to the application. The software measurement manager measures the loaded binaries or shared libraries to prevent an attacker from serving compromised binary to the enclave. However, unlike the enclave startup measurement, which is forwarded 
-to the secret manager, the runtime measurements are verified by the software manager. The shielding layer's policy holds reference measurements for the runtime binaries, as shown in Figure~\ref{fig:measurement}. In this case, the software measurement manager measures 
-the binaries and compares the result with reference values from the policy. If the two values differ, the enclave will panic. This ensures that during application runtime, the correct binaries are loaded.
+Application startup reference hash. As shown in the figure, this value records the measure of all binaries and shared libraries during the application's first startup. This measurement is a subset of the enclave's startup measurements and is stored in the enclave's memory. It will be used as a reference value for the application restart hash to ensure the 
+integrity of the binary and shared libraries load during the restart. 
 
-\begin{figure}[htp]
+Runtime hash. The runtime hash represents a measurement of an executable or shared library loaded in the application runtime. Unlike the enclave startup hash, which is forwarded to the secret manager, the runtime hash is verified by the software manager. The shielding layer's policy holds reference hashes, as shown in Figure~\ref{fig:measurement}. In this case, 
+the software measurement manager measures a binary and compares the result with the reference value from the policy. If the two values differ, the enclave will panic. This ensures the correct shared library or executable is loaded during application runtime.
+\begin{figure}[!htb]
     \centering
     \includegraphics[width=0.8\textwidth]{images/measurement.png}
-    \caption[Reference Value in Shielding Layer's Policy for Runtime Binary Measurement]{Reference Value in Shielding Layer's Policy for Runtime Binary Measurement}
+    \caption[Reference value in shielding layer's policy for runtime hashes]{Reference value in shielding layer's policy for runtime hashes}
     \label{fig:measurement}
 \end{figure}
 
-\textbf{The application restart measurement.} In the event of an application crash where the enclave is not exited, Kubernetes will attempt to restart the application within the enclave. The enclave will therefore recreate the application process, load the relevant 
-binaries, and inject secrets stored in the enclave's memory. An attacker may exploit this situation by injecting malicious code into the enclave to retrieve secrets, thereby breaching the enclave's confidentiality. One potential solution is to 
-measure the loaded binaries or shared libraries during the application restart and send the result to the secret manager for verification. However, this approach is costly as it involves generating an attestation report and communicating with the 
-secret manager via the network. Therefore, the software measurement manager stores application startup measurement and uses it as a reference hash for application restart measurement. If the two do not match, the enclave will panic. In doing so, 
-the enclave ensures that the binary loaded at restart is identical to the binary loaded during the initial application launch. As the binary's measurements during the first launch are sent to the secret manager for integrity checking, comparing the 
-two hashes guarantees the integrity of the loaded binary during application restart.
+Application restart hash. When the application crashes and restarts, the software measurement manager measures the binaries and shared libraries. The resulting application restart hash will be compared with the application startup reference hash before launching the application process. If the two do not match, the Enclave panics. In this way, the enclave 
+ensures that the host data loaded at restart is the same as the data from the first application startup. The application startup reference hash is a subset of the enclave's startup hash, checked by the secret manager. Thus comparing the two hashes ensures the integrity of the binaries and shared libraries loaded at application restart. 
 
-Regarding obtaining the reference values for enclave startup measurement and measurement of individual binaries loaded at application runtime, we implemented a developer mode for the enclave. When running in developer mode, the enclave prints the 
-enclave and application runtime measurements for each binary and shared library to the Qkernel log on the host. The application owner should operate the enclave in a trusted environment to obtain these reference values.
-
+Regarding obtaining the reference values for enclave startup hash and runtime hashes, we implemented an enclave mode called Development. When running in this mode, the enclave will print these hashes to the Qkernel log on the host. The enclave owner should run the enclave in a trusted environment to obtain these reference values.
 
 \section{New Pattern for EXEC Requests}
 \label{sec:design_EXEC_Requests}
@@ -208,7 +205,7 @@ enclave and application runtime measurements for each binary and shared library 
 
 
 
-\begin{figure}[htp]
+\begin{figure}[!htb]
     \centering
     \includegraphics[width=0.8\textwidth]{images/new_pattern_of_exec.png}
     \caption[New Pattern for EXEC Requests]{New Pattern for EXEC Requests}

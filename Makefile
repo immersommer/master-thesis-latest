@@ -169,6 +169,10 @@ DOC_IMG_JPG  = images/policy_system_call.png
 DOC_IMG_JPG  = images/qkernel_Log_config.png
 DOC_IMG_JPG  = images/exec_policy.png
 
+DOC_IMG_JPG  = images/soft_ware_manager_meausrment.png
+
+
+
 
 
 # implementation
