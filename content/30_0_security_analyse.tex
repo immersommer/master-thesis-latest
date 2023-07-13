@@ -263,18 +263,18 @@ file. The detail can be found in section~\ref{sec:Qkernel_logger}.
 \section{Summary}
 In this chapter, the threat model is first defined in section~\ref{sec:Threat_model}. Based on this model, the security issues in Quark are examined from various perspectives. These vulnerabilities found include:
 \begin{enumerate}
-  \item Application secrets are managed and deployed by untrusted Kubernetes and Quark-shim
-  \item Lack of cryptographic protection for interactive processes STDIN, STDOUT, and STDERR.
-  \item Lack of cryptographic protection for non-interactive processes STDOUT and STDERR.
-  \item Anyone can issue commands to an application
-  \item Any user can allocate a terminal
-  \item The commands issued by application owner may contain confidential data but are unprotected during transmission.
-  \item Loading compromised application binary during startup
-  \item Loading compromised binary/shared library at runtime
-  \item Lack of management over application restart
-  \item No restriction to the available system calls for applications
-  \item No control over guest kernel arguments
-  \item Guest kernel Log misconfiguration
+  \item \label{vulnerabilities:1} Application secrets are managed and deployed by untrusted Kubernetes and Quark-shim.
+  \item \label{vulnerabilities:2} Lack of cryptographic protection for interactive processes STDIN, STDOUT, and STDERR.
+  \item \label{vulnerabilities:3} Lack of cryptographic protection for non-interactive processes STDOUT and STDERR.
+  \item \label{vulnerabilities:4} Anyone can issue commands to an application.
+  \item \label{vulnerabilities:5} Any user can allocate a terminal.
+  \item \label{vulnerabilities:6} The commands issued by application owner may contain confidential data but are unprotected during transmission.
+  \item \label{vulnerabilities:7} Loading compromised application binary during startup.
+  \item \label{vulnerabilities:8} Loading compromised binary/shared library at runtime.
+  \item \label{vulnerabilities:9}  Lack of management over application restart.
+  \item \label{vulnerabilities:10} No restriction to the available system calls for applications.
+  \item \label{vulnerabilities:11} No control over guest kernel arguments.
+  \item \label{vulnerabilities:12} Guest kernel Log misconfiguration.
 
 \end{enumerate}
 

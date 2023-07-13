@@ -132,6 +132,7 @@ In this case, the enclave needs to execute n+2 HTTP get requests.
 \todo{add ref for tls size}
 
 \subsubsection{Limitations}
+\label{subsec:Limitations}
 
 Given that the enclave cannot operate within a TEE, the attestation report is fake. Upon receipt of a POST /kbs/v0/attest request, the secret manager will omit to verify the report signatures and TEE hardware's measurements for the VM startup. This means the secret manager will not validate the report's 
 Genuineness and the integrity of the Qkernel binary. Furthermore, the Secret Manager cannot identify an enclave by examing the enclave id in the host data fields of the report since there is no efficient way to pass the enclave ID to the Qvisor before starting the enclave. As a result, the secret 
