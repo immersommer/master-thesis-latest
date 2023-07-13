@@ -433,7 +433,7 @@ only if both directories are in the allowed list. Otherwise, it returns false.
 \section{STDIO Protection}
 
 \subsection{Inode Tracker}
-The data structure InodeTracker in Listing~\ref*{lst:Inode_Tracker} records information about the file descriptor that is the process’s STDIO. It maintains a map where the key is the inode id, and the value contains the type of the file descriptor and some metadata. 
+The data structure InodeTracker in Listing~\ref{lst:Inode_Tracker} records information about the file descriptor that is the process’s STDIO. It maintains a map where the key is the inode id, and the value contains the type of the file descriptor and some metadata. 
 The detail of the data structure can be found in Section XX. For example, when the inode type is session, the metadata includes the session id and the counter assigned to a privileged user. Normal IO shield can take the session's metadata from the inode\_track, encrypt it, and send it to
 the privileged user via STDOUT of an EXEC process.
 \todo{e can be found in Section XX.}
@@ -447,7 +447,7 @@ pub struct InodeTracker {
 \begin{lstlisting}[language=rust, caption= API of normal IO shield, label={lst:Normal_IO}]
 fn encrypNormalIOStdouterr (&self, src: DataBuff, inode_id: u64) -> Result<DataBuff>
 \end{lstlisting}
-The function in Listing~\ref*{lst:Normal_IO} encrypts STDOUT and STDERR for processes whose STDIO type is Normal IO. It accepts the data written to STDOUT or STDERR and the id of the inode corresponding to the STDOUT or STDERR file descriptor. Depending on the enclave policy and inode type, the 
+The function in Listing~\ref{lst:Normal_IO} encrypts STDOUT and STDERR for processes whose STDIO type is Normal IO. It accepts the data written to STDOUT or STDERR and the id of the inode corresponding to the STDOUT or STDERR file descriptor. Depending on the enclave policy and inode type, the 
 function encrypts the data using the method specified in section XX. Subsequently, it returns the encrypted data to Qkernel. Qkernel then sends encrypted data out via Qcall.
 
 
@@ -455,7 +455,7 @@ function encrypts the data using the method specified in section XX. Subsequentl
 \begin{lstlisting}[language=rust, caption= API of system call interceptor, label={lst:Termianl_IO}]
 fn termianlIoEncryption(&self, src: &[IoVec], task: &Task,  inode_id: u64) -> Result<(Vec::<IoVec>)
 \end{lstlisting}
-Like the encrypNormalIOStdouterr function, the function in Listing~\ref*{lst:Termianl_IO} is responsible for encrypting the STDOUT and STDERR of processes whose STDIO is of terminal type. This not only ensures that the logs of the interactive application are encrypted but also prevents malicious 
+Like the encrypNormalIOStdouterr function, the function in Listing~\ref{lst:Termianl_IO} is responsible for encrypting the STDOUT and STDERR of processes whose STDIO is of terminal type. This not only ensures that the logs of the interactive application are encrypted but also prevents malicious 
 users from attaching to the application.
 
 \section{System Call Interceptor}

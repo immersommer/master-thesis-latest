@@ -101,7 +101,7 @@ forwarding system calls to the host.
 \end{figure}
 
 
-The architecture of the Quark container, as depicted in Figure~\ref*{fig:QUARK_ARCH}, comprises five elements: Kubernetes~\cite*{k8s}, the high-level container runtime, Quark shim v2, Qvisor, and Qkernel. The description of Kubernetes and the high-level container runtime can be found in Section~\ref{sec:k8s}. 
+The architecture of the Quark container, as depicted in Figure~\ref{fig:QUARK_ARCH}, comprises five elements: Kubernetes~\cite*{k8s}, the high-level container runtime, Quark shim v2, Qvisor, and Qkernel. The description of Kubernetes and the high-level container runtime can be found in Section~\ref{sec:k8s}. 
 Similarly to the Kata shim, the Quark shim is an OCI-compliant ttrpc server implemented in accordance with the Shim v2 API. As a result, it is capable of executing commands from Containerd~\cite*{containerd}. These commands may include invoking Qvisor to create lightweight virtual machines for 
 containers with Qkernel as the guest OS. Qvisor is a virtualmachine manager similar to Qemu. It utilizes the KVM API to create and manage VMs that use Qkernel as the guest OS. Qkernel, on the other hand, is a minimized application kernel that contains only the necessary code. It implements process 
 management, memory management, file system, and network stack. Notably, Qkernel utilizes the host operating system and Qvisor to manage physical devices, thereby avoid sophisticated IO handling and physical memory management. In addition, Qkernel implements most of the Linux system calls, which can be triggered by 
