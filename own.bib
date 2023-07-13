@@ -737,5 +737,144 @@ month = aug,
 
 
 
+@article{10.1145/2499368.2451167,
+author = {Madhavapeddy, Anil and Mortier, Richard and Rotsos, Charalampos and Scott, David and Singh, Balraj and Gazagnaire, Thomas and Smith, Steven and Hand, Steven and Crowcroft, Jon},
+title = {Unikernels: Library Operating Systems for the Cloud},
+year = {2013},
+issue_date = {April 2013},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {48},
+number = {4},
+issn = {0362-1340},
+url = {https://doi.org/10.1145/2499368.2451167},
+doi = {10.1145/2499368.2451167},
+abstract = {We present unikernels, a new approach to deploying cloud services via applications written in high-level source code. Unikernels are single-purpose appliances that are compile-time specialised into standalone kernels, and sealed against modification when deployed to a cloud platform. In return they offer significant reduction in image sizes, improved efficiency and security, and should reduce operational costs. Our Mirage prototype compiles OCaml code into unikernels that run on commodity clouds and offer an order of magnitude reduction in code size without significant performance penalty. The architecture combines static type-safety with a single address-space layout that can be made immutable via a hypervisor extension. Mirage contributes a suite of type-safe protocol libraries, and our results demonstrate that the hypervisor is a platform that overcomes the hardware compatibility issues that have made past library operating systems impractical to deploy in the real-world.},
+journal = {SIGPLAN Not.},
+month = {mar},
+pages = {461–472},
+numpages = {12},
+keywords = {functional programming, hypervisor, microkernel}
+}
+
+
+@article{10.1145/3436512,
+author = {Zhang, Yiming and Zhang, Chengfei and Wang, Yaozheng and Yu, Kai and Xue, Guangtao and Crowcroft, Jon},
+title = {KylinX: Simplified Virtualization Architecture for Specialized Virtual Appliances with Strong Isolation},
+year = {2021},
+issue_date = {November 2019},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {37},
+number = {1–4},
+issn = {0734-2071},
+url = {https://doi.org/10.1145/3436512},
+doi = {10.1145/3436512},
+abstract = {Unikernel specializes a minimalistic LibOS and a target application into a standalone single-purpose virtual machine (VM) running on a hypervisor, which is referred to as (virtual) appliance. Compared to traditional VMs, Unikernel appliances have smaller memory footprint and lower overhead while guaranteeing the same level of isolation. On the downside, Unikernel strips off the process abstraction from its monolithic appliance and thus sacrifices flexibility, efficiency, and applicability.In this article, we examine whether there is a balance embracing the best of both Unikernel appliances (strong isolation) and processes (high flexibility/efficiency). We present KylinX, a dynamic library operating system for simplified and efficient cloud virtualization by providing the pVM (process-like VM) abstraction. A pVM takes the hypervisor as an OS and the Unikernel appliance as a process allowing both page-level and library-level dynamic mapping. At the page level, KylinX supports pVM fork plus a set of API for inter-pVM communication (IpC, which is compatible with conventional UNIX IPC). At the library level, KylinX supports shared libraries to be linked to a Unikernel appliance at runtime. KylinX enforces mapping restrictions against potential threats. We implement a prototype of KylinX by modifying MiniOS and Xen tools. Extensive experimental results show that KylinX achieves similar performance both in micro benchmarks (fork, IpC, library update, etc.) and in applications (Redis, web server, and DNS server) compared to conventional processes, while retaining the strong isolation benefit of VMs/Unikernels.},
+journal = {ACM Trans. Comput. Syst.},
+month = {feb},
+articleno = {2},
+numpages = {27},
+keywords = {virtual appliances, Unikernel, Virtualization architecture, process-like VM (pVM)}
+}
+
+
+@inproceedings{10.1145/3267809.3267845,
+author = {Williams, Dan and Koller, Ricardo and Lucina, Martin and Prakash, Nikhil},
+title = {Unikernels as Processes},
+year = {2018},
+isbn = {9781450360111},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3267809.3267845},
+doi = {10.1145/3267809.3267845},
+abstract = {System virtualization (e.g., the virtual machine abstraction) has been established as the de facto standard form of isolation in multi-tenant clouds. More recently, unikernels have emerged as a way to reuse VM isolation while also being lightweight by eliminating the general purpose OS (e.g., Linux) from the VM. Instead, unikernels directly run the application (linked with a library OS) on the virtual hardware. In this paper, we show that unikernels do not actually require a virtual hardware abstraction, but can achieve similar levels of isolation when running as processes by leveraging existing kernel system call whitelisting mechanisms. Moreover, we show that running unikernels as processes reduces hardware requirements, enables the use of standard process debugging and management tooling, and improves the already impressive performance that unikernels exhibit.},
+booktitle = {Proceedings of the ACM Symposium on Cloud Computing},
+pages = {199–211},
+numpages = {13},
+keywords = {virtualization, unikernels, security, cloud computing},
+location = {Carlsbad, CA, USA},
+series = {SoCC '18}
+}
+
+
+@ONLINE{future_container,
+  title = {The Future of Containers – What’s Next?},
+  url = {https://mobycast.fm/the-future-of-containers-whats-next/},
+  urldate = {2023-6-10}
+}
+
+
+
+@ONLINE{gvisor,
+  title = {gbisor: The Container Security Platform},
+  url = {https://gvisor.dev/},
+  urldate = {2023-6-10}
+}
+
+@inproceedings{Johnson2023ParmaCC,
+  title={Parma: Confidential Containers via Attested Execution Policies},
+  author={Matthew A. Johnson and Stavros Volos and Ken Gordon and Sean T. Allen and Christoph M. Wintersteiger and Sylvan Clebsch and John Starks and Manuel Costa},
+  year={2023}
+}
+
+@ONLINE{kata_api_restriction,
+  title = {Restricting Kata Agent API},
+  url = {https://medium.com/kata-containers/restricting-kata-agent-api-e3dc88bf8270},
+  urldate = {2023-6-10}
+}
+
+
+@ONLINE{Constellation,
+  title = {Constellation: The world's most secure Kubernetes},
+  url = {https://www.edgeless.systems/products/constellation/},
+  urldate = {2023-6-10}
+}
+
+
+@ONLINE{Constellation_Always_encrypted,
+  title = {Always-encrypted, confidential Kubernetes with Constellation by Edgeless Systems},
+  url = {https://www.youtube.com/watch?v=HvFCWRlXVO4&t=364s},
+  urldate = {2023-6-10}
+}
+
+
+ @ONLINE{Nabla,
+  title = {Nabla containers: a new approach to container isolation},
+  url = {https://nabla-containers.github.io/},
+  urldate = {2023-6-10}
+}
+
+
+@inproceedings{10.5555/3026877.3026930,
+author = {Arnautov, Sergei and Trach, Bohdan and Gregor, Franz and Knauth, Thomas and Martin, Andre and Priebe, Christian and Lind, Joshua and Muthukumaran, Divya and O'Keeffe, Dan and Stillwell, Mark L. and Goltzsche, David and Eyers, David and Kapitza, R\"{u}diger and Pietzuch, Peter and Fetzer, Christof},
+title = {SCONE: Secure Linux Containers with Intel SGX},
+year = {2016},
+isbn = {9781931971331},
+publisher = {USENIX Association},
+address = {USA},
+abstract = {In multi-tenant environments, Linux containers managed by Docker or Kubernetes have a lower resource footprint, faster startup times, and higher I/O performance compared to virtual machines (VMs) on hypervisors. Yet their weaker isolation guarantees, enforced through software kernel mechanisms, make it easier for attackers to compromise the confidentiality and integrity of application data within containers.We describe SCONE, a secure container mechanism for Docker that uses the SGX trusted execution support of Intel CPUs to protect container processes from outside attacks. The design of SCONE leads to (i) a small trusted computing base (TCB) and (ii) a low performance overhead: SCONE offers a secure C standard library interface that transparently encrypts/decrypts I/O data; to reduce the performance impact of thread synchronization and system calls within SGX enclaves, SCONE supports user-level threading and asynchronous system calls. Our evaluation shows that it protects unmodified applications with SGX, achieving 0.6\texttimes{}-1.2\texttimes{} of native throughput.},
+booktitle = {Proceedings of the 12th USENIX Conference on Operating Systems Design and Implementation},
+pages = {689–703},
+numpages = {15},
+location = {Savannah, GA, USA},
+series = {OSDI'16}
+}
+
+
+
+@ONLINE{Constellation_Encrypted_Kubernetes,
+  title = {"Constellation: Encrypted Kubernetes" by Moritz Eckert – Talk 2/3 at CNC CH Meetup, May 25th 2023},
+  url = {https://www.youtube.com/watch?v=zAYvrlJ7Q_w},
+  urldate = {2023-6-10}
+}
+
+@ONLINE{confidentail_kata_storage,
+  title = {[RFC] Trusted storage proposal for CoCo},
+  url = {https://github.com/confidential-containers/documentation/issues/39},
+  urldate = {2023-6-10}
+}
+
+
 
 

@@ -70,6 +70,7 @@ different stages of the container lifecycle (Figure~\ref{fig:Container_Lifecycle
 \end{figure}
 
 \section{Kata containers}
+\label{sec:Kata}
 
 Kata containers is an OCI-compliant low-level container runtime derived from combining two projects: Clear Containers and Hyper RunV~\cite*{Kata-Containers}. It offers an architecture for running containers in ultra-lightweight virtual machines. This architecture achieves performance similar to Runc and 
 utilizes hardware virtualization technology to enhance the workload isolation~\cite*{9198653}.
@@ -86,6 +87,7 @@ Kata container utilizes a highly customized guest kernel that includes only the 
 
 
 \section{Quark containers}
+\label{sec:Quark}
 Quark containers~\cite*{quark} is an OCI-compliant container runtime written in the Rust language. It shares a similar architecture with the Kata container, ensuring an equivalent level of container isolation. 
 The difference is that the Qaurk uses an application kernel (also known as the forward kernel) as a guest OS. It implements some system calls and forwards others to the host. In comparison to the Kata containers that employ a dedicated kernel as the guest OS, 
 the application kernel eliminates unnecessary code. Consequently, Quark has a smaller memory footprint and faster startup time~\cite*{quark_performance_report}. Moreover, Quark has developed the Ucall and Qcall interfaces to facilitate communication with the host. This approach efficiently avoids expensive VM exits when 
@@ -190,7 +192,7 @@ enclave is genuine.
 Intel TDX~\cite*{Intel_tdx_whitepaper} is a virtual machine-based TEE solution. Despite not being available on the market, some system-level software has already decided to adopt Intel TDX~\cite*{Kate_support_tdx, Linux_support_tdx}. Hence, we have provided a concise introduction to Intel TDX.
 \begin{figure}[htp]
   \centering
-  \includegraphics[width=0.6\textwidth]{images/td_arch.png}
+  \includegraphics[width=0.4\textwidth]{images/td_arch.png}
   \caption[TDX architecture]{TDX architecture}
   \label{fig:td_arch}
 \end{figure}
@@ -245,6 +247,7 @@ as a reference.
 
 
 \section{KBS Attestation Protocol}
+\label{sec:kbs}
 
 KBS Attestation Protocol~\cite*{kbs_Attestation_protocol} is designed to establish trust between the Key Broker Client (KBC) and the Key Broker Service (KBS) and provide secrecy to the KBS.  The KBC is often referred to as an enclave, and the KBS serves as the secret manager. In this protocol, the KBC first utilizes the 
 Request-Challenge-Attestation-Response (RCAR) method to authenticate to the KBS. Then, the HTTP GET request is employed to obtain the secrets from the KBS. Besides, the protocol employs TLS to prevent malicious attackers from hijacking the KBS address,  impersonating the KBS,  and injecting harmful 

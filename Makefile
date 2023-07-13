@@ -37,6 +37,19 @@ DOC_IMG_JPG  = images/tdx_certi_chain.png
 DOC_IMG_JPG  = images/Container_Lifecycle_state.PNG
 
 
+
+# evaluation images for related work
+DOC_IMG_JPG  = images/nabla.png
+
+DOC_IMG_JPG  = images/pama_atte.png
+DOC_IMG_JPG  = images/pama_policy.png
+
+DOC_IMG_JPG  = images/confidentail_kata.png
+DOC_IMG_JPG  = images/constellation_arch.png
+DOC_IMG_JPG  = images/constellation_join_1.png
+DOC_IMG_JPG  = images/constellation_join_2.png
+
+
 # evaluation images for secureity analyse
 DOC_IMG_JPG  = images/generic_policy.PNG
 
