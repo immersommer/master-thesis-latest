@@ -119,7 +119,7 @@ The terminal keyword is true for an interactive process, i.e., the process’s S
 slave is then sent to the Quark agent, where it is set as STDIN, STDOUT, and STDERR of the process. The Qkernel TTY module can read and write the TTY slave through the UCLL interface. Furthermore, the redirection thread  filters the signals in the STDIN-named pipe and 
 transfers the data between the TTY master and the named pipes. The filtered signals include SIGINT, SIGQUIT, and SIGTSTP, which are forwarded to the Quark agent via the Unix socket. In this case, the Quark agent will signal the process accordingly. For instance, when the character \textasciicircum C (ASCII code 3) appears in 
 the STDIN-named pipe, the redirection thread sends SIGINT to the process, ultimately terminating it. Besides, the data written to the TTY master and slave are processed by the host kernel TTY drive. For data written to the slave, the driver translates each line feed (\textbackslash n) into a carriage return
- followed by a line feed (\textbackslash r\textbackslash n). This editing is required because the user-side terminal needs these two characters to start a new line of text. Also, for data written to the TTY master, the driver will buffer it. When the user presses the enter key (\textbackslash r) it 
+ followed by a line feed (\textbackslash r\textbackslash n). This editing is required because the user-side terminal needs these two characters to start a new line of text. Also, for characters written to the TTY master, the driver first echoes them back to the user and stores a copy in an internal buffer. When the user presses the enter key (\textbackslash r) it 
  copies the buffered data to the TTY slave. As such, the terminal will not work without the host kernel TTY driver.
 
 The terminal keyword is false for a non-interactive process, i.e., the process’s STDIO type is normal IO. In this case, as shown in Figure~\ref{fig1:a}, Quark-shim directly sends the three named pipes to the Quark agent. It then creates the process and uses the pipes as STDIN, STDOUT, and STDERR. 
@@ -140,8 +140,9 @@ single-shot command mode writes the command execution result to its STDOUT. The 
 
 
 \subsection{Issuing command and Terminal Allocation}
-\textbf{Anyone can issue commands to an application.} The Quark agent (see section~\ref{sec:security_analyse_STDIO} for an explanation) lacks authentication and access control on the EXEC requests sent from the Quark shim. Therefore, an adversary can issue commands to an application to collect its secret. For example, an attacker can use kubectl exec pod-name printenv to obtain the application’s environment variable type secrets. To this end, we should add authentication and access control points within Qkernel. Any unauthorized requests should be denied. For further details, please 
-refer to section~\ref{sec:design_EXEC_Requests}.
+\textbf{Anyone can use kubectl exec to issue commands to an application.} These include commands that allocate terminals, such as /bin/sh, and others, like cat, etc. The Quark agent (see section~\ref{sec:security_analyse_STDIO} for an explanation) lacks authentication and access control on the EXEC requests sent from the Quark shim. Therefore, an adversary can 
+issue commands to an application to collect its secret. For example, an attacker can use kubectl exec pod-name printenv to obtain the application’s environment variable type secrets. To this end, we should add authentication and access control points within Qkernel. Any unauthorized commands should be denied. For further details, please refer to section~\ref{sec:design_EXEC_Requests}.
+
 
 \textbf{The commands issued by application owner may contain confidential data but are unprotected during transmission.} Currently, the commands are redirected to Qkernel by Containerd~\cite*{containerd} and Quark shim along with other metadata in EXEC request. When Quark-shim receives an EXEC request, it generates 
 a process specification based on the EXEC request’s metadata. This specification includes the command and its parameter, the STDIO type, the environment variables, etc. Quark shim forwards this specification to the Quark agent via a Unix socket. The Quark agent then creates a guest process to 
@@ -149,19 +150,10 @@ execute the command (see Figure~\ref{fig:quark_agent_work_flow}). In this case, 
 commands. For additional information, see section~\ref{sec:design_EXEC_Requests}.
 
 
-\textbf{Any user can allocate a terminal in Kubernetes using one of two methods:}
 
-\begin{itemize}
-  \item Creating a terminal process within a pod by using kubectl exec -it pod-name.
-  \item Deploying an interactive application and then attaching to the application process's STDIO using kubectl attach-it pod-name~\cite*{Understanding_sdin}.
-\end{itemize}
-In this case, the keyword terminal in the process specification is true. Since the Quark agent does not validate the keyword terminal when creating an interactive EXEC process, an adversary can use kubectl exec-it to allocate a terminal, then issue 
-arbitrary commands. As such, authentication and access control are required before creating an EXEC process. For further information, please see section~\ref{sec:design_EXEC_Requests}.
-
-
-Moreover, when an application is interactive, anyone can attach to the application and issue commands. Unlike EXEC requests, the attach requests are processed by Containerd~\cite*{containerd}. Specifically, Containerd creates an IO redirection thread that transfers data between the STDIO of the 
-user-side process and the three named pipes in Containerd representing the STDIO of the application. In this case, Qkernel has no control over the request. One possible countermeasure is to encrypt the STDOUT and STDERR of the application. In this case, even if an attacker attaches to the application, 
-the terminal cannot be used because the attacker does not possess the key to decrypt the application process’s STDOUT and STDERR stream. For more details, please refer to section~\ref{sec:design_EXEC_Requests}.
+\textbf{Any user can attach to an application.} Specifically, a user can attach a terminal to an interactive application to issue commands or attach to a non-interactive application to observe its STDOUT stream. Unlike EXEC requests, attach requests are handled by Containerd~\cite*{containerd} . For example, Containerd  creates an IO redirection thread that transfers data 
+between the STDIO of the terminal and the three named pipes in Containerd representing the application STDIO when it receives the terminal attach request. As such, Qkernel has no control over the request. One possible countermeasure is to encrypt the STDOUT and STDERR of the application. In this case, even if an attacker attaches to the application, he 
+can not obtain any useful information because the attacker does not have the key to decrypt the STDOUT and STDERR streams of the application.
 
 
 % the qkernel should measure the terminal keyword in the application 
@@ -267,7 +259,7 @@ In this chapter, the threat model is first defined in section~\ref{sec:Threat_mo
   \item \label{vulnerabilities:2} Lack of cryptographic protection for interactive processes STDIN, STDOUT, and STDERR.
   \item \label{vulnerabilities:3} Lack of cryptographic protection for non-interactive processes STDOUT and STDERR.
   \item \label{vulnerabilities:4} Anyone can issue commands to an application.
-  \item \label{vulnerabilities:5} Any user can allocate a terminal.
+  \item \label{vulnerabilities:5} Any user can attach to an application.
   \item \label{vulnerabilities:6} The commands issued by application owner may contain confidential data but are unprotected during transmission.
   \item \label{vulnerabilities:7} Loading compromised application binary during startup.
   \item \label{vulnerabilities:8} Loading compromised binary/shared library at runtime.

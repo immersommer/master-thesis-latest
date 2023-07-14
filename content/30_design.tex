@@ -28,13 +28,13 @@ In this chapter, a shielding layer design will be presented to mitigate the pitf
 identity to the secret manager and retrieve secrets in a secure manner. This infrastructure addresses vulnerability~\ref{vulnerabilities:1} identified in Chapter~\ref{sec:security_analyse}.
 
 \textbf{Enclave Runtime Measurement.} The module measures the data loaded from the host after the enclave has booted, including binaries, shared libraries, Qkernel's configuration file, and the secret manager's public key. The resulting measurements extend different hashes, including the enclave startup hash, the application startup hash, the runtime binary hash, and 
-the application restart hash. The enclave utilizes these hashes to perform integrity checks on the loaded data. As a result, weaknesses ~\ref{vulnerabilities:7}, ~\ref{vulnerabilities:8}, ~\ref{vulnerabilities:9}, and ~\ref{vulnerabilities:11} identified in Chapter~\ref{sec:security_analyse} are mitigated.
+the application restart hash. The enclave utilizes these hashes to perform integrity checks on the loaded data. As a result, weaknesses ~\ref{vulnerabilities:7}, ~\ref{vulnerabilities:8}, ~\ref{vulnerabilities:9}, and ~\ref{vulnerabilities:11} are mitigated.
  
-\textbf{A new pattern for EXEC requests.} This pattern effectively addresses the following pitfalls identified in Section 3: issuing unauthorized commands to applications, unrestricted allocation of terminals using kubectl exec -it, and the lack of protection for commands issued by application owners.
+\textbf{A new pattern for EXEC requests.} This pattern effectively addresses the following pitfalls identified in Chapter~\ref{sec:security_analyse}: issuing unauthorized commands to applications, unrestricted allocation of terminals using kubectl exec -it, and the lack of protection for commands issued by application owners.
 
-\textbf{A mechanism for protecting guest processes' STDIO.} This mechanism ensures the confidentiality and integrity of application logs and terminal data streams belonging to the application owner. It also prevents attackers from stealing the execution results of privileged commands. As such, weaknesses 2 and 3 identified in Chapter~\ref{sec:security_analyse} are solved.
+\textbf{A mechanism for protecting guest processes' STDIO.} This mechanism ensures the confidentiality and integrity of the STDIO stream of interactive and non-interactive processes. In this case, application logs, execution results of privileged commands, and terminal data streams belonging to the application owner are protected. As such, weaknesses~\ref{vulnerabilities:2}, ~\ref{vulnerabilities:3}, and~\ref{vulnerabilities:5} are solved.
 
-\textbf{System Call Interception and Qkenrel Log Management.} They propose a user-configurable guest system call interception and guest log protection policy to mitigate vulnerabilities~\ref{vulnerabilities:2} and~\ref{vulnerabilities:3}, respectively.
+\textbf{System Call Interception and Qkenrel Log Management.} They propose a user-configurable guest system call interception and guest log protection policy to mitigate vulnerabilities~\ref{vulnerabilities:10} and~\ref{vulnerabilities:12}, respectively.
  
 In the following, we first give an overview of the architecture in Section~\ref{sec:General_Architecture}. Then, we introduce the remote authentication and provisioning infrastructure in Section~\ref{sec:design_Quark_Attestation_and_Provisioning_Infrastructure}. Subsequent Sections~\ref{sec:Enclave_Runtime_Measurement},~\ref{sec:design_EXEC_Requests},
 ~\ref{sec:design_STDIO_PROTECTION}, ~\ref{sec:design_STDIO_PROTECTION}, ~\ref{sec:design_Interceptor}, and ~\ref{sec:Qkernel_logger}, we explain the new paradigm for EXEC requests, the 
@@ -181,6 +181,7 @@ manager in the shielding layer to measure the data loaded from the host while th
 Enclave startup hash. This value refers to the measures of host-loaded data until the application process starts. This includes the secret manager's key, the Qkernel's configuration file, the application's binary, and the multiple binaries and shared libraries loaded to set up the application environment. Additionally, since each Pod starts a pause container 
 first upon startup, the enclave startup hash also contains a measurement of the binaries and shared libraries that were loaded when the pause container was created. The attestation and provisioning agent include this hash in the attestation report, which is conveyed to the secret manager. The secret manager compares the measurement to the reference value provided 
 by the enclave owner to ensure the enclave is properly configured. This hash effectively solves the problems 1,2,3 identified in Chapter 3.
+\todo{add link}
 
 Application startup reference hash. As shown in the figure, this value records the measure of all binaries and shared libraries during the application's first startup. This measurement is a subset of the enclave's startup measurements and is stored in the enclave's memory. It will be used as a reference value for the application restart hash to ensure the 
 integrity of the binary and shared libraries load during the restart. 
@@ -201,10 +202,6 @@ Regarding obtaining the reference values for enclave startup hash and runtime ha
 
 \section{New Pattern for EXEC Requests}
 \label{sec:design_EXEC_Requests}
-\subsection{Overview}
-
-
-
 \begin{figure}[!htb]
     \centering
     \includegraphics[width=0.8\textwidth]{images/new_pattern_of_exec.png}
@@ -212,76 +209,103 @@ Regarding obtaining the reference values for enclave startup hash and runtime ha
     \label{fig:new_pattern_of_exec}
 \end{figure}
 
+We propose a new pattern for EXEC requests to address issues \todo{add ref} and \todo{add ref} identified in the security analysis. As illustrated in Figure~\ref{fig:new_pattern_of_exec}, The design divides EXEC requests into two categories, namely privileged and unprivileged EXEC requests. Privileged EXEC requests are issued by privileged users 
+(i.e., enclave owners), while untrusted entities issue unprivileged requests. An untrusted entity here refers to someone other than the enclave owner. Privileged and non-privileged users send privileged or non-privileged requests to the enclave using securectl or kubectl, respectively. Both requests
+are redirected to the enclave through the Kubernetes. Upon receiving an EXEC request, the Quark agent forwards it to the Exec request checker. According to the enclave policy, the Exec request checker will authenticate and access control the request. The Quark agent will decide whether to create the 
+EXEC process based on the result returned by the EXEC request checker.
 
-Any user can send an EXEC request to an application. As analyzed in Chapter~\ref{sec:security_analyse}, when a user issues a command to an application or allocates a terminal, Kubernetes will send an EXEC request to the Quark agent located in the enclave. After receiving 
-the request, the Quark agent creates a process to execute the command binary (For a terminal allocation request, the command is /bin/bash). Note that the o only difference between issuing a command and allocating a terminal is that the terminal 
-keyword is true in the process specification of the exec request for allocating a terminal. Thus, we refer to both issuing a command and allocating a terminal collectively as the EXEC request. Since the Quark agent lacks authentication and access 
-control for EXEC requests, an attacker can send arbitrary EXEC requests to an application. Therefore, a new pattern for EXEC requests is proposed, illustrated in Figure~\ref{fig:new_pattern_of_exec}.
 
-The pattern divides EXEC requests into two categories, namely privileged and unprivileged EXEC requests. Privileged EXEC requests are issued by privileged users, i.e., the application owner, while non-privileged requests are issued by untrusted 
-entities. An untrusted entity here refers to someone other than the application owner. Privileged and unprivileged users send privileged or unprivileged requests to the enclave using secretctl or kubectl, respectively. Both requests are redirected 
-to the enclave through the Kubernetes  API server and the CRI, Shim V2 API interface. Upon receiving the EXEC request, the Quark agent forwards it to the Exec request checker. The Exec request checker will authenticate and access control the request 
-according to the enclave policy, as shown in Figure~\ref{fig:exec_policy}. The Quark agent will decide whether to create the EXEC process based on the results returned by the Exec request checker.
-\begin{figure}[htp]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/exec_policy.png}
-    \caption[Policy for EXEC Requests]{Policy for EXEC Requests. This EXEC request policy is part of the enclave policy. The enable\_teminal keyword specifies whether a terminal can be 
-    allocated. For example, kubectl exec -it command will be rejected when enable\_teminal is set to false for unprivileged users. The keyword enable\_single\_shot\_command\_line\_mode 
-    defines whether users are allowed to issue a command. When this keyword is false in the non-privileged user's configuration, any commands issued by a user using kubectl will be 
-    rejected. When this keyword is true, the application owner must restrict which commands are allowed and which directories the commands have access to. This is done through single\_shot\_command\_line\_mode\_configs in the enclave policy.}
-    \label{fig:exec_policy}
+
+
+
+
+\begin{figure}[!htb] 
+    \begin{subfigure}[b]{0.3\linewidth}
+      \centering
+      \includegraphics[width=0.9\linewidth]{images/exec_policy.png} 
+      \caption{Policy for EXEC requests} 
+      \label{fig:exec_policy} 
+      \vspace{4ex}
+    \end{subfigure}%% 
+    \begin{subfigure}[b]{0.6\linewidth}
+      \centering
+      \includegraphics[width=0.9\linewidth]{images/algo_for_path_checking.png} 
+      \caption{Algorithm for validating command parameters against directory whitelist} 
+      \label{fig:algo_for_path_checking} 
+      \vspace{4ex}
+    \end{subfigure} 
+    \caption{Policy for EXEC requests and algorithm for validating command parameters}
+    \label{fig3} 
 \end{figure}
 
+
+The policy used by the exec request checker is in Figure~\ref{fig:exec_policy}. This policy is part of the enclave policy. Each user level possesses an allowlist of commands, "allowed\_cmd," and an allowlist of directories, "allowed\_dir." The command allowlist specifies what commands the user can issue, while the 
+directory allows list controls which directories a command can access. When an EXEC request is received, the EXEC checker examines all path-like strings in the command argument and verifies if they exist in the directory allowlist. The EXEC checker also checks whether the current working directory of 
+a no-arguments command is a subpath of a directory in the directory allowlist so that the command can only be executed in some specific directories. Notably,  directory whitelisting does not apply to terminal allocation commands like /bin/sh, /bin/bash, and sh. This permits users to allocate a terminal 
+from any directory. For instance, this policy enables privileged users to issue cat, ls, and /bin/sh commands. The cat and ls commands are restricted to the /var directory and its subdirectories. Therefore, any attempt to execute commands in other directories (e.g., cat / and cat /bin) will be denied. 
+On the other hand, since /bin/sh is included in the command allowlist, privileged users can allocate a terminal. Moreover, if a privilege level's command whitelist is empty, all commands issued by the user with this privilege level will be rejected.
+
+
+
+The EXEC checker employs the algorithm presented in~\ref{fig:algo_for_path_checking} to validate the command parameters. It is important to note that the command and its arguments are conveyed as an array of strings from the user to the enclave. The first element of the array represents the command, and the subsequent elements 
+correspond to the command's arguments. Consequently, the algorithm iterates through this array to inspect all the command's arguments, capturing absolute and relative paths. Absolute paths encompass strings beginning with '/,' whereas relative paths are the strings containing '.'' or '/.' Following 
+this, the algorithm utilizes the command's current working directory to convert relative paths into absolute paths. Finally, it checks all paths against the directory allowlist. It returns false if a path is not a subpath defined in the policy.
 
 
 \subsection{Protection for Privileged Exec Request}
-Since privileged EXEC requests are transmitted through the Kubernetes  component to the enclave, the authenticity, integrity, and confidentiality of the commands and their parameters in requests must be protected. In addition, we must implement a mechanism 
-to distinguish between privileged and unprivileged requests. This can be achieved through the frame structure as in Figure~\ref{fig:new_pattern_of_exec} and the use of authenticated encryption operations with associated data, i.e., the Advanced 
-Encryption Standard Galois/Counter Mode (AES-GCM)~\cite*{aes_gcm}. The frame structure encapsulates the AES-GCM's random number (nonce) for secret decryption, the authentication Tag, the encrypted payload, and the keyword 'Privileged'. Since the Open Container 
-Initiative requires that commands and their arguments be passed as a vector of strings, the encrypted payload, nonce, and tag are encoded in base64. The plaintext payload contains the keyword 'Privileged,' the session ID, a counter, the command, 
-and its parameters.
-
-AES-GCM~\cite*{aes_gcm} ensures the confidentiality, authenticity, and integrity of privileged EXEC requests. Besides, it is easy to deploy as it requires only a shared key. After a successful remote attestation, a key is shared between the application owner and 
-the enclave. The application owner can use this key to encrypt privileged commands and their parameters. When the enclave receives a privileged request, the exec request checker can use the key to confirm that the request was generated by a 
-privileged user who knows the key (authentication), verify the request's integrity, and decrypt the request.
-
-
-The keyword "Privileged" is used to distinguish privileged from non-privileged commands. The Kubernetes API requires the user to pass a command, and it's parameters as an array of strings, where the first element is the command and the remaining elements 
-are the parameters, e.g. ["cat", "/var/log"]~\cite*{k8s}. Privileged-level commands are passed to the enclave as string arrays through the Kubernetes  API, just like non-privileged-level commands. Thus, the string arrays corresponding to privileged-level commands have 
-the following format ["Privileged", "Encrypted cmd + arg," "Tag ","Nonce"]. When the exec request checker receives an EXEC request, it can determine if it is privileged by checking the first element of the command array. Note that the command array 
-is part of the EXEC request process specification known as args.
-
-
-The  monotonic counter and session are designed to prevent reply attacks. Since the privileged Exec requests are transmitted to the enclave by Kubernetes , an attacker can intercept a privileged request and send it continuously to the enclave to 
-interfere with its operation. In addition, it can analyze the execution result of an EXEC request. Although the result is encrypted, it may get different results from executing the same command twice. In this case, it may be possible to derive the 
-plaintext by analyzing the changes in the ciphertext.   Therefore, we introduce a monotonic counter for privileged-level EXEC requests. This counter is assigned by the enclave to privileged users. When the value of the monotonic counter in an EXEC 
-request is smaller than the reference value stored in the enclave, the request is rejected. Since there may be more than one privileged user, it is not easy to share the counter. Therefore, we introduce sessions. In this case, the enclave will 
-assign each privileged user a random session id and a unique counter. This id and counter are stored in the enclave and will be sent to a privileged user via a secure channel. The privileged user can use the session id and counter to construct a 
-privileged EXEC request. Note that the counter is added by one after each EXEC request.
-
-
-With the session and counter, we avoid the following two reply attacks. First, the attacker sends a request that belongs to an illegal session, i.e., the session id is not stored by the enclave. Second, the attacker has sent an outdated request to 
-the enclave. This means that the counter value in a request is less than the current counter value recorded in the enclave for the requested session ID. In this case, the enclave will refuse to execute it.
-
-\subsection{Session Assignment}
-
-Figure~\ref{fig:session_base_auth} demonstrates how a privileged user gets a session. In the login phase, a privileged user submits a login request using securectl. The login request is a privilege EXEC. However, the payload of the privileged EXEC 
-request contains the keyword Login plus a random number instead of a real Linux command. The random number is used to prevent reply attacks. When the request is received and verified by the enclave,  it assigns a session id and a unique counter to 
-the privileged user. These two values are stored in the enclave and returned to securectl. The enclave returns these two values via the stdout of the exec process.
-
-\begin{figure}[htp]
+\begin{figure}[!htb]
     \centering
-    \includegraphics[width=0.8\textwidth]{images/session_base_auth.png}
-    \caption[Session Assignment]{Session Assignment}
-    \label{fig:session_base_auth}
+    \includegraphics[width=0.4\textwidth]{images/exec_frame.png}
+    \caption[Frame structure  for protecting privileged exec request]{Frame structure  for protecting privileged exec request}
+    \label{fig:exec_frame}
+\end{figure}
+The frame structure shown in Figure~\ref{fig:new_pattern_of_exec} protects privileged commands and distinguishes them from non-privileged commands. The frame structure encapsulates the string "Privileged," the AES-GCM encrypted payload, the AES-GCM~\cite*{aes_gcm} random number (nonce) used for payload decryption, and the authentication tag. 
+The plaintext payload contains the keyword "Privileged," the session ID, a counter,  the Linux command, and its parameters. K8S and the Open Container Initiative require that commands and their parameters in EXEC requests be passed as string vectors. For example, ["cat", "/var/log"]~\cite*{k8s}. As such, 
+the encrypted payload, nonce, and tag in the frame structure are encoded in base64, and the frame is passed as a string array to the enclave via the Kubernetes API. Note that the string array is part of the EXEC request process specification called args (See section\todo{add ref}). Upon receiving an EXEC request, 
+the EXEC request checker can determine if the request is privileged by viewing the first element of the arg array. If the element is the keyword Privileged", the request will be classified as privileged.
+
+AES-GCM~\cite*{aes_gcm} ensures the confidentiality, authenticity, and integrity of privileged commands and their arguments. Besides, it is easy to deploy, requiring only a shared key. After a successful remote attestation, a key is shared between the application owner and the enclave. The application owner can 
+use this key to encrypt privileged commands and their parameters. When the enclave receives a privileged request, the exec request checker can use the key to confirm that the request was generated by a privileged user who knows the key (authentication), verify the request's integrity, and decrypt the 
+request.
+
+
+The monotonic counter and session are designed to prevent reply attacks. Since the privileged Exec requests are transmitted to the enclave by Kubernetes, an attacker can intercept a privileged request and send it continuously to the enclave to interfere with its operation. In addition, it can analyze 
+the execution result of an EXEC request. Although the result is encrypted, it may get different results from executing the same command twice. In this case, it may be possible to derive the plaintext by analyzing the changes in the ciphertext. Therefore, we introduce a monotonic counter for 
+privileged-level EXEC requests. This counter is assigned by the enclave to privileged users. When the value of the monotonic counter in an EXEC request is smaller than the reference value stored in the enclave, the request is rejected. Since there may be more than one privileged user, it is 
+hard to share the counter. Therefore, we introduce sessions. In this case, the enclave will assign each privileged user a random session id and a unique counter. This id and counter are stored in the enclave and will be sent to a privileged user via a secure channel. The privileged user can 
+use the session id and counter to construct a privileged EXEC request. Note that the counter is added by one after each EXEC request.
+
+With the session and counter, we avoid the following two reply attacks. First, the attacker sends a request that belongs to an illegal session, i.e., the enclave does not store the session id. Second, the attacker has sent an outdated request to the enclave. This means that the counter value in a 
+request is less than the current counter value recorded in the enclave for the requested session ID. In this case, the enclave will refuse to execute it.
+
+\subsection{Session Assignment and Policy Updates}
+\begin{figure}[!htb]
+    \centering
+    
+    \begin{minipage}{0.9\textwidth}
+    \begin{subcolumns}[0.62\textwidth]
+      \subfloat[Workflow of session assignment\label{fig:session_base_auth}]{\includegraphics[width=\subcolumnwidth]{images/session_base_auth.PNG}}
+
+    \nextsubcolumn[0.33\textwidth]
+      \subfloat[Frame structure  for session allocation\label{fig:session_allocation}]{\includegraphics[width=\subcolumnwidth]{images/session_allocation.PNG}}
+
+    \nextsubfigure
+      \subfloat[Frame structure  for policy updates\label{fig:policy_frame}]{\includegraphics[width=\subcolumnwidth]{images/policy_frame.PNG}}
+    \end{subcolumns}
+    \end{minipage}
+    
+    \caption[Session Assignment and Policy Updates]{Session Assignment and Policy Updates}
+    \label{fig:session_policy}
 \end{figure}
 
-When the enclave receives the exec request, it creates a process based on the exec request's process specification. However, the keyword "Login" is not a Linux command. Thus, the enclave replaces the command executed by the exec process with "ls." 
-Once the process completes running ls and writes the result to the process's STDOUT, the STDIO shield intercepts the data written to STDOUT and replaces it with the privileged user-assigned session ID and counter. Since the login request is 
-privileged, its output is cryptographically protected.
 
-\subsection{Secret Update}
+Figure~\ref{fig:session_base_auth} demonstrates how a privileged user gets a session. The privileged user submits a login request using securectl in the login phase. The login request is a privileged EXEC request with the format visualized in Figure~\ref{fig:session_allocation}. Instead of a real Linux command, the keyword Login and a random number 
+are used as the command and parameter. The random number is used to prevent reply attacks. After the enclave verifies and decrypts the encrypted payload, it checks the command in the payload. If the command is the keyword Login, it assigns a session ID and a unique counter to the privileged user. 
+These two values are stored in the enclave and returned to securectl securely. Specifically, it creates a process when that EXEC request is received. However, the keyword "Login" is not a Linux command. Thus, the enclave replaces the command executed by the exec process with" ls." Once the process 
+completes running ls and writes the result to its STDOUT, the STDIO shield will intercept the data and replaces it with the session ID and counter. Since the login request is privileged, the STDIO shield will encrypt the data before sending it to the user. 
 
+When the keyword "enabale\_policy" is true in the enclave policy, privileged users can use securectl to update the enclave policy. Similar to the session allocation request, the policy is updated by sending a privilege-level command to the enclave. The format of the command can be found in~\ref{fig:policy_frame}. Unlike 
+the session request's payload, it uses the keyword policy-update as the command, with the new enclave policy as the command's argument
 
 \section{Guest User Space Process STDIO Protection}
 \label{sec:design_STDIO_PROTECTION}
