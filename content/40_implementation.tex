@@ -277,7 +277,7 @@ This section describes how software measurement managers measure data loaded fro
 
 \subsection{Binary Measurement}
 
-\begin{figure}[htp]
+\begin{figure}[!htb]
     \centering
     \includegraphics[width=0.8\textwidth]{images/measure_binary.png}
     \caption[Binary measurement workflow]{Binary measurement workflow}
@@ -297,7 +297,7 @@ The workflow for shared library measurement is depicted in Figure~\ref{fig:measu
 The handler determines whether a file is a shared library by checking its suffix (i.e., .so). If so, the handler notifies the secret manager to initialize a hash for the shared library, which is then stored in a B-tree map. Based on the library's name, the software manager can retrieve and extend the 
 hash from the map.
 
-\begin{figure}[htp]
+\begin{figure}[!htb]
     \centering
     \includegraphics[width=0.8\textwidth]{images/measure_load_shared_libarart.png}
     \caption[Shared library measurement workflow]{Shared library measurement workflow}
@@ -380,16 +380,10 @@ identical. Subsequently, a comparison is made between the measurements stored in
 with those loaded during the initial application startup.
 
 \section{EXEC Checker}
-The Exec checker provides the Quark agent with the API shown in Listing~\ref{lst:exec_Cheker}. It allows the Quark agent to check if an EXEC request is legitimate. It also handles requests from privileged-level users to update enclave policies or assign sessions.
+The Exec checker provides the Quark agent with the API shown in Listing~\ref{lst:exec_Cheker}. This function checks EXEC requests for legitimacy and handles session allocation or  policy update request from privileged users. It returns true if the EXEC request is legitimate and false if not. 
+The execAuthenAcCheckArgs contains the metadata required to create an EXEC process. In particular, args is an array of strings containing the command to be executed and its arguments. 
 
 \begin{lstlisting}[language=rust, caption= API of EXEC checker, label={lst:exec_Cheker}]
-pub struct ExecAthentityAcChekcer {
-    policy: KbsPolicy,
-    pub decryption_key: GenericArray<u8, U32>,
-    pub authenticated_reqs: BTreeMap<String, AuthenticatedExecReq>,
-…
-}
-
 pub struct ExecAuthenAcCheckArgs {
     pub exec_id: String,
     pub args: Vec<String>,
@@ -397,39 +391,21 @@ pub struct ExecAuthenAcCheckArgs {
     pub cwd: String,
     pub req_type: ExecRequestType,
 }
-
 pub fn exec_req_authentication (exec_req: ExecAuthenAcCheckArgs) -> bool
 \end{lstlisting}
 
+The workflow of the function is illustrated in Figure~\ref{fig:exec_req_authentication_flow_chart}. Initially, it determines the privilege level of the request by examining whether the first element of the array matches the keyword "Privileged." If it does, the function validates and decrypts the 
+encrypted payload in the array. Subsequently, it verifies the legitimacy of the request's session and counters. If these components are deemed illegitimate, the function returns false. It then identifies whether the request is a session assignment or policy update request using the methods described 
+in Section~\ref{subsec:design_policy_session_update}. In the case of a typical Linux command, the function checks its legality based on the policy. Specifically, it first confirms if the command is included in the command allowlist. If it is, the function checks if the directory allowlist incorporates the path-like string found in the 
+command's arguments. Notably, for a no-arguments command, the function verifies if the current execution directory of the command is present in the directory allowlist. For non-privileged commands, the function only evaluates their legality based on the policy. If a command meets the policy criteria, 
+the function saves the EXEC request's command and argument in plaintext. The Quark agent can then employ the EXEC ID to retrieve a legitimate EXEC request's metadata and create the corresponding process.
 
-When an EXEC request is received, the Quark agent invokes the exec\_req\_authentication() function. This function accepts the metadata of the EXEC request ExecAuthenAcCheckArgs, and returns a boolean value indicating the request's legitimacy. It returns true if the EXEC request is legitimate and false 
-if not. The ExecAuthenAcCheckArgs contains the necessary metadata for creating an EXEC process. The exec\_id is the id of the EXEC request. The EXEC checker stores the metadata of a legitimate request in the field authenticated\_reqs of AthentityAcChekcer struct. The Quark agent can use the EXEC id to 
-find a legitimate request's metadata in authenticated\_reqs and create the EXEC process. The args contains the command and its arguments that need to be executed. If the command is privileged, the data within args is protected using the frame structure discussed in Section XX\todo{add ref}. Additionally, the
-req\_type specifies the type of request, indicating whether the request is about terminal allocation (terminal mode) or executing a single command (single shot command mode). The workflow of the exec\_req\_authentication function is shown in Figure ~\ref{fig:exec_req_authentication_flow_chart}.
-
-
-\begin{figure}[htp]
+\begin{figure}[!htb]
     \centering
     \includegraphics[width=0.8\textwidth]{images/exec_req_authentication_flow_chart.png}
     \caption[EXEC cheker workflow]{EXEC cheker workflow}
     \label{fig:exec_req_authentication_flow_chart}
 \end{figure}
-
-
-For single-shot commands, the exec\_req\_authentication function utilizes two functions to verify that commands and directories are included in the allowed list as defined by the single command line mode configuration. As shown in Figure 2\todo{add ref}, privileged and unprivileged users have their own single 
-command line mode configuration.
-
-
-\begin{lstlisting}[language=rust, caption= API of EXEC checker, label={lst:exec_Cheker_sighlr}]
-    fn is_path_allowed (cmd: &Vec<String>, allowed_paths: &Vec<String>, cwd: &str) -> bool
-    fn is_cmd_allowed (cmd: &String, allowed_cmd_list: &Vec<String>) ->bool 
-\end{lstlisting}
-    
-
-The is\_cmd\_allowed function verifies that a command is in the command allowlist. On the other hand, the is\_path\_allowed function checks whether the directory in which the command is executed and the directories appearing in the command arguments are in the directory allowlist. It returns true 
-only if both directories are in the allowed list. Otherwise, it returns false.
-
-
 
 \section{STDIO Protection}
 
