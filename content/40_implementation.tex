@@ -380,6 +380,7 @@ identical. Subsequently, a comparison is made between the measurements stored in
 with those loaded during the initial application startup.
 
 \section{EXEC Checker}
+\label{sec:impl_exec}
 The Exec checker provides the Quark agent with the API shown in Listing~\ref{lst:exec_Cheker}. This function checks EXEC requests for legitimacy and handles session allocation or  policy update request from privileged users. It returns true if the EXEC request is legitimate and false if not. 
 The execAuthenAcCheckArgs contains the metadata required to create an EXEC process. In particular, args is an array of strings containing the command to be executed and its arguments. 
 

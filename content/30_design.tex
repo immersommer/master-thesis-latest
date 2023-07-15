@@ -43,7 +43,7 @@ mechanism for protecting the standard IO of guest processes, the guest system ca
 
 \section{General Architecture}
 \label{sec:General_Architecture}
-\begin{figure}[htp]
+\begin{figure}[!htb]
     \centering
     \includegraphics[height=0.3\textheight, width=1\textwidth]{images/genaral_architechture.png}
     \caption[General Architecture]{General Architecture. The green components in the figure are trusted ,and the red components are not trusted.}
@@ -61,7 +61,7 @@ and then uploads secrets through a secure channel. The secret manager can valida
 \section{Quark Attestation and Provisioning Infrastructure}
 \label{sec:design_Quark_Attestation_and_Provisioning_Infrastructure}
 
-\begin{figure}[htp]
+\begin{figure}[!htb]
     \centering
     \includegraphics[width=0.8\textwidth]{images/Qkernel_attestation_infrastructurc.png}
     \caption[Quark Attestation and Provisioning Infrastructure]{Quark Attestation and Provisioning Infrastructure}
@@ -253,6 +253,7 @@ this, the algorithm utilizes the command's current working directory to convert 
 
 
 \subsection{Protection for Privileged Exec Request}
+\label{sec:design_prptect_privileged_request}
 \begin{figure}[!htb]
     \centering
     \includegraphics[width=0.4\textwidth]{images/exec_frame.png}
@@ -260,7 +261,7 @@ this, the algorithm utilizes the command's current working directory to convert 
     \label{fig:exec_frame}
 \end{figure}
 The frame structure shown in Figure~\ref{fig:new_pattern_of_exec} protects privileged commands and distinguishes them from non-privileged commands. The frame structure encapsulates the string "Privileged," the AES-GCM encrypted payload, the AES-GCM~\cite*{aes_gcm} random number (nonce) used for payload decryption, and the authentication tag. 
-The plaintext payload contains the keyword "Privileged," the session ID, a counter,  the Linux command, and its parameters. K8S and the Open Container Initiative require that commands and their parameters in EXEC requests be passed as string vectors. For example, ["cat", "/var/log"]~\cite*{k8s}. As such, 
+The plaintext payload contains the keyword "Privileged," the session ID, a counter,  the Linux command, and its parameters. K8S and the Open Container Initiative require that commands and their parameters in EXEC requests be passed as a vector of strings. For example, ["cat", "/var/log"]~\cite*{k8s}. As such, 
 the encrypted payload, nonce, and tag in the frame structure are encoded in base64, and the frame is passed as a string array to the enclave via the Kubernetes API. Note that the string array is part of the EXEC request process specification called args (See section\todo{add ref}). Upon receiving an EXEC request, 
 the EXEC request checker can determine if the request is privileged by viewing the first element of the arg array. If the element is the keyword Privileged", the request will be classified as privileged.
 
@@ -269,15 +270,11 @@ use this key to encrypt privileged commands and their parameters. When the encla
 request.
 
 
-The monotonic counter and session are designed to prevent reply attacks. Since the privileged Exec requests are transmitted to the enclave by Kubernetes, an attacker can intercept a privileged request and send it continuously to the enclave to interfere with its operation. In addition, it can analyze 
-the execution result of an EXEC request. Although the result is encrypted, it may get different results from executing the same command twice. In this case, it may be possible to derive the plaintext by analyzing the changes in the ciphertext. Therefore, we introduce a monotonic counter for 
-privileged-level EXEC requests. This counter is assigned by the enclave to privileged users. When the value of the monotonic counter in an EXEC request is smaller than the reference value stored in the enclave, the request is rejected. Since there may be more than one privileged user, it is 
-hard to share the counter. Therefore, we introduce sessions. In this case, the enclave will assign each privileged user a random session id and a unique counter. This id and counter are stored in the enclave and will be sent to a privileged user via a secure channel. The privileged user can 
-use the session id and counter to construct a privileged EXEC request. Note that the counter is added by one after each EXEC request.
-
-With the session and counter, we avoid the following two reply attacks. First, the attacker sends a request that belongs to an illegal session, i.e., the enclave does not store the session id. Second, the attacker has sent an outdated request to the enclave. This means that the counter value in a 
-request is less than the current counter value recorded in the enclave for the requested session ID. In this case, the enclave will refuse to execute it.
-
+The monotonic counter and session are designed to prevent reply attacks. The counter is assigned by the enclave to a privileged user. When the value of the monotonic counter in an EXEC request is smaller than the reference value stored in the enclave, the request will be rejected. Since there may be 
+more than one privileged user, it is hard to share the counter. Therefore, we introduce sessions. In this case, the enclave will assign each privileged user a random session id and a unique counter. This id and counter are stored in the enclave and will be sent to a privileged user via a secure channel. 
+The privileged user can use the session id and counter to construct a privileged EXEC request. Note that the counter is added by one after each EXEC request. With the session and counter, we avoid the following two reply attacks. First, the attacker sends a request that belongs to an illegal session, 
+i.e., the enclave does not store the session id. Second, the attacker has sent an outdated request to the enclave. This means that the counter value in a request is less than the current counter value recorded in the enclave for the requested session ID. In this case, the enclave will refuse to 
+execute it.
 \subsection{Session Assignment and Policy Updates}
 \label{subsec:design_policy_session_update}
 \begin{figure}[!htb]
@@ -310,167 +307,135 @@ the session request's payload, it uses the keyword policy-update as the command,
 
 \section{Guest User Space Process STDIO Protection}
 \label{sec:design_STDIO_PROTECTION}
-The enclave generates guest user-space processes based on process specifications for application creation and EXEC requests. These processes' standard input and output are either tty (Terminal IO) or named pipe (Normal IO), depending on the value of 
-the Terminal keyword in the specification. As per our security analysis in Chapter 3, the results of application logs and EXEC requests are returned by the process's standard output or standard error streams. Since the standard output and errors 
-are redirected to the containerd, cryptographic protection of the standard output and errors for application processes and privileged EXEC processes is essential.
+We propose a guest user-space process STDIO Shield to tackle the identified security issues (~\ref{vulnerabilities:2}, ~\ref{vulnerabilities:3}, ~\ref{vulnerabilities:6}). In the following, We explain how the STDIO Shield protects both non-interactive and interactive processes. It is important to note that privileged processes refer to both the application process and processes executing privileged EXEC commands. The distinction between interactive and non-interactive processes lies in their STDIO, specifically whether it is of terminal type. 
 
-On the other hand, when STDIO of these processes is of the TERMINAL type, the communication between the user and the processes occurs via the terminal IO redirection thread in quark-shim and the tty driver in the host kernel. This means that any 
-commands sent by the privileged user and the command execution results are visible to untrusted entities. Specifically, user commands are transmitted via STDIN to the process, which returns the result to the user via STDOUT or STDERR. Consequently, 
-when the STDIO type of the process is TERMINAL, encryption is necessary to protect the stdin.
 
 \subsection{Distinguish the STDIO type of the processes}
-Encrypting the STDIO of all processes is not a viable solution for several reasons. Firstly, it would impede non-privileged users from accessing the execution results of non-privileged EXEC requests. In addition, when the enclave is running in 
-developer mode, application owners may opt out of encrypting the STDIO of the application as it would use kubectl for viewing application logs or issuing commands. Consequently, we classify the file descriptors used as a guest user process's STDIO 
-by the process type:
 
-\begin{itemize} \captionof{enumcnt}{List of file descriptor type used as a guest user process's STDIO}\label{dolist}
-    \item Application\_Normal\_IO\_STDIN: the application process's STDIN file descriptor for the normal io 
-    \item Application\_Normal\_IO\_STDOUT: the application process's STDOUT file descriptor for the normal io 
-    \item Application\_Normal\_IO\_STDERR: the application process's STDERR file descriptor for the normal io 
-    \item Application\_Termianl\_IO:  the application process's STDIO file descriptor of tty type 
-    \item Privileged\_EXEC\_Process\_With\_Terminal\_IO: privileged EXEC process's STDIO file descriptor of tty type
-    \item Unprivileged\_EXEC\_Process\_With\_Terminal\_IO: unprivileged EXEC process's STDIO file descriptor of tty type 
-    \item Privileged\_EXEC\_Process\_With\_Normal\_IO\_STDIN: privileged EXEC process's STDIN file descriptor for the normal io 
-    \item Privileged\_EXEC\_Process\_With\_Normal\_IO\_STDOUT: privileged EXEC process's STDOUT file descriptor for the normal io.
-    \item Privileged\_EXEC\_Process\_With\_Normal\_IO\_STDERR: privileged EXEC process's STDERR file descriptor for the normal io
-    \item Unprivileged\_EXEC\_Process\_With\_Normal\_IO\_STDIN: non-privileged EXEC process's STDIN file descriptor in the normal io 
-    \item Unprivileged\_EXEC\_Process\_With\_Normal\_IO\_STDOUT. non-privileged EXEC process's STDOUT file descriptor for the normal io
-    \item Unprivileged\_EXEC\_Process\_With\_Normal\_IO\_STDERR: non-privileged EXEC process's the stderr file descriptor for the normal io.
-    \item Login\_EXEC\_Process\_STDIN: STDIN belonging to the Login exec process
-    \item Login\_EXEC\_Process\_STDERR: STDOUT of the Login exec process
-    \item Login\_EXEC\_Process\_STDOUT: STDERR of the Login exec process
-    
-\end{itemize}
-
-In cases where the STDIO type of the application process is terminal, a tty slave will be used for STDIN, STDOUT, and STDERR. The type of this tty slave is Application\_Termianl\_IO.  In contrast, if it is Normal\_IO (named pipe), then the STDIN, 
-STDOUT, and STDERR will correspond to Application\_Normal\_IO\_STDIN, Application\_Normal\_IO\_STDOUT, and Application\_Normal\_IO\_STDERR, respectively. The unprivileged EXEC process's STDIO is not encrypted by default. For standard streams of 
-application and privileged EXEC processes, the enclave allows the application owner to specify a policy to decide whether they should be cryptographically protected.
-\begin{figure}[htp]
+The guest user space can accommodate various types of processes, including privileged-level non-interactive EXEC processes, privileged-level interactive EXEC processes, session or policy update processes, and various non-privileged-level EXEC processes. The STDIO shield handles the STDIO of these processes differently. For instance, 
+to send the session id to a user, the shield intercepts the session process's STDOUT, replaces the content with the session ID assigned to the user, and encrypts it to maintain confidentiality. Similarly, data written to the STDOUT and STDERR of privileged-level non-interactive processes is encrypted. Conversely, data belonging 
+to non-privileged level process STDIO remains unaltered. Consequently, the STDIO shield necessitates a mechanism for discerning between the various types of process STDIO.
+ 
+The file descriptor representing the STDIO of a process cannot be used to distinguish between different processes' STDIO streams, as the file descriptors for STDIN, STDOUT, and STDERR are fixed as 0, 1, and 2, respectively. Qkernel, however, implements a virtual file system. Like the Linux kernel, each file descriptor in the Qkernel filesystem corresponds to 
+a unique inode with a unique id. Therefore, the inode id can differentiate between the STDIO streams of different processes.
+\begin{figure}[!htb]
     \centering
-    \includegraphics[scale=0.5]{images/differenciate_fds.png}
-    \caption[Distinguish file descriptor type used as guest user processes' STDIO]{Distinguish file descriptor type used as guest user processes' STDIO}
+    \includegraphics[width=0.8\textwidth]{images/differenciate_fds.png}
+    \caption[Inode tracking table workflow]{Inode tracking table workflow}
     \label{fig:differenciate_fds}
 \end{figure}
+ 
+The STDIO shield maintains an inode table to track individual processes' STDIN, STDOUT, and STDERR. Each table entry records include the type of STDIO stream, the process's privilege level, the process type, and additional metadata. The available STDIO types consist of STDIN, STDOUT, and STDERR. Process privilege levels are classified as 
+privileged or unprivileged. Process types encompass the application, interactive EXEC, non-interactive EXEC, policy update, and session assignment. An entry also includes a session ID and counter if the process type is session assignment. Additionally, for policy update processes, the entry contains a boolean 
+value indicating the success of the update. Like session assignment, the STDIO shield informs the user of the policy update result by substituting the data written to the STDOUT of the policy update process.
 
-As shown in Figure~\ref{fig:differenciate_fds}, when creating a process and configuring its STDIO, quark-agent generates file descriptor records for STDIN, STDOUT, and  STDERR within the inode tracking table. Each record comprises two elements - the inode id and the file descriptor type, which 
-is presented in List~\ref{dolist}. In cases where the process's STDIO type is terminal, only a single record is created since the STDIN, STDOUT, and STDERR file descriptors correspond to the same inode, the inode of the tty slave. When a process 
-reads/writes to its STDIO, the shielding layer uses the file descriptor (fd) to obtain the corresponding inode id and retrieves the information from the inode tracking table. Following that, the shielding layer processes the fd’s data based on the 
-shielding layer policy, process type, and STDIO type of the process.
-  
-\subsection{Normal STDIO Protection}
+As shown in Figure~\ref{fig:differenciate_fds}, when the Quark agent creates a process and configures its STDIN, STDOUT, and STDERR file descriptors, corresponding records are created in the inode tracking table. When a process performs read or write operations on its STDIO, the STDIO shield can locate the corresponding inode based on the file descriptor associated 
+with the STDIO stream. By utilizing the inode id, the shield can retrieve the relevant record from the inode table and secure the data within the STDIO stream based on the shield policy.
 
-\begin{figure}[htp]
+\subsection{Non-interactive process STDIO Protection}
+
+\begin{figure}[!htb]
     \centering
-    \includegraphics[width=0.8\textwidth]{images/normorl_io.png}
-    \caption[Normal STDIO Protection Workflow]{Normal STDIO Protection Workflow}
-    \label{fig:normorl_io}
+    \includegraphics[width=0.3\textwidth]{images/normal_io_shiled_encryption_schema.png}
+    \caption[Normal STDIO protection schema]{Normal STDIO protection schema}
+    \label{fig:normal_io_shiled}
 \end{figure}
 
-
-When it comes to non-interactive applications and EXEC processes, their process's STDIO type falls under Normal IO. In such instances, safeguarding the confidentiality and integrity of data in STDERR and STDOUT of the application and privileged-level 
-EXEC processes is vital. To achieve this objective, the Normal STDIO shield utilizes a frame structure that protects the STDOUT and STDERR cryptographically, as shown in Figure~\ref{fig:normorl_io}. This structure includes an encrypted payload, a nonce, and an 
-authentication tag. AES-GCM uses the nonce and tag for decryption and authentication. The plaintext payload comprises the information written into STDOUT or STDERR by these processes and a number used to prevent reorder or replay attacks.
-
-Concerning application processes, the number increases sequentially from 0. If a privileged user uses securectl to access an application's logs, this number is utilized to verify whether the log has been reordered or lost. For privileged-level 
-EXEC processes, this number is the counter's value in the EXEC request. After receipt of the request's result, securectl compares the reference value and the number in the payload to prevent the replay attack.
+Protecting the confidentiality and integrity of the data in the STDERR and STDOUT of privileged-level non-interactive processes is critical. To this end, the Normal STDIO shield utilizes a frame structure in Figure~\ref{fig:normal_io_shiled} to cryptographically protect data written to the STDOUT and STDERR of these processes. The structure consists of an 
+encrypted payload, a nonce, and an authentication tag. AES-GCM uses the nonce and the tag for decryption and authentication. The STDIO shield encrypts the payload using the key provided in the enclave policy. Since only the enclave and the enclave owner know the key, an attacker cannot decrypt the encrypted payload. Additionally, the use of AES-GCM ensures the 
+confidentiality, integrity, and authenticity of the data. The plaintext payload comprises the data written into STDOUT or STDERR by these processes and a number used to prevent reorder or replay attacks. If a privileged user uses securectl to access an application’s logs, this number is utilized to verify whether the log has been reordered or lost. For privileged-level EXEC processes, this number is the counter’s value 
+in the EXEC request. Upon receiving the EXEC result, securectl compares the reference value to the number in the payload to prevent replay attacks.
 
 
-\subsection{Terminal STDIO Protection}
+\subsection{Interactive process STDIO Protection}
+\label{subsec:design_terminal}
 
-\begin{figure}[htp]
+
+The goal is to ensure the confidentiality and integrity of the data within the STDIN, STDOUT, and STDERR streams of an interactive process. Achieving this requires end-to-end encryption and decryption of the process's STDIO. Specifically, the data written to STDIN is encrypted by the securectl on its side and decrypted within the enclave. Similarly, 
+the STDOUT and STDERR data are encrypted within the enclave and decrypted by the securectl. As discussed in Section~\ref{sec:security_analyse_STDIO}, Quark uses the terminal I/O redirection thread in Quark-shim and the host tty drive to facilitate the STDIO handling. Since the data written by securectl to STDIN is encrypted, the terminal I/O redirection thread cannot filter signals.
+
+For this reason, the terminal I/O redirection thread is merged into the STDIO shield in the enclave. Upon receiving the encrypted data, the STDIO shield reads it from the named pipe representing the process's STDIN, decrypts it, and filters out possible signals. The remaining data is then forwarded to the tty master for further processing. It is important 
+to note that the data written to the host tty driver must be encrypted since the enclave does not trust the host. However, this encryption significantly impacts performance and can cause issues with the proper functioning of the tty driver, leading to a malfunctioning terminal.
+
+\begin{figure}[!htb]
     \centering
-    \includegraphics[width=0.6\textwidth]{images/terminal_shiled2.png}
-    \caption[Terminal STDIO Protection in case of using Host Kenrel TTY Driver]{Terminal STDIO Protection in case of using Host Kenrel TTY driver}
-    \label{fig:terminal_shiled2}
-\end{figure}
-
-For interactive applications and EXEC processes, the process's STDIO type is terminal. The goal is to ensure the confidentiality and integrity of data in STDIN, STDOUT, and STDERR of the application and privileged EXEC processes. Achieving this 
-requires end-to-end encryption and decryption of the process's STDIO, as shown in Figure~\ref{fig:terminal_shiled2}. This involves encrypting the data written to STDIN on the securectl side and decrypting it in the enclave. STDOUT and STDERR data is encrypted in the enclave and decrypted in the 
-securectl. However, implementing end-to-end encryption is complex, as the terminal I/O redirection thread is responsible for filtering the signals from the user and sending them to the enclave. The signals are passed in ASCII code format to the 
-thread. When securectl encrypts the data written to STDIN, the redirection thread can no longer filter the signals. To address this issue, the terminal I/O forwarding thread was merged into the normal IO shield in the enclave. Specifically, once 
-the encrypted data arrives in the enclave, the Normal IO shield reads the data from the named piped that represents process STDIN, decrypts it, filters out possible signals, and forwards the rest of the data to the tty master.
-
-Since the system still uses the host kernel tty driver, everything written to the tty driver must be encrypted. This affects the enclave's performance. Furthermore, the tty driver's inability to process encrypted data will result in the terminal 
-failing to work. For data written to the tty slave, the tty driver needs to translate each line feed (\textbackslash n) into a carriage return followed by a line feed (\textbackslash r\textbackslash n). This editing is required because the user-side terminal needs these two characters 
-to start a new line of text. Also, for data written to the tty master, the tty driver will buffer it. Only when the user presses the enter key (\textbackslash r) it copies the buffered data to the tty slave. Since all data written to the tty driver is encrypted, 
-it cannot process the data anymore.
-
-\begin{figure}[htp]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/terminal_shiled3.png}
+    \includegraphics[width=0.6\textwidth]{images/terminal_shiled3.png}
     \caption[Terminal STDIO Protection in case of using Qkernel TTY driver]{Terminal STDIO Protection in case of Qkernel TTY driver}
     \label{fig:terminal_shiled3}
 \end{figure}
 
-To resolve this, as shown in Figure~\ref{fig:terminal_shiled3}, a tty driver with functionality similar to the host kernel tty driver has to be implemented in the enclave. This tty driver will be responsible for character echoing, translating between line feeds and carriage returns, and buffering 
-the data written to the tty master. When a guest user-space process writes to its STDOUT, the write system call handler redirects the data to a tty slave. The tty driver processes the data, sends it to the tty master, and then notifies the shielding 
-layer to start processing it. The shielding layer encrypts the data read from the tty master and sends it to Securectl via the Qcall interface. Securectl then decrypts the data and sends it to the user.
+To address this problem, as depicted in Figure~\ref{fig:terminal_shiled3}, a tty driver must be implemented in the enclave that functions similarly to the host kernel tty driver. This tty driver will handle character echoes, conversion between line feeds and carriage returns, and buffering data written to the tty master. For instance, when a guest userspace 
+process writes data to its STDOUT, the write system call handler will redirect the data to the Qkernel tty driver. The tty driver processes the data, transmits it to the tty master, and then alerts the shield to initiate further processing. Following that, the shield encrypts the data extracted from the tty master and transfers it through the Qcall interface to 
+securectl.  Securectl then decrypts the data before transmitting it to the user terminal. Upon receiving data from the STDIN-named pipe, the STDIO shield decrypts it and forwards the decrypted data to the TTY driver for further processing. When the user presses '\textbackslash r', the TTY driver transfers its buffered data to the interactive process. It is important to note 
+that the STDIO shield applies the same data encryption scheme to both the interactive and non-interactive processes' STDIO.
 
-Note that this design has yet to be implemented due to its complexity. As such, it poses two issues. First, the logs of the interactive application are in plaintext, and second, anyone can use kubectl attach -it to connect to the interactive 
-application and issue commands. Therefore, as a temporary mitigation, the data written to the STDOUT and STDERR of the interactive application process is encrypted. In this case, the shielding layer encrypts the data before writing it to tty slave 
-using ucall, ensuring that the application logs flowing from the interactive application STDOUT or STDERR are encrypted. Although an attacker can connect to the application and issue commands using kubectl attach -it, they will not obtain any 
-valuable information because the results returned by the application are encrypted.
+\subsection{Limitations and Policy for STDIO Shield}
+The design of Section~\ref{subsec:design_terminal} has yet to be implemented due to the complexity of the interactive process shield. Consequently, this poses two issues. Firstly, the logs of the interactive application are in plaintext. Secondly, anyone can attach to the interactive application and execute commands. Therefore, as a temporary mitigation, the data written to the STDOUT 
+and STDERR of the interactive application process is encrypted using the schema outlined in section 4. This ensures that the interactive application's logs are encrypted. Although an attacker could attach to an interactive application and issue commands, they would not gain any valuable information because the results returned by the application are encrypted.
+ 
+Currently, the STDIO Shield will encrypt the STDIO of userspace processes based on the enclave policy depicted in Figure~\ref{fig:stdio_policy}. If no\_interactive\_process\_stdout\_err\_encryption is true, the STDIO Shield will encrypt the STDOUT and STDERR of all 
+non-interactive privilege processes. When interactive\_porcess\_stdout\_err\_encryption is true, the STDIO Shield encrypt STDOUT and STDERR for interactive privilege processes.
+
+\begin{figure}[!htb]
+    \centering
+    \includegraphics[width=0.6\textwidth]{images/stdio_policy.png}
+    \caption[Policy for STDIO shield]{Policy for STDIO shield}
+    \label{fig:stdio_policy}
+\end{figure}
+
 
 \section{System Call Interceptor}
 \label{sec:design_Interceptor}
-To control the available system calls for guest user space processes, we implemented a system call interceptor in the Qkernel, as illustrated in Figure~\ref{fig:syscall_interceptor}. When a process calls a system call, the CPU jumps to the guest system call entry point. 
-This entry point is responsible for finding the system call handler in the Qkernel based on the system call ID. However, before it does so, it must call the interceptor. Based on the shielding layer's policy, the interceptor decides whether the 
-system call is allowed. If the system call is not permitted, the guest system call entry point returns EPERM directly to the user state process instead of calling the system call handler.
-
-\begin{figure}[htp]
+\begin{figure}[!htb]
     \centering
     \includegraphics[width=0.8\textwidth]{images/syscall_interceptor.png}
-    \caption[System Call Interceptor Workflow]{System Call Interceptor Workflow}
+    \caption[System call interceptor workflow]{System call interceptor workflow}
     \label{fig:syscall_interceptor}
 \end{figure}
+A system call interceptor is implemented in Qkernel, as illustrated in Figure~\ref{fig:syscall_interceptor}. When a guest system call is invoked, the CPU jumps to the guest system call entry point. This entry point is responsible for finding the system call handler in the Qkernel based on the system 
+call ID. However, before it does so, it must call the interceptor. The interceptor decides whether the system call is allowed based on the shielding layer's policy. If the system call is not permitted, the guest system call entry point returns EPERM instead of calling the 
+system call handler.
 
-The interceptor policy is displayed in Figure~\ref{fig:policy_system_call}. The application owner can turn the interceptor on or off using the keyword enable. The keyword mode determines the system interceptor's mode, which can be ContextBased or GlobalBased. When the system 
-interceptor mode is GlobalBased, it is valid for all guest processes. On the other hand, if ContextBased is enabled, the system interceptor only works for the application process. This is possible because the system interceptor records the 
-application process's ID. Considering that there may be multiple processes in the guest user space, such as application processes and EXEC processes. It is strongly recommended that the application owner use the mode GlobalBased. Currently, the 
-system interceptor supports only one action, ScmpActErrno, i.e., when the triggered system call's ID is not in the allowlist called syscalls, the system call will be rejected
-\begin{figure}[htp]
+\begin{figure}[!htb]
     \centering
-    \includegraphics[scale=0.3]{images/policy_system_call.png}
-    \caption[System Call Interceptor's Configuration in Shielding Layer Policy]{System Call Interceptor's Configuration in Shielding Layer Policy}
+    \includegraphics[scale=0.4]{images/policy_system_call.png}
+    \caption[System call interceptor's policy]{System call interceptor's policy}
     \label{fig:policy_system_call}
 \end{figure}
 
+The interceptor policy is part of the enclave policy and is displayed in Figure~\ref{fig:policy_system_call}. When the keyword "enable" determines whether the interceptor is enabled. The keyword mode specifies the system interceptor's mode: ContextBased or GlobalBased. In GlobalBased mode, the interceptor 
+functions across all guest processes, while in ContextBased mode, it operates exclusively for the application process. Considering the potential presence of multiple processes in the guest user space, it is strongly recommended to employ GlobalBased mode. Currently, the system 
+interceptor supports only the action, ScmpActErrno, which entails rejecting system calls when their IDs are absent from the allowlist termed "syscalls."
+
+
+
+
+
 \section{Qkernel Log Manager}
 \label{sec:Qkernel_logger}
-Section~\ref{sec:Qkernel_Log_Misconfiguration} of the security analysis discussed the consequences of misconfiguring the Qkernel logging system. Currently, Quark uses a global file to configure the Qkernel and Qvisor. Users can set the logging levels for both using the keyword 
-"LogLevel" in this file. Quark supports five logging levels: OFF, ERROR, INFO, DEBUG, and TRACE, where OFF means shutting down the logging system (minimum logging level) and TRACE means printing the most detailed log (maximum logging level). 
-Since Qkernel and Qvisor use the same file to configure logging levels, the logging levels are the same for both. However, in confidential computing, Qkernel and Qvisor belong to the application owner and the cloud operator, respectively. They 
-have different interests and do not trust each other. For example, to resolve errors quickly, the cloud operator requires the log level in Qvisor to be set to TRACE, while the application owner requires the log level in Qkernel to be OFF (does 
-not print any logs) to protect the confidential information in the enclave. In the current architecture, Quark cannot satisfy both requirements.
-
-\begin{figure}[htp]
+A Qkernel log manager is implemented to the address issue \ref{vulnerabilities:12}. It can be configured utilizing the enclave policy, exemplified in Figure~\ref{fig:qkernel_Log_config}. The keyword enabled determines whether the manager is enabled. When set to false, the Qkernel log system employs the logging level specified in 
+the Qkernel configuration file. Furthermore, the keyword "allowed\_max\_log\_level" designates the maximum log level Qkernel can print. As discussed in Section~\ref{sec:Qkernel_Log_Misconfiguration}, Qkernel supports five log levels. For instance, when "allowed\_max\_log\_level" is set to INFO, Qkernel is exclusively restricted to printing 
+logs at the INFO and ERROR levels. Additionally, the enclave policy is passed to the enclave during application deployment. Until the enclave obtains the policy, the Qkernel log manager is enabled and employs the log level OFF.
+\begin{figure}[!htb]
     \centering
-    \includegraphics[width=0.8\textwidth]{images/qkernel_Log_config.png}
-    \caption[Qkernel Log Configuration in Shielding Layer Policy]{Qkernel Log Configuration in Shielding Layer Policy}
+    \includegraphics[width=0.4\textwidth]{images/qkernel_Log_config.png}
+    \caption[Qkernel log manager's policy]{Qkernel log manager's policy}
     \label{fig:qkernel_Log_config}
 \end{figure}
-
-For this reason, we offload the configuration of the Qkernel logging system from the global configuration file. As shown in Figure~\ref{fig:qkernel_Log_config}, the application owner can configure the Qkernel logging system in the enclave policy. This configuration consists 
-of two keywords, enabled and allowed\_max\_log\_level. The keyword allowed\_max\_log\_level represents the maximum log level that the Qkernel can print. For example, when allowed\_max\_log\_level is the INFO, Qkernel only prints logs with the level INFO, 
-ERROR. When the keyword ENABLE is false, the Qkernel logging system will use the default log level from the global file. In addition, enclave policy is passed to the enclave during application deployment. Before the enclave gets the policy, the 
-enclave uses the default log level OFF.
-
 
 \section{Modification to OCI}
 \label{sec:Modification_OCI}
 
 \subsection{Extending the container lifecycle to support confidential computing}
-The container lifecycle definition in the OCI RUNTIME specification~\cite*{oci-runtime-spec} lacks support for remote attestation and the protection for application’s STDIO. In confidential computing, the relying party uses the remote 
-attestation mechanism to verify the user-specified program and supply it with secrets. The types of secrets include environment variables, command line arguments, and files. Also, as known from Chapter~\ref*{sec:security_analyse}, the application 
-process STDIO needs to be protected. In this section we first give the definition of container runtime and enclave in the context of confidential computing. Then we will propose modifications to the container lifecycle
+The container lifecycle definition in the OCI RUNTIME specification~\cite*{oci-runtime-spec} lacks support for remote attestation and protection for the application’s STDIO. In this section, we first define container runtime and enclave in the context of confidential computing. Then we will propose modifications to the container 
+lifecycle.
 
 
 \subsubsection{Definition of Runtime and Enclave in Confidential Computing}
 
-Currently, the container runtime in the OCI runtime specification~\cite*{oci-runtime-spec} refer to a runtime environment used to create containers. For a VM based container runtime, it includes the shim process, the hypervisor, and the components 
-inside the guest that are used to create and manage the container. For example, in the kata container, the three components correspond to kata-shim, qemu, and kata-agent, respectively. However, in confidential computing, the guest runs in an 
-encrypted virtual machine. This means that the components inside the guest are trusted, while the shim process and hypervisor are not trusted. Therefore, we redefine runtime as untrusted runtime components, e.g., kata-shim and qemu. 
-In addition, we refer to the components that run in trusted environments for creating containers as enclaves in general, e.g., kata agent, guest kernel, etc.
+Currently, the container runtime in the OCI runtime specification~\cite*{oci-runtime-spec} refers to the runtime environment used to create containers. A VM-based container runtime includes the shim process, the hypervisor, and the agents inside the guest used to create and manage containers. 
+For example, in the kata container, these three components correspond to kata-shim, qemu, and kata-agent, respectively. However, in confidential computing, the runtime is divided into two parts: the trusted agent, the untrusted shim process, and the hypervisor. Therefore, we redefine 
+the runtime as untrusted runtime components, including the shim and hypervisor. In addition, we refer to the guest as an enclave containing the agent, guest kernel, etc.
 
 \subsubsection{Modification to Container Lifecycle}
 We make the following changes to the container lifecycle. Note that the bold text in the list is the part we modified, the rest is copied from OCI RUNTIME SPECIFICATION~\cite*{oci-runtime-spec}.
@@ -486,9 +451,9 @@ We make the following changes to the container lifecycle. Note that the bold tex
     \item \textbf{The Enclave receives the runtime’s start request and constructs a process for the user-specified program, as specified by process. If this hook fails, the enclave MUST generate an error, stop the container, and continue the lifecycle at step 16}
     \item \textbf{The enclave Must invoke the application launch measurement hook if the user-specified program’s binary is loaded from the host. If this hook fails, the enclave MUST generate an error, stop the container, and continue the lifecycle at step 16.}
     \item \textbf{The attestation and provisioning hook MUST be invoked within the enclave when the enclave finish loading the program’s binary. If this hook fails, the enclave MUST generate an error, stop the container, and continue the lifecycle at step 16.}
-    \item \textbf{The process for the user-specified program enters user space and starts to run.}
+    \item \textbf{The application rocess enters user space and starts to run.}
     \item \textbf{The enclave MUST invoke the runtime measurement hook when the program process loads binary or shared library from the host. If this hook fails, the enclave MUST generate an error, stop the container, and continue the lifecycle at step 16}
-    \item \textbf{The enclave must invoke the STDIO protection hook when the program/exec process reads or writes data from its standard IO. If this hook fails, the enclave MUST generate an error, stop the container, and continue the lifecycle at step 16}
+    \item \textbf{The enclave MUST invoke the STDIO protection hook when the program/exec process reads or writes data from its standard IO. If this hook fails, the enclave MUST generate an error, stop the container, and continue the lifecycle at step 16}
     \item The poststart hooks MUST be invoked by the runtime. If any poststart hook fails, the runtime MUST log a warning, but the remaining hooks and lifecycle continue as if the hook had succeeded.
     \item The container process exits. This MAY happen due to erroring out, exiting, crashing or the runtime's kill operation being invoked.
     \item Runtime's delete command is invoked with the unique identifier of the container.
@@ -496,56 +461,40 @@ We make the following changes to the container lifecycle. Note that the bold tex
     \item The poststop hooks MUST be invoked by the runtime. If any poststop hook fails, the runtime MUST log a warning, but the remaining hooks and lifecycle continue as if the hook had succeeded.    
   \end{enumerate}
 
-
-  The application launch measurement hook should be called when the enclave loads the application binary from the host. This hook must be executed in the enclave namespace. It is responsible for measuring the application binaries loaded from the 
-  host. The attestation and provisioning hook will send the measurement results to the relying party as part of the attestation report for integrity check. Note that the TEE hardware must measure this hook as part of the enclave container runtime 
-  component.
-  
-
-  The attestation and provisioning hook must be invoked after the enclave loads the application binary but before the application process stack is set. This hook provides a mechanism for the enclave to authenticate itself to the relying party and 
-  retrieve the secret. We recommend that runtime developers implement a KBS Client in the enclave based on the KBS attestation protocol as the remote attestation and provisioning hook. We provide a reference implementation in Chapter 5. Note that 
-  this hook must be executed in the enclave namespace. Alternatively, it can be measured by the TEE hardware as part of the enclave container runtime component or loaded by the host as a binary file. In the latter case, the hook must be measured 
-  by the application launch measurement hook. If the application binary is loaded from the host, the attestation report the hook sends to the relying party must include the application launch measurement hook's measurement. After the attestation 
-  and provisioning hook retrieves the secret, it should push the environment variable and application parameter type secret into the application process's stack. For the file type secret, it should store it within the enclave, and implement a 
-  mechanism to make it accessible to the application. We provide a reference implementation in Section 5.
-  \todo{add link  in Section 5}
-
-  The runtime measurement hook should by called by the enclave should call  when the application loads a shared library or binary file from the host at runtime. This hook must be executed in the enclave namespace. It measures the shared libraries or 
-  binaries loaded from the host at application runtime. It compares the measurement result with the reference value. If the two do not match, the hook execution fails. In this case, the enclave must generate an error, stop the container, and 
-  continue the life cycle at step 16. Note that the reference values are obtained by the attestation and provisioning hook from the relying party during application deployment. Alternatively, this hook can be measured by the TEE hardware as part 
-  of the enclave container runtime component or as a binary file loaded from the host at application startup. In the latter case, this hook must be measured by the application launch measurement hook.
-  
-
-  The STDIO protection hook should be called when the application process or privileged exec process reads or writes its STDIO. This hook is responsible for cryptographically protecting the STDOUT and STDERR of the process. It is also responsible 
-  for decrypting the data read from stdin when the STDIO type of the process is terminal. A reference can be found in Section~\ref*{sec:design_STDIO_PROTECTION} . Alternatively, this hook can be measured by the TEE hardware as part of the enclave container runtime 
-  component or as a binary loaded from the host at application startup. In the latter case, this hook must be measured by the application launch measurement hook.
-  
+  The application launch measurement hook should be called when the enclave loads the application binary from the host. This hook must be executed in the enclave namespace. It measures the binaries loaded from the host before the application process starts. The attestation and provisioning hook will add the measurement result to attestation evidence and then 
+  forward it to the relying party for integrity check. Note that the TEE hardware must measure this hook as part of the enclave container runtime component.
+ 
+  The attestation and provisioning hook must be invoked after the enclave loads the application binary but before the application process stack is set. The enclave uses this hook to authenticate itself to the relying party and retrieve the secrets. A reference design can be found in Section~\ref{sec:secure_application_deployment}. Note that this hook must be executed in the enclave 
+  namespace. After the attestation and provisioning hook retrieves the secrets, the environment variable and application parameter type secrets should be pushed into the application process's stack. The enclave should store the file type secret in a trusted environment, such as enclave memory. 
+   
+   
+  The enclave should call the runtime measurement hook when the application loads a shared library or binary file from the host at runtime. This hook must be executed in the enclave namespace. It forces the integrity check on the loaded shared library or binary against a reference value obtained from relying party.    
+   
+   
+  The STDIO protection hook should be invoked when an application or a privileged exec process reads or writes its STDIO. It encrypts the privileged process's STDIN, STDOUT, and STDERR based on policy obtained from relying party. A reference design can be found in Section~\ref{sec:design_STDIO_PROTECTION}.
+   
+  The attestation and provisioning hook, runtime measurement hook, and STDIO Protection hooks may be included as part of the enclave's operating system or loaded from the host after the enclave starts. In the former case, these hooks will be measured by the TEE hardware or bootloader. In the latter case, The application launch measurement hook should measure 
+  these hooks. 
 \subsection{EXEC Operating Guidelines}
 
-  There was much discussion in the OCI Runtime spec community about the semantics of EXEC operations. Ultimately, however, the runtime spec decided not to standardize on EXEC operations~\cite*{exec_semantics}. This gives runtime developers more freedom to implement it 
-  according to their specific needs. However, in a confidential computing scenario, EXEC opens a backdoor for attackers to steal an application’s secrets running in an Enclave. For this reason, we propose a standardized EXEC operation for the 
-  confidential computing scenario.
-
-  We use the proposal for standardizing EXEC operations in Figure~\ref{fig:exec_propose} as a starting point. This proposal was submitted to the OCI Runtime spec forum, but ultimately was not adopted for the reasons mentioned earlier.
-
-\begin{figure}[htp]
+The OCI runtime specification intentionally refrains from standardizing the EXEC operation to provide developers with flexibility~\cite*{exec_semantics}. However, in confidential computing scenarios, the EXEC operation allows attackers to acquire application secrets, thereby compromising confidentiality. As a result, we advocate for the standardization of the 
+EXEC operation in confidential computing scenarios.
+ 
+We utilize the proposal depicted in Figure~\ref{fig:exec_propose} as a foundation for standardization. This proposal was initially submitted to the OCI Runtime spec forum, although it was ultimately not accepted due to the previously outlined reason.
+ 
+\begin{figure}[!htb]
     \centering
     \includegraphics[width=0.8\textwidth]{images/exec_propose.png}
     \caption[Proposal for standardizing EXEC operation]{Proposal for standardizing EXEC Operation from~\cite*{exec_proposal} }
     \label{fig:exec_propose}
 \end{figure}
+ 
+In the confidential computing scenario, EXEC requests should be categorized into privileged requests issued by the application owner and unprivileged requests issued by others. The method discussed in Section~\ref{sec:design_prptect_privileged_request} is employed to protect the args array in the EXEC specification (Figure~\ref{fig:exec_propose}). This way, 
+we can differentiate between privileged and non-privileged requests and ensure the confidentiality and integrity of privileged commands. This method necessitates sharing a symmetric key between the privileged user and the enclave. The enclave can obtain this key through the remote attestation and provisioning hook. Prior to creating an EXEC process,
+the enclave must authenticate and control access to the request based on the policy shown in Figure~\ref{fig:exec_policy}. The authentication and access control workflow can be found in section~\ref{sec:impl_exec}. Additionally, to safeguard the results of privileged EXEC requests, the enclave must encrypt the data written to the STDOUT and STDERR of a 
+privileged process. The encryption mechanism is explained in Section~\ref{sec:design_STDIO_PROTECTION}.
 
 
-  In a confidential computing scenario, exec requests should be divided into two categories, namely privileged  request issued by the application owner and unprivileged requests issued by otherss. We have 2 goals here. First, we want to restrict 
-  the commands that users at each privilege can issue to the application following the least privilege principle. Second, we want to protect the commands issued by privileged-level users and its execution results. Therefore, the args in the json file 
-  of privileged EXEC requests must be protected. The protection mechanism is discussed in Figure~\ref{fig:new_pattern_of_exec} and in Section~\ref{sec:design_EXEC_Requests}. This mechanism effectively distinguishes between privileged and unprivileged requests and ensures the confidentiality, integrity, 
-  and authenticity of commands issued by privileged users. The enclave should authenticate and access control the request before creating the EXEC process. The authentication is done by using a key shared between the privileged user and the enclave. 
-  This key is fetch by the attestation and provisioning hook from relying party. The steps for access control are as follows. First the enclave determines the type of the EXEC request by checking if the first element in the args array is Privileged. 
-  It then reads the policy and determines whether this command is allowed to be executed. The content of the policy is shown in Figure~\ref{fig:exec_policy}. In particular, the policy is  obtained by the attestation and provisioning hook.  
-  The policy specifies the commands that can be executed by users at each privilege and the directories in which these commands has access to. We will provide a reference algorithm for the access control in Chapter 4.
-  \todo{add link Chapter 4}
-
-  In addition, to protect the results of privileged-level EXEC requests, the enclave must encrypt the stdout and stderr of privileged-level processes. The encryption mechanism can be found in Section~\ref{sec:design_STDIO_PROTECTION}.
   
 
 \section{Summary}
