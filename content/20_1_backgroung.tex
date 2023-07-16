@@ -59,7 +59,7 @@ In Containerd, this interface is known as the shim v2 API~\cite*{shim_v2}, encom
 To ensure container portability and compatibility across runtimes, the Open Container Initiative (OCI) has introduced the OCI runtime specification~\cite*{oci-runtime-spec}. This specification outlines the procedure for low-level container runtimes to create and execute containers based on an 
 application bundle and the methods for managing the container lifecycle. The high-level container runtime generates the application bundle from an image. It contains the container's root file system and a configuration file. This package is transferred to the low-level runtime via the Shim v2 API~\cite*{shim_v2}. 
 The low-level runtime utilizes the metadata provided in the configuration file to create and configure the container. This metadata includes the following information: a process specification, metadata defining the container root file system, and mount information. The process specification defines 
-the necessary metadata for creating the application or EXEC process, including environment variables, command line parameters, and STDIO type, among others. Mount information indicates the files or filesystems that should be mounted to the container's root filesystem during runtime. This may include 
+the necessary metadata for creating the application or EXEC process, including environment variables, command line parameters, STDIO type, etc. Mount information indicates the files or filesystems that should be mounted to the container's root filesystem during runtime. This may include 
 Kubernetes secrets, k8s configuration files, and volumes~\cite*{k8s}. Additionally, on Linux platforms, the configuration file includes settings for hooks,  process security, and resource limits like rlimits and  AppArmor. These hooks are executable and executed by low-level container runtime at 
 different stages of the container lifecycle (Figure~\ref{fig:Container_Lifecycle_state}).
 \begin{figure}[htp]
@@ -73,16 +73,16 @@ different stages of the container lifecycle (Figure~\ref{fig:Container_Lifecycle
 \label{sec:Kata}
 
 Kata containers is an OCI-compliant low-level container runtime derived from combining two projects: Clear Containers and Hyper RunV~\cite*{Kata-Containers}. It offers an architecture for running containers in ultra-lightweight virtual machines. This architecture achieves performance similar to Runc and 
-utilizes hardware virtualization technology to enhance the workload isolation~\cite*{9198653}.
+utilizes hardware virtualization technology to enhance workload isolation~\cite*{9198653}.
 \begin{figure}[htp]
   \centering
   \includegraphics[width=0.6\textwidth]{images/kata.PNG}
   \caption[Kata containers architecture]{Kata containers architecture from~\cite*{Kata-Containers} }
   \label{fig:kata}
 \end{figure}
-Figure~\ref{fig:kata} presents the latest version (2.0) architecture of Kata Containers~\cite*{Kata_arch}. It consists of six elements: Kubernetes, high-level container runtime, Kata shim v2, hypervisor, guest kernel, and agent. In Section~\ref{sec:k8s}, both Kubernetes and the high-level container 
-runtime are described. Kata shim v2 is a merging of multiple components in version 1.0, including the Kata shim, the Kata proxy, and the OCI-compliant Kata runtime~\cite*{Kata_arch}. It implements the shim v2 interface. Therefore, Containerd~\cite*{containerd} can issue commands to it. Within the 
-virtual machine, Kata Container introduces a daemon named Kata agent, responsible for handling commands from Kata shim v2 and managing the running containers. Communication between Kata shim v2 and the Kata agent is facilitated through the VM's vsocket interface and the gRPC protocol. Furthermore, the 
+Figure~\ref{fig:kata} presents the latest version (2.0) architecture of Kata Containers~\cite*{Kata_arch}. It consists of six elements: Kubernetes, high-level container runtime, Kata Shim v2, hypervisor, guest kernel, and agent. In Section~\ref{sec:k8s}, both Kubernetes and the high-level container 
+runtime are described. Kata shim v2 is a merging of multiple components in version 1.0, including the Kata shim, the Kata proxy, and the OCI-compliant Kata runtime~\cite*{Kata_arch}. It implements the Shim v2 interface. Therefore, Containerd~\cite*{containerd} can issue commands to it. Within the 
+virtual machine, Kata Container introduces a daemon named Kata agent, responsible for handling commands from Kata Shim v2 and managing the running containers. Communication between Kata Shim v2 and the Kata agent is facilitated through the VM's vsocket interface and the gRPC protocol. Furthermore, the 
 Kata container utilizes a highly customized guest kernel that includes only the necessary services for running containers to achieve a low boot time and small memory footprint.
 
 
@@ -102,11 +102,11 @@ forwarding system calls to the host.
 
 
 The architecture of the Quark container, as depicted in Figure~\ref{fig:QUARK_ARCH}, comprises five elements: Kubernetes~\cite*{k8s}, the high-level container runtime, Quark shim v2, Qvisor, and Qkernel. The description of Kubernetes and the high-level container runtime can be found in Section~\ref{sec:k8s}. 
-Similarly to the Kata shim, the Quark shim is an OCI-compliant ttrpc server implemented in accordance with the Shim v2 API. As a result, it is capable of executing commands from Containerd~\cite*{containerd}. These commands may include invoking Qvisor to create lightweight virtual machines for 
+Similarly to the Kata Shim, the Quark Shim is an OCI-compliant ttrpc server implemented following the Shim v2 API. As a result, it is capable of executing commands from Containerd~\cite*{containerd}. These commands may include invoking Qvisor to create lightweight virtual machines for 
 containers with Qkernel as the guest OS. Qvisor is a virtualmachine manager similar to Qemu. It utilizes the KVM API to create and manage VMs that use Qkernel as the guest OS. Qkernel, on the other hand, is a minimized application kernel that contains only the necessary code. It implements process 
-management, memory management, file system, and network stack. Notably, Qkernel utilizes the host operating system and Qvisor to manage physical devices, thereby avoid sophisticated IO handling and physical memory management. In addition, Qkernel implements most of the Linux system calls, which can be triggered by 
+management, memory management, file system, and network stack. Notably, Qkernel utilizes the host operating system and Qvisor to manage physical devices, thereby avoiding sophisticated IO handling and physical memory management. In addition, Qkernel implements most of the Linux system calls, which can be triggered by 
 guest processes using the X86 syscall instruction. To accept the request from the Quark shim,  Qkernel implements a socket server called Quark agent. It uses Ucall 
-and Qcall interfaces to communicate with Quark shim. Unlike the Kata agent, which operates as a user space process, the Quark agent is integrated within the Qkernel, and its code is part of the Qkernel binary.
+and Qcall interfaces to communicate with Quark Shim. Unlike the Kata agent, which operates as a user space process, the Quark agent is integrated within the Qkernel, and its code is part of the Qkernel binary.
 
 
 
@@ -129,7 +129,7 @@ this mechanism allows Qkernel to access services in Qvisor asynchronously, elimi
 The host operating system is responsible for performing IO read and write operations on physical devices. Therefore, Quark introduces the Ucall mechanism for communicating with the host kernel. This mechanism utilizes the Linux io\_uring and shared queues between Qvisor and Qkernel. It supports
 both synchronous and asynchronous IO operations. Figure~\ref{fig:hypercall_qcall_ucall} explains the workflow of this mechanism. Initially, a Qkernel thread submits an IO request to the guest submission queue (Figure ~\ref{fig:hypercall_qcall_ucall}c (1)). Subsequently, the Qvisor Ucall handler copies the request to the Uring submission queue 
 (Figure~\ref{fig:hypercall_qcall_ucall} (2)). Once the Uring kernel handler completes processing the IO request, it places the result into the uring completion queue (Figure~\ref{fig:hypercall_qcall_ucall}c (3), (4)). The result includes a user\_data, which is submitted with the initial IO 
-request and contains information about the Qkernel thread. Using this information, the Qvisor Ucall handler can notify or wake the corresponding Qkernel thread. Note that the notification occurs after the IO processing result has been copied to the guest completion 
+request and contains information about the Qkernel thread. The Qvisor Ucall handler can use this information to notify or wake the corresponding Qkernel thread. Note that the notification occurs after the IO processing result has been copied to the guest completion 
 queue (Figure~\ref{fig:hypercall_qcall_ucall}c (5), (6)).
 
 \section{Trusted Execution Environment}
@@ -157,8 +157,8 @@ enclave and securely stored in the AMD secure processor (AMD SP) to prevent unau
 control bit known as the "C-bit" in the page table. This enables enclaves to determine which pages should be encrypted.
 
 
-SNP introduces the Reverse Map Table (RMP) to protect the integrity of enclave memory. The RMP ensures that each physical page is exclusively owned by a single entity. In this case, only the designated owner of a page is granted the permission to modify its contents. Any change in ownership 
-will result in SNP erasing the contents of that page. To this end, untrusted entities can only read the encrypted enlave memory, without the ability to make any modifications to it.
+SNP introduces the Reverse Map Table (RMP) to protect the integrity of enclave memory. The RMP ensures that each physical page is exclusively owned by a single entity. In this case, only the designated owner of a page has permission to modify its contents. Any change in ownership 
+will result in SNP erasing the contents of that page. To this end, untrusted entities can only read the encrypted enclave memory without the ability to make any modifications to it.
 
 \begin{figure}[htp]
   \centering
@@ -182,7 +182,7 @@ will result in SNP erasing the contents of that page. To this end, untrusted ent
 
 SEV SNP also supports remote attestation, which allows the enclave owner to verify the authenticity of the VM. Unlike its predecessor, SNP enables enclaves to communicate with the AMD SP during runtime and request it to generate an attestation report. The communication between the enclave and AMD SP 
 is facilitated by the SNP guest messages protocol~\cite*{snp_firmware, amd_sev_summarize}. The workflow for remote attestation is shown in Figure~\ref{fig:amd_attestation_workflow}. THE enclave first utilizes the SNP guest messages protocol to request a report from the AMD SP. The report is digitally signed using the Versioned Chip Endorsement Key (VCEK) and 
-contains details such as the SP's measurement of the VM boot process, the SP firmware version, and a custom data. The VCEK is unique to each AMD platform because it is derived from platform-specific secrets and TCB versions. Once the enclave owner receives the report,  they can utilize the CHIP\_ID and TSB fields 
+contains details such as the SP's measurement of the VM boot process, the SP firmware version, and custom data. The VCEK is unique to each AMD platform because it is derived from platform-specific secrets and TCB versions. Once the enclave owner receives the report,  they can utilize the CHIP\_ID and TSB fields 
 in the report to retrieve a certificate chain for the VCEK (Figure~\ref{fig:amd_snp_certificate_chain}) from the AMD Key Distribution Center. The certificate chain can be used to verify the signature of the report. Subsequently, by examining the remaining fields of the report, the enclave owner can determine whether the 
 enclave is genuine.
 
@@ -219,7 +219,7 @@ policy to ensure the TDs are correctly operated.
      \label{fig:tdx_attestation}
 \end{figure}
 TDX also supports shared memory to facilitate communication between TDs or TD and untrusted entities like hypervisors. Like the SNP, each TD divides its memory into private and shared. External entities can access TD's shared memory in plaintext. This mechanism is implemented by introducing a 
-new bit called the "shared bit" into the TD's page table entry and two EPTs, namely Secure EPT and Shared EPT. TD uses the shared bit to determine whether the Guest Physical Address (GPA) corresponds to shared memory. The secure EPT and shared EPT are responsible for converting private/shared 
+new bit called the "shared bit" into the TD's page table entry and two EPTs, namely Secure EPT and Shared EPT. TD uses the shared bit to determine whether the Guest's Physical Address (GPA) corresponds to shared memory. The secure EPT and shared EPT are responsible for converting private/shared 
 GPAs to physical addresses. Note that only the private pages belonging to the secure EPT are encrypted by MKTME. Additionally, the Intel-TDX module hosts a data structure known as the Physical-Address-Metadata Table, which enforces page ownership. As a result, a page cannot be simultaneously 
 mapped into the private memory of two TDs.
 
@@ -229,7 +229,7 @@ The workflow begins with the TD requesting the TDX Module to generate a local re
 After generating the local report, the TD sends it to the quoting enclave,  which resides on the same platform. The quoting enclave first employs the EVERIFYREPORT command to request the CPU to verify the report's MAC. Then, it utilizes its attestation key to generate a signature based on the 
 report data. The report data and the signature form a quote. Notably, the attestation key of the quoting enclave is certified by the Platform Certification Enclave (PCE) using the Provisioning Certification Key (PCK), which is itself certified by Intel.
 Consequently, the signature of the quote forms a chain of signatures, as illustrated in Figure~\ref{fig:tdx_certi_chain}. The certificate chain can be used to verify the authenticity of this report off the platform. Subsequently, the TD transmits the quote to the TD owner. To verify the digital signature of the quote, 
-the TD owner downloads the certificate chain from either the Platform Certificate Signing Service (PCCS) or Intel Provisioning Certification Service (PCS). Finally, by examining the report's contents, the TD owner can determine whether the TD is genuine.  For the detailed explanation of the Intel TDX remote attestation, we 
+the TD owner downloads the certificate chain from either the Platform Certificate Signing Service (PCCS) or Intel Provisioning Certification Service (PCS). Finally, by examining the report's contents, the TD owner can determine whether the TD is genuine.  For a detailed explanation of the Intel TDX remote attestation, we 
 refer the reader to \cite*{Intel_tdx_whitepaper, 9448036, DBLP:journals/corr/abs-2303-15540}.
 
 \subsection{Comparison of AMD SNP and Intel TDX}
@@ -254,8 +254,7 @@ Request-Challenge-Attestation-Response (RCAR) method to authenticate to the KBS.
 data into the KBC. Specifically, the protocol requires that the KBS's public key be effectively distributed to the KBC so that the KBC can authenticate the KBS during the TLS handshake.
 
 The protocol is divided into two phases. The first phase is the authentication phase, where the KBS authenticates the KBC using the KBC's attestation report. The second phase is the resource request phase, in which the KBS allows the KBC to retrieve a secret managed using the HTTP GET.  
-The secret transmitted from the KBS to the KBC is encrypted using the KBC's public key. The public key is sent to the KBS with the KBC's attestation report during the first phase. Because the hash of the public key is included in the KBC's authentication report, the KBS can confirm that the public 
-key is from the KBC and ensure that only the KBC can decrypt the encrypted secret. Additionally, the KBS assigns an HTTP cookie to the KBC during the authentication phase. This cookie associates the authentication result obtained in the first phase with the corresponding KBC. During the resource 
+The secret transmitted from the KBS to the KBC is encrypted using the KBC's public key. The public key is sent to the KBS with the KBC's attestation report during the first phase. Because the hash of the public key is included in the KBC's authentication report, the KBS can confirm that the public key is from the KBC and ensure that only the KBC can decrypt the encrypted secret. Additionally, the KBS assigns an HTTP cookie to the KBC during the authentication phase. This cookie associates the authentication result obtained in the first phase with the corresponding KBC. During the resource 
 request phase, KBS uses this cookie to find the KBC's authentication result and considers it along with the policy to determine if a secret should be provided to the KBC. The following two diagrams detail how KBS and KBC work in phases 1 and 2:
 
 
@@ -266,11 +265,11 @@ request phase, KBS uses this cookie to find the KBC's authentication result and 
     \label{fig:Authentication}
 \end{figure}
 
-As defined in Key Broke service attestation protocol, phase 1 (authentication phase) has 4 step: 
+As defined in the Key Broke service attestation protocol, phase 1 (authentication phase) has four steps: 
 \begin{displayquote}
     \begin{enumerate}
-        \item  Post /kbs/v0/auth: The KBC sends an HTTP Post whose body is a KBS Request JSON payload to KBS in order to initiate the attestation protocol. The payload contains The protocol version number supported by KBC, the type of HW-TEE platform where KBC is located.
-        \item  Response: The KBS responds with the Challenge payload, which contains an attestation challenge (nonce) for the attester. KBC must place it in the evidence sent to the KBS in the next step to prevent replay attacks. Furthermore, the KBS also sends a session identifier to the KBC as an HTTP Cookie
+        \item  Post /kbs/v0/auth: The KBC sends an HTTP Post whose body is a KBS Request JSON payload to KBS to initiate the attestation protocol. The payload contains The protocol version number supported by KBC, the type of HW-TEE platform where KBC is located.
+        \item  Response: The KBS responds with the Challenge payload, which contains an attestation challenge (nonce) for the attester. In the next step, KBC must place it in the evidence sent to the KBS to prevent replay attacks. Furthermore, the KBS also sends a session identifier to the KBC as an HTTP Cookie
         \item  Post /kbs/v0/auth: The KBC sends an HTTP Post request with a JSON payload called KBS Attestation and a Cookie set to the value received in the previous step. The payload contains the attestation evidence and the KBC’s public key.
         \item  Response: Upon successful attestation, the KBS replies to that request with an empty payload and sets the status code to 200. KBC can check the status code to determine if the authentication succeeds. 
     \end{enumerate}
@@ -282,7 +281,7 @@ As defined in Key Broke service attestation protocol, phase 1 (authentication ph
     \caption[Resource Requests phase]{Resource Requests phase}
     \label{fig:resourcerequrie}
 \end{figure}
-As defined in Key Broke service attestation protocol,  kbc can request resources or services from KBS during the second phase in the following way:
+As defined in the Key Broke service attestation protocol,  KBC can request resources or services from KBS during the second phase in the following way:
 \begin{displayquote}
   To request a protected resource from the KBS, the attester sends a GET request to a resource-specific endpoint. If the attester can access the resource, the KBS will respond to the GET request with an HTTP response in which content is set to a KBS Response JSON payload.
 \end{displayquote}
@@ -293,6 +292,3 @@ In this chapter, I first introduce k8s and the concept of high and low-level con
 Lastly, I illustrate TEE-related concepts like memory protection and remote attestation using AMD SNP and Intel TDX as examples.
 \cleardoublepage
 
-%%% Local Variables:
-%%% TeX-master: "diplom"
-%%% End:
