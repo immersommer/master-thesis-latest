@@ -55,37 +55,60 @@ DOC_IMG_JPG  = images/generic_policy.PNG
 
 
 DOC_IMG_JPG  = images/analysis_workload.PNG
-DOC_IMG_JPG  = images/mongo_secret.PNG
-DOC_IMG_JPG  = images/vanila_quark_deployment.PNG
 DOC_IMG_JPG  = images/file_secrets.PNG
 DOC_IMG_JPG  = images/cmd_env_secrets.PNG
-DOC_IMG_JPG  = images/c_quark_deployment.PNG
 
 
-DOC_IMG_JPG  = images/vanilla_quark_deployment_result.png
-DOC_IMG_JPG  = images/vanilla_quark_deployment_result_file_secret_mount_location.png
 
-DOC_IMG_JPG  = images/kbs_secret_deployment.png
+# DOC_IMG_JPG  = images/vanilla_quark_deployment_result.png
+# DOC_IMG_JPG  = images/vanilla_quark_deployment_result_file_secret_mount_location.png
+
+DOC_IMG_JPG  = images/cquark_kbs_start.PNG
+DOC_IMG_JPG  = images/cquark_deploy_yaml.jpg
+
+
+
+
 DOC_IMG_JPG  = images/cquark_deployment_result.PNG
 DOC_IMG_JPG  = images/cquark_deployment_result_file_secret_mount_location.png
 
 
-DOC_IMG_JPG  = images/vanila_execute_cat_cmd.png
-DOC_IMG_JPG  = images/cuqark_unprivileged_user_cat_rejected.png
-DOC_IMG_JPG  = images/cuqark_privileged_user_cat_allowed.png
+# DOC_IMG_JPG  = images/vanila_execute_cat_cmd.png
+# DOC_IMG_JPG  = images/cuqark_unprivileged_user_cat_rejected.png
+# DOC_IMG_JPG  = images/cuqark_privileged_user_cat_allowed.png
 DOC_IMG_JPG  = images/cquark_terminal.png
-DOC_IMG_JPG  = images/cquark_priviled_cmd_result_protection.png
+DOC_IMG_JPG  = images/cquark_priviled_cmd_result_protection.PNG
+DOC_IMG_JPG  = images/ls_exec.png
+DOC_IMG_JPG  = images/ls_allow_unprivileged.png
+DOC_IMG_JPG  = images/ls_allow_previleged.png
+
+DOC_IMG_JPG  = images/cat_pri.png
+DOC_IMG_JPG  = images/cat_unpri.png
+
+
+
+DOC_IMG_JPG  = images/attach_failed.png
+DOC_IMG_JPG  = images/interactive_log.png
+
 
 
 DOC_IMG_JPG  = images/vanilla_qkernel_Log.png
-DOC_IMG_JPG  = images/vanilla_queak_app_log.png
+# DOC_IMG_JPG  = images/vanilla_queak_app_log.png
 DOC_IMG_JPG  = images/cquark_qkernel_log.png
 DOC_IMG_JPG  = images/cquark_log_from_kubectl.png
 DOC_IMG_JPG  = images/cquark_log_from_secure_ctl.png
 
 
-DOC_IMG_JPG  = images/cquark_launch_measurement_demo_kbs.png
-DOC_IMG_JPG  = images/cquark_launch_measurement_demo.png
+# DOC_IMG_JPG  = images/cquark_launch_measurement_demo_kbs.png
+# DOC_IMG_JPG  = images/cquark_launch_measurement_demo.png
+
+
+
+
+DOC_IMG_JPG  = images/app_restart_eva.png
+DOC_IMG_JPG  = images/app_restart_result.png
+
+
 DOC_IMG_JPG  = images/cquark_restart_administration_demo.png
 DOC_IMG_JPG  = images/cquark_runtime_runtime_binary_measurement_demo.png
 DOC_IMG_JPG  = images/cquark_runtime_runtime_lib_measurement_demo.png
@@ -94,7 +117,7 @@ DOC_IMG_JPG  = images/cquark_runtime_runtime_lib_measurement_demo.png
 # evaluation images for performance
 DOC_IMG_JPG  = images/perf_system_call_interceptor_yaml.PNG
 DOC_IMG_JPG  = images/ben_results_syscall_interceptor.PNG
-DOC_IMG_JPG  = images/perf_attestation_report_yaml.PNG
+# DOC_IMG_JPG  = images/perf_attestation_report_yaml.PNG
 
 DOC_IMG_JPG  = images/perf_attestation_report_result.PNG
 DOC_IMG_JPG  = images/file_type_secret_access_test_deploy_yaml_baseline.PNG

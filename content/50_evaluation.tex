@@ -9,126 +9,85 @@
 % vorzunehmen. Es wird empfohlen zunächst die eigenen Erwartungen
 % bezüglich der Ergebnisse zu erläutern und anschließend eventuell
 % festgestellte Abweichungen zu erklären.
-In previous chapters, we analyzed the security issues of the upstream quark in confidential computing, and proposed the design and implementation of Confidential Quark as a countermeasure. In this chapter, we evaluate the security and performance of Confidential Quark from both 
+In previous chapters, we analyzed the security issues of the vanilla quark and proposed the design and implementation of the confidential Quark as a countermeasure. In this chapter, we evaluate the security and performance of Confidential Quark from both 
 qualitative and quantitative perspectives.
-\begin{figure}[H]
-    \centering
-    \begin{subfigure}[b]{0.45\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{images/mongo_secret.PNG}
-        \caption{YAML file for deploying K8s secret}
-        \label{fig:mongo_secret}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.45\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{images/vanila_quark_deployment.PNG}
-        \caption{YAML file for deploying application in vanilla quark}
-        \label{fig:vanila_quark_deployment}
-    \end{subfigure}
-    \hfill
-       \caption[Artifacts for deploying applications in Vanilla Quark]{Artifacts for deploying applications in Vanilla Quark. The YAML file on the left is used to submit the Kubernetes secret with the name my\-mongo\-ssl\-certs to the cluster. 
-       This secret includes two files, namely root\-ca.pem and mongodb.pem. Meanwhile, the YAML file on the right on the right is used to deploy application. This file passes three command line secrets, namely cmd\_secret1\-3, an environment variable secret named FOO, and mounts the 
-       Kubernetes secret (file type secret) to the secret directory of the application rootfs.}
-       \label{fig:three graphs}
-\end{figure}
+
 \section{Qualitative Analysis}
-In this section, we provide a synopsis of the security vulnerabilities uncovered during the security analysis in Chapter 3, targeting the vanilla quark environment. Furthermore, we detail our implementation strategies for addressing these vulnerabilities.
+In this section, we evaluate the proposed mitigations for the vulnerabilities found in Section III.
 
 \subsection{Common Setup}
 
-This section provides an overview of the common configuration for the analysis. Firstly, we set up the Confidential Quark and vanilla Quark environments following the guidelines presented in the Quark demo repository\cite*{Qaurk_Demo_for_qualitativ}.
-These include creating the Kubernetes cluster and compiling securectl, confidential quark, and key broker service. To deploy a vanilla quark-based application, we need to upload the Kubernetes secret\cite*{k8s_secret_yaml} in Figure ~\ref{fig:mongo_secret} and use 
-the YAML file\cite*{vanilla_quark_deploy_for_qualitativ_yaml} (~\ref{fig:vanila_quark_deployment}). 
+
+\begin{figure}[!htb] 
+    \begin{subfigure}[b]{0.45\linewidth}
+      \centering
+      \includegraphics[width=0.9\linewidth]{images/generic_policy.PNG} 
+      \caption{Enclave policy} 
+      \label{fig:generic_policy} 
+      \vspace{4ex}
+    \end{subfigure}%% 
+    \begin{subfigure}[b]{0.45\linewidth}
+      \centering
+      \includegraphics[width=0.9\linewidth]{images/analysis_workload.png} 
+      \caption{Program used for the qualitative analysis} 
+      \label{fig:analysis_workload} 
+      \vspace{4ex}
+    \end{subfigure} 
+    \caption{Artifacts for demo in the qualitative analysis}
+    \label{fig4} 
+\end{figure}
 
 
-\begin{figure}[H]
+
+
+This section outlines the configuration for the analysis. First, we set up the Confidential Quark and Vanilla Quark environments following the guidelines provided in the Quark demo repository~\cite*{Qaurk_Demo_for_qualitativ}. The policy used by Confidential Quark is shown in Figure~\ref{fig:generic_policy}. The policy specifies that the Enclave is in production mode. 
+Privileged users can allocate terminals and issue cat and ls commands, while non-privileged level users can only issue ls commands. Privileged-level commands can be executed in the directory /var and its subdirectories, while non-privileged-level commands can only access the directory /var/log and its subdirectories. In addition, the Qlog manager is turned on. 
+Since allowed\_max\_log\_level is set to OFF, Qkernel does not print any logs. Finally, the guest system call interceptor is activated and runs in ContextBase mode. The system call allowlist contains all system calls (0-451), some of which are not included in the figure due to space limitations.
+
+
+Figure~\ref{fig:generic_policy} shows the example program used for the quantitative analysis. The program first print the environment variable and application parameter type secrets. It then accesses the secret "root-ca.pem" under directory /secret. The application-related secret is shown in Figure~\ref{fig5}. We use script~\cite*{secret_uploading_script} to deploy these secrets and the enclave 
+policy to the secret manager. Note that the application is already containerized. The artifacts for the demo in the qualitative analysis and the YAML files for Deploying the demo can be found in commit~\cite*{artifacts_quarlitative}.
+
+\begin{figure}[!htb] 
+    \begin{subfigure}[b]{0.45\linewidth}
+      \centering
+      \includegraphics[width=0.9\linewidth]{images/file_secrets.PNG} 
+      \caption{File type secrets managed by Secret Manager} 
+      \label{fig:file_secrets} 
+      \vspace{4ex}
+    \end{subfigure}%% 
+    \begin{subfigure}[b]{0.45\linewidth}
+      \centering
+      \includegraphics[width=0.9\linewidth]{images/cmd_env_secrets.png} 
+      \caption{Args and Envv based secrets managed by Secret Manager} 
+      \label{fig:cmd_env_secrets} 
+      \vspace{4ex}
+    \end{subfigure} 
+    \caption{Secrets for demo in the quantitative analysis}
+    \label{fig5} 
+\end{figure}
+
+
+\subsection{Application secure Deployment}
+\begin{figure}[!htb]
     \centering
-    
-    \begin{minipage}{0.9\textwidth}
-    \begin{subcolumns}[0.62\textwidth]
-      \subfloat[YAML file for deploying application\label{fig:c_quark_deployment}]{\includegraphics[width=\subcolumnwidth]{images/c_quark_deployment.PNG}}
-
-    \nextsubcolumn[0.33\textwidth]
-      \subfloat[KBS managed file type secret\label{fig:file_secrets}]{\includegraphics[width=\subcolumnwidth]{images/file_secrets.PNG}}
-
-    \nextsubfigure
-      \subfloat[KBS managed cmd \&\& envv type secrets\label{fig:cmd_env_secrets}]{\includegraphics[width=\subcolumnwidth]{images/cmd_env_secrets.PNG}}
-    \end{subcolumns}
-    \end{minipage}
-    
-    \caption[The artifacts used to deploy the application in Confidential Quark]{The artifacts used to deploy the application in Confidential Quark. Figures ~\ref{fig:file_secrets} and ~\ref{fig:cmd_env_secrets} show the file type secret root\-ca.pem, as well as the environment variables, and the command line type secret managed by kbs. The YAML in Figure  is
-    a utilized to deploy the application in cquark. In this file, we specify the IP address of KBS, and the URL for enclave to fetch the secrets and enclave policy from KBS. The enclave can use the above information to establish a secure channel with the KBS and 
-    deploy the secret to the application process.}
-    \label{fig:cquark_deployment}
+    \includegraphics[height=0.3\textheight]{images/cquark_deploy_yaml.jpg}
+    \caption[YAML for deploying an application in confidential Quark]{YAML for deploying an application in confidential Quark}
+    \label{fig:cquark_deploy_yaml}
 \end{figure}
 
+Confidential Quark deploys the application using YAML, as shown in Figure~\ref{fig:cquark_deploy_yaml}. The new application deployment scheme and YAML are explained in Section~\ref{sec:secure_application_deployment}. Figure~\ref{fig:cquark_deployment} outlines the steps and outcomes of the application deployment process in the Confidential Quark environment.
 
-The enclave policy file\cite*{enclave_policy} in Figure ~\ref{fig:generic_policy}, fsecrets in Figures ~\ref{fig:file_secrets}  and ~\ref{fig:cmd_env_secrets} \cite*{kbs_secret}, and the YAML file\cite*{confidentail_quark_yaml} in Figure ~\ref{fig:c_quark_deployment}  are used for 
-application deployment in confidential quark. 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth, scale=0.8]{images/generic_policy.PNG}
-    \caption[Qkernel Attestation Report Syscall Benchmark Deployment]{The shield policy used by the enclave.  The policy is uploaded to the Key Broker Service (KBS) by enclave owner. KBS verifies the integrity of the enclave's runtime environment 
-    using the hash in app{\_}lauch{\_}ref{\_}measurment and sends the policy to the enclave securely. The policy stipulates that enclave is in production mode, in which the enclave use the hash from runtime\_reference\_measurements to validate the 
-    integrity of the binaries and dynamic link libraries loaded from host at application runtime. The policy also permits privileged users to create terminals and issues cat and ls commands, alongside cryptographic protection for the results 
-    of the commands and application logs (see privileged{\_}user{\_}config). Conversely, non{\-}privileged users' allocation of terminals is blocked, and they can only issue ls commands (refer to the option unprivileged{\_}user{\_}config). The option 
-    qkernel\_log\_config in policy further enables the qkernel's logging system interceptor, while the logging level is Off, resulting in no output from the log system. Lastly, the guest system call interceptor is activated, and the policy configures 
-    it to global mode (syscall{\_}interceptor{\_}config). N.b., the white list "syscall" contains 0-451 system calls, some of which are excluded from the figure due to space constraints.}
-    \label{fig:generic_policy}
-\end{figure}
-\todo{update the policy file,  enclave mode is missing, change the system call to ContextBased}
-Notably, for the following demonstration, Confidential quark commit \cite*{qualitativ_confidentail_quark} and vanilla quark commit \cite*{qualitativ_baseline} are utilized, and the policy\cite*{enclave_policy} (Figure ~\ref{fig:generic_policy}) and application\cite*{qualitativ_workload} (Figure ~\ref{fig:analysis_workload}) are used by default unless stated otherwise. As the application is already containerized, 
-we deploy it to either the cquark or vanilla quark environment using the YAML files in Figures ~\ref{fig:c_quark_deployment} and ~\ref{fig:vanila_quark_deployment}, respectively.  All artifacts related to the demo experiments covered in subsequent subsections are uploaded to GitHub\cite*{Qaurk_Demo_for_qualitativ}.
+Figure~\ref{fig:cquark_kbs_start} shows that the enclave successfully attests its identity to the secret manager during remote attestation and provisioning. Currently, the secret manager operates in native mode, verifying the consistency between the enclave start hash and the reference hash specified in the 
+enclave owner's policy. The enclave's startup hash includes the measurement for application binaries, Qkernel configuration files, etc. (refer to Section III). As depicted in Figure~\ref{fig:cquark_deployment_result}, the enclave successfully retrieves the secret from the secret manager and prints them. It's worth 
+noting that the directory named "secret" remains invisible from the host (as seen in Figure~\ref{fig:cquark_deployment_result_file_secret_mount_location}), as file type secrets and the filesystem mounted under the /secret directory are within the enclave。 Therefore, security issues~\ref{vulnerabilities:1},~\ref{vulnerabilities:7}, and~\ref{vulnerabilities:11} 
+have been effectively resolved.
 
 
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/analysis_workload.PNG}
-    \caption[Sample program for demo in qualitative analysis]{Sample program for demo in qualitative analysis. This program outputs "hello world", command line arguments, and the environment variable "foo" to the standard output while also attempting to read the secret "root-ca.pem" under the directory "/secret"}
-    \label{fig:analysis_workload}
-\end{figure}
-
-
-
-\subsection{Deploying Secrets via untrusted Entities (Kubelet, Containerd, Qvisor)}
-
-
-Vanilla Quark benefits from Kubernetes\cite*{k8s} to manage and deploy secrets. This involves submitting three types of secrets i.e., file type, command line type, and environment variable type secrets to the Kubernetes through YAML files. Subsequently, Kubernetes offers the ability to effortlessly 
-pass these secrets to the application at the time of container creation.  An example of deploying application in vanilla enviroment is displayed in Figure ~\ref{fig:vanilla_quark_deployment_result}.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/kbs_secret_deployment.png}
-    \caption[Shell script for deploying secret to KBS’s localfs backend]{Shell script for deploying secret to KBS’s localfs backend}
-    \label{fig:kbs_secret_deployment}
-\end{figure}
-
-For instance, here, we use YAML file in Figure ~\ref{fig:mongo_secret} to submit the file type secret to Kubernetes, and the YAML file in Figure  ~\ref{fig:vanila_quark_deployment} to submit the command line type and environment variable type secrets as well as deploying the application. 
-Our results, described in Figure ~\ref{fig:vanilla_quark_deployment_result}, illustrate that the program deployment is successful.  The command-line and environment variable secrets are appropriately printed to the standard output, while the file-type secret are securely mounted under  
-“secret” directory in the application’s rootfs on the host (~\ref{fig:vanilla_quark_deployment_result_file_secret_mount_location}). 
-
-\begin{figure}[H]
-
-    \subfloat[Application deployment process in vanilla quark\label{fig:vanilla_quark_deployment_result}]{%
-      \includegraphics[clip,width=\columnwidth]{images/vanilla_quark_deployment_result.png}%
-    }
-    
-    \subfloat[The way Kubernetes manages and deploys file type secrets\label{fig:vanilla_quark_deployment_result_file_secret_mount_location}]{%
-      \includegraphics[clip,width=\columnwidth]{images/vanilla_quark_deployment_result_file_secret_mount_location.png}%
-    }
-    
-    \caption{The process of deploying the application in the vanilla quark environment and its results. Figure ~\ref{fig:vanilla_quark_deployment_result} demonstrates the deployment method, wherein an application is deployed using the YAML in Figure ~\ref{fig:vanila_quark_deployment}, and illustrates the program successfully retrieves and 
-    prints the command\-line types, environment variable types, and file-type secrets from k8s. Figure ~\ref{fig:vanilla_quark_deployment_result_file_secret_mount_location} reveals that k8s manages the submitted k8s secret (See figure ~\ref{fig:mongo_secret} ) in the /var/lib/kubelet directory of 
-    the host machine and mounts it to the rootfs of the application on the host under var/lib/quark}
-    
-\end{figure}
-However, managing and deploying secrets by Kubernetes compromise applications’ confidentiality, because  Kubernetes is not a trusted entity. To address this, in confidential quark, we have shifted such responsibility from Kubernetes to the Key Broker Service (KBS), which managing secrets and 
-securely injects required secrets directly into an enclave. Ideally, the secret owner must attest kbs and upload the secret to it securely. Regrettably, due to time constraints, this feature is yet to be implemented. To this end, we utilize the script in Figure ~\ref{fig:kbs_secret_deployment} to 
-deploy the secrets in Figures ~\ref{fig:file_secrets} and ~\ref{fig:cmd_env_secrets} onto the designated location on the local file system. During runtime, KBS extracts the secret from this location and employs secure channels to securely transmit it over to the enclave. The application deployment 
-process in the CQuark environment, along with its results, is displayed in Figure ~\ref{fig:cquark_deployment_result_file_secret_mount_location}.
-\begin{figure}[H]
+\begin{figure}[!htb]
+    \subfloat[Secret manager succesfully autheticate enclave's state during remote attestation\label{fig:cquark_kbs_start}]{%
+    \includegraphics[clip,width=\columnwidth]{images/cquark_kbs_start.PNG}%
+  }
 
     \subfloat[Application deployment process in confidential quark\label{fig:cquark_deployment_result}]{%
       \includegraphics[clip,width=\columnwidth]{images/cquark_deployment_result.PNG}%
@@ -138,184 +97,179 @@ process in the CQuark environment, along with its results, is displayed in Figur
       \includegraphics[clip,width=\columnwidth]{images/cquark_deployment_result_file_secret_mount_location.png}%
     }
     
-    \caption[The process of deploying the application in confidential Quark environment and its results.]{The process of deploying the application in confidential Quark environment and its results. Figure ~\ref{fig:cquark_deployment_result} illustrates the deployment method, wherein an application is deployed using the YAML file in Figuer ~\ref{fig:c_quark_deployment},  
-    and shows that the program successfully retrieves and prints the command-line types, environment variable types, and file\-type secrets from KBS. In Figure ~\ref{fig:cquark_deployment_result_file_secret_mount_location} , we first use securectl to allocate a terminal inside the enclave and view the file type secret located in the /secret directory. 
-    We can see that the secret root-ca.pem is stored in the /secret. We then exite the terminal and exam the rootfs of the application on the host, which showed that the secret directory is not visible on the host side.}
+    \caption[The result for application secure deployment in confidential Quark]{The result for application secure deployment in confidential Quark.\label{fig:cquark_deployment}}
 \end{figure}
 
 
-Regarding file-type secrets, as detailed in Chapter 5, the enclave retains the file-type secret on guest memory and establishes a guest sub-file system under the /secret directory. This file system enables applications to access file-type secrets. Notably, because both the file system and secret 
-files exist only inside the enclave, the directory and its contents remain invisible to the application rootfs on the host (see Figure ~\ref{fig:cquark_deployment_result_file_secret_mount_location}). Consequently, secrets remain inaccessible to attackers who attempt to acquire them by 
-investigating the application rootfs on the host.
 
 
-\subsection{Executing arbitrary command in container}
-In vanilla quark, anyone can execute commands on an application without any restrictions, thereby posing a potential risk to the confidentiality of the application.  For instance, If the application stores confidential information under the /var/log path, an attacker could use the "cat" 
-command to view the unauthorized file content (see figure ~\ref{fig:vanila_execute_cat_cmd}).
+
+\subsection{Authentication and Access Control for EXEC Requests}
 
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\textwidth]{images/vanila_execute_cat_cmd.png}
-    \caption[Issues a cat command to the program running in vanilla quark]{Issues a cat command to the program running in vanilla quark.}
-    \label{fig:vanila_execute_cat_cmd}
+% \begin{figure}[H]
+
+%     \subfloat[Accessing application log using securectl in confidential quark\label{fig:cquark_log_from_secure_ctl}]{%
+%       \includegraphics[clip,width=\columnwidth]{images/cquark_log_from_secure_ctl.png}%
+%     }
+    
+%     \subfloat[Accessing application log using kubectl in confidential quark\label{fig:cquark_log_from_kubectl}]{%
+%       \includegraphics[clip,width=\columnwidth]{images/cquark_log_from_kubectl.png}%
+%     }
+    
+%     \caption[Accessing application log through kubectl and securectl in confidential quark]{Accessing application log through kubectl and securectl in confidential quark. Figures 1 and 2 show that privileged users in cquark, i.e., 
+%     application owners, have normal access to the application logs, while non\-privileged users using kubectl logs only obtain encrypted garbled code.}
+% \end{figure}
+\begin{figure}[!htb]
+
+    \subfloat[The enclave rejects the privileged and non-privileged command ”ls /“"\label{fig:ls_exec}]{%
+    \includegraphics[clip,width=\columnwidth]{images/ls_exec.png}%
+    }
+
+    \subfloat[Issuing unprivileged command "ls /var/log"\label{fig:ls_allow_unprivileged}]{%
+    \includegraphics[clip,width=\columnwidth]{images/ls_allow_unprivileged.png}%
+    }
+
+    \subfloat[Issuing privileged command "ls /var/"\label{fig:ls_allow_previleged}]{%
+      \includegraphics[clip,width=\columnwidth]{images/ls_allow_previleged.png}%
+    }
+    
+    \subfloat[Issuing privileged command "cat" \label{fig:cat_pri}]{%
+      \includegraphics[clip,width=\columnwidth]{images/cat_pri.png}%
+    }
+
+    \subfloat[Issuing privileged command "cat" \label{fig:cat_unpri}]{%
+    \includegraphics[clip,width=\columnwidth]{images/cat_unpri.png}%
+  }
+
+  \subfloat[Attempting to allocate a terminal through both securectl and kubectl\label{fig:cquark_terminal}]{%
+  \includegraphics[clip,width=\columnwidth]{images/cquark_terminal.png}%
+}
+    
+    \caption[The result of issuing  commands to enclave]{The result of issuing  commands to enclave\label{fig:exec}}
 \end{figure}
 
 
-Confidential quark addresses this issue by categorizing commands into two: unprivileged user commands issued by kubectl and privileged user commands issued by securectl. Here, unprivileged users refer to untrusted entities such as the cluster operator, 
-whereas privileged users are specifically defined as application owner. Confidential quark empowers the application owner to establish a shield/enclave policy, which outlines the allowed commands for non-privileged users and the directories where the commands can run. 
-In Figure ~\ref{fig:cuqark_unprivileged_user_cat_rejected}, the attacker's attempt to issue the cat command using kubectl is refused because the shield policy prohibits unprivileged users from issuing cat commands (refers to the option single\_shot\_command\_line\_mode\_configs of 
-unprivileged user config in policy ~\ref{fig:generic_policy} ).
+In Section~\ref*{sec:design_EXEC_Requests}, we propose a novel schema for handling EXEC requests. As depicted in Figure~\ref{fig:ls_exec}, both privileged and unprivileged users are prohibited from executing the "ls /" command within the enclave due to the enclave policy's restriction on running commands in the root directory. 
+Figure~\ref{fig:ls_allow_unprivileged} and~\ref{fig:ls_allow_previleged} illustrate that privileged and unprivileged users can issue the "ls /var" and "ls /var/log" commands to the enclave, respectively. This allowance stems from the enclave policy's command and directory allowlist， which includes these specific commands and their corresponding arguments. 
+Conversely, since the command whitelist for non-privileged users excludes the "cat" command, unprivileged users are incapable of issuing the "cat" command to access the log file "/var/log/fontconfig.log."(figure~\ref{fig:cat_unpri}) 
+Furthermore, as observed in Figure~\ref{fig:cquark_terminal},  privileged users can spawn a terminal, while unprivileged users cannot. 
+This is as expected since the unprivileged user's command allowlist does not include any terminal allocation instructions. By implementing this innovative mechanism, we effectively safeguard the enclave against attacks exploiting the EXEC endpoint, resolving weakness three as identified in our security analysis.
 
-\begin{figure}[H]
+
+\begin{figure}[!htb]
     \centering
-    \includegraphics[width=1\textwidth]{images/cuqark_unprivileged_user_cat_rejected.png}
-    \caption[Use Kubectl to issue unprivileged commands to programs running in confidential quark]{Use Kubectl to issue unprivileged commands to programs running in cquark.  The attempt to execute non-privileged commands "ls /" and "cat /var/log/dpdk" is met with rejection by Cquark. 
-    The "ls /" command is disallowed as the enclave policy prohibits the execution of any unprivileged commands in the root directory, while "cat /var/log/dpdk" was rejected as it is not included in the unprivileged command whitelist (the option single\_shot\_command\_line\_mode\_configs of 
-    unprivileged user config in policy ~\ref{fig:generic_policy}) }
-    \label{fig:cuqark_unprivileged_user_cat_rejected}
-\end{figure}
-
-Instead, as shown in Figure ~\ref{fig:cuqark_privileged_user_cat_allowed}, the application owner is allowd to send a cat command to the enclave and view the contents of file /var/log/dpkg.log.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\textwidth]{images/cuqark_privileged_user_cat_allowed.png}
-    \caption[Use Securectl to issue privileged commands to programs running in cquark]{Use Securectl to issue privileged commands to programs running in cquark.  The "ls /" command is rejected as the enclave policy prohibits the execution of any privileged commands in the root directory 
-    , while "cat /var/log/dpdk" and ls /var are allowed because ls and cat are in the privileged command whitelist and the directories "/var" and "/var/log" are within the range of directories that are allowed to execute privileged commands (option single\_shot\_command\_line\_mode\_configs of 
-    privileged user config in policy ~\ref{fig:generic_policy}).}
-    \label{fig:cuqark_privileged_user_cat_allowed}
-\end{figure}
-
-
-Additionally, to prevent attackers from executing commands by allocating a terminal in the application, we prohibit non-privileged users from creating a terminal using kubectl by setting enable\_terminal to fasle in unprivileged user config section in the policy ~\ref{fig:generic_policy}. 
-However, privileged users can still create a terminal by using securectl, as the enable\_terminal of privileged user config in policy ~\ref{fig:generic_policy} remains enabled (Figuer ~\ref{fig:cquark_terminal}).
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\textwidth]{images/cquark_terminal.png}
-    \caption[Attempting to allocate a terminal through both securectl and kubectl]{Attempting to allocate a terminal through both securectl and kubectl。The request from kubectl is rejected because the enclave policy only allows privileged users to spawn a terminal using securectl 
-    (option enable\_terminal of unprivileged/privileged user config in policy ~\ref{fig:generic_policy})}
-    \label{fig:cquark_terminal}
-\end{figure}
-
-The outcome of the privileged command may contain confidential data. As this data is transmitted via Kubernetes\cite*{k8s} - an untrusted entity - the enclave encrypts it to ensure its protection from unauthorized access. After the encrypted execution result is returned to securectl, it decrypts it 
-using the key shared between itself and enclave (option privileged\_user\_key\_slice in policy ~\ref{fig:generic_policy}). This process is depicted in Figuer ~\ref{fig:cquark_priviled_cmd_result_protection}.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\textwidth]{images/cquark_priviled_cmd_result_protection.png}
-    \caption[Process for securectl to handle privileged level commands]{Process for securectl to handle privileged level commands. This includes decrypting, verifying the integrity of the returned data, and printing the result}
+    \includegraphics[width=1\textwidth]{images/cquark_priviled_cmd_result_protection.PNG}
+    \caption[Process for securectl to handle privileged level commands]{Process for securectl to handle privileged level commands.}
     \label{fig:cquark_priviled_cmd_result_protection}
 \end{figure}
 
-\subsection{Application log in plaintext managed by untrusted entity}
-Vanilla Quark allows any user to access the application log messages via kubectl log\cite*{kubectl} (see Figure ~\ref{fig:vanilla_queak_app_log}). 
-Yet, these log messages may contain sensitive data of an application.
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\textwidth]{images/vanilla_queak_app_log.png}
-    \caption[Accessing application log using kubectl in vanilla quark environment]{Accessing application log using kubectl in vanilla quark environment}
-    \label{fig:vanilla_queak_app_log}
-\end{figure}
 
-To prevent attackers from accessing the application log through kubectl log\cite*{kubectl}, the enclave in confidential quark encrypts the application logs. Thus, only privileged users, namely the application owners, can view the logs by using securectl (as shown in Figure ~\ref{fig:cquark_log_from_secure_ctl}).
- On the other hand, non-privileged users who use kubectl log can only access the logs in ciphertext (as depicted in Figure ~\ref{fig:cquark_log_from_kubectl}).
 
-\begin{figure}[H]
+In addition, we modified securectl to print the command it issues, and the execution result returned from the enclave. As can be seen in Figure~\ref{fig:cquark_priviled_cmd_result_protection}, both the EXEC command and its execution result are cryptographically protected. The protection mechanisms for the command and the execution result are 
+discussed in Sections~\ref{sec:design_prptect_privileged_request} and~\ref{sec:design_STDIO_PROTECTION}, respectively.
 
-    \subfloat[Accessing application log using securectl in confidential quark\label{fig:cquark_log_from_secure_ctl}]{%
+
+This section shows that we can effectively address vulnerability~\ref{vulnerabilities:4} and ~\ref{vulnerabilities:6} identified in the security analysis.
+
+
+
+\subsection{Guest User Space Process's STDIO Protection}
+The application shown in Figure~\ref{fig:analysis_workload} is non-interactive. Since the no\_interactive\_process\_stdout\_err\_encryption option in the policy is true, the enclave will encrypt STDOUT and STDERR for privilege-level processes. Thus, only privileged users, namely the application owners, can view the logs using securectl (as shown in Figure~\ref{fig:cquark_log_from_secure_ctl}). On the other hand, non-privileged users who use the command 
+"kubectl log" can only access the logs in ciphertext (as depicted in Figure~\ref{fig:cquark_log_from_kubectl}). Furthermore, Figure 4 showcases that the execution results of privilege-level commands are also encrypted.
+
+\begin{figure}[!htb]
+
+    \subfloat[Accessing application log using securectl\label{fig:cquark_log_from_secure_ctl}]{%
       \includegraphics[clip,width=\columnwidth]{images/cquark_log_from_secure_ctl.png}%
     }
     
-    \subfloat[Accessing application log using kubectl in confidential quark\label{fig:cquark_log_from_kubectl}]{%
+    \subfloat[Accessing application log using kubectl\label{fig:cquark_log_from_kubectl}]{%
       \includegraphics[clip,width=\columnwidth]{images/cquark_log_from_kubectl.png}%
     }
     
-    \caption[Accessing application log through kubectl and securectl in confidential quark]{Accessing application log through kubectl and securectl in confidential quark. Figures 1 and 2 show that privileged users in cquark, i.e., 
-    application owners, have normal access to the application logs, while non\-privileged users using kubectl logs only obtain encrypted garbled code.}
+    \caption[Accessing non-interactive application log through kubectl and securectl]{Accessing non-interactive application log through kubectl and securectl}
 \end{figure}
 
-\subsection{Storing Qkernel Log on host in plaintext}
-In Vanilla Quark, guest kernel log messages are saved in the /var/log/quark directory on the host.  This arrangement could result in an untrusted entity like k8s operator, who has the access to the host,  obtain sensitive information from the logs(refer to Figure ~\ref{fig:vanilla_qkernel_Log}).
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\textwidth]{images/vanilla_qkernel_Log.png}
-    \caption[Accessing guest kernel log in vanilla quark]{Accessing guest log in vanilla quark. Note that both qvsivor and qkernel generate logs that are saved in the same file, i.e., /var/log/quark/quark.log. To distinguish between the logs, the logs generated by qkernel are prefixed with the keyword "Qkernel."}
-    \label{fig:vanilla_qkernel_Log}
+In the case of interactive applications, we use the busybox as an example. The corresponding YAML file for deployment can be found in commit~\cite*{artifacts_busybox}. Currently, the enclave lacks support for a terminal shielding layer. Nevertheless, we set the interactive\_porcess\_stdout\_err\_encryption option in the policy to true. 
+This way, the enclave encrypts the STDOUT and STDERR outputs for the interactive application process. Figure~\ref{fig:attach_failed} illustrates the scenario where a non-privileged user can connect a terminal to the application. However, the terminal functionality is limited as the enclave only returns ciphertexts. 
+Furthermore, the logs generated by the interactive application are also encrypted (Figure~\ref{fig:interactive_log}). These examples effectively showcase how our 
+the proposed solution successfully mitigates vulnerabilities~\ref{vulnerabilities:5} and~\ref{vulnerabilities:3}.
+
+
+\begin{figure}[!htb]
+
+    \subfloat[Attaching to application using kubectl -it attach\label{fig:attach_failed}]{%
+    \includegraphics[clip,width=\columnwidth]{images/attach_failed.png}%
+  }
+
+  \subfloat[Accessing application log using kubectl\label{fig:interactive_log}]{%
+  \includegraphics[clip,width=\columnwidth]{images/interactive_log.png}%
+}
+  
+    \caption[Accessing logs and attaching to an interactive application ]{Accessing logs and attaching to an interactive application }
 \end{figure}
 
 
-To mitigate the security risk, confidential quark enables the application owner to specify the logging level of the guest kernel logging system in the shield policy. Presently, this logging system supports five log levels, ranging from Off (least detailed) to Trace (most detailed). The logging system only prints 
-logs at a level equal to or below the level specified in the shield policy to host.  Currently, the log level in the enclave policy is configured to Off. As a result, guest kernel logging system will not print any logs to host (as illustrated in Figure ~\ref{fig:cquark_qkernel_log}).
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\textwidth]{images/cquark_qkernel_log.png}
-    \caption[Accessing guest kernel log in confidential quark]{Accessing guest kernel log in confidential quark.  Note that both qvsivor and qkernel generate logs that are saved in the same file, i.e., /var/log/quark/quark.log. To distinguish between the logs, the logs generated by qkernel are prefixed with the keyword "Qkernel."
-    Here we launch an application in cquark and try to access the qkerel logs under /var/log/quark directory. Since the log level in the policy file is set to Off, we can't get any qkernel log there}
-    \label{fig:cquark_qkernel_log}
+
+\subsection{Qkernel Log Management}
+
+In Vanilla Quark, the logs generated by Qvsivor and Qkernel are kept in the same file, /var/log/quark/quark.log. In order to differentiate the logs, we prefix the logs generated by Qkernel with the keyword "Qkernel" (refer to Figure~\ref{fig:vanilla_qkernel_Log}).
+\begin{figure}[!htb]
+
+    \subfloat[Vanilla Quark\label{fig:vanilla_qkernel_Log}]{%
+    \includegraphics[clip,width=\columnwidth]{images/vanilla_qkernel_Log.png}%
+  }
+
+  \subfloat[Confidential Quark\label{fig:cquark_qkernel_log}]{%
+  \includegraphics[clip,width=\columnwidth]{images/cquark_qkernel_log.png}%
+}
+  
+    \caption[Accessing guest kernel log in confidential and vanilla Quark]{Accessing guest kernel log in confidential and vanilla Quark}
 \end{figure}
 
-\subsection{No restriction to application's syscalls (guest system call)}
-Vanilla Quark does not provide any functionality to restrict the available system calls for an application. Consequently， an attacker can trick an application into executing a vulnerable system call to snoop on the application's confidential data. To address this issue,  confidential quark introduces a guest 
-system call interceptor, which enables application owner to restrict the guest system calls that an application can invoke through the shield policy in Figure ~\ref{fig:generic_policy}.
 
-\begin{figure}[H]
+In Confidential Quark, we set the Qlog manager's max log level to OFF. Therefore, the guest kernel logging system does not print logs to the host (Figure~\ref{fig:cquark_qkernel_log}).
+
+\subsection{Qkernel Guest System Call Interception}
+
+\begin{figure}[!htb]
     \centering
     \includegraphics[width=1\textwidth]{images/application_failed_to_start_due_to_syscall_interceptor.png}
-    \caption[Application failed to run due to the lack of permission to execute the read system call for loading dynamic libraries]{Application failed to run due to the lack of permission to execute the read system call for loading dynamic libraries}
+    \caption[Failed to run an application when the read system call is excluded from the system call interceptor's allowed list]{Failed to run an application when the read system call is excluded from the system call interceptor's allowed list}
     \label{fig:application_failed_to_start_due_to_syscall_interceptor}
 \end{figure}
 
 
-Figure ~\ref{fig:application_failed_to_start_due_to_syscall_interceptor} presents a demo of the guest interceptor. By revising the setting of the system interceptor in the enclave policy of Figure ~\ref{fig:generic_policy} to remove the read system call from the system call whitelist, 
-the application process failed to start. The failure occurred because it lacked the permission to execute the read system call for loading dynamic libraries.
-\subsection{Lack of runtime measurements}
+Figure ~\ref{fig:application_failed_to_start_due_to_syscall_interceptor} presents a demo of the guest interceptor. By revising the setting of the system interceptor in the enclave policy of Figure ~\ref{fig:generic_policy} to remove the read system call from the system call allowlist, 
+the application process failed to start. The failure occurred because it lacked permission to execute the read system call for loading dynamic libraries.
 
-The application binary and it’s runtime libraries in Vanilla Quark are stored on the host machine. The code is loaded into the guest memory only at runtime, which creates a potential vulnerability that an attacker may exploit to force the 
-application to execute corrupted code, thereby compromising confidential information. In response, Confidential Quark provides two types of security measures:
-
-\subsubsection{Application launch measurement}
-During program startup (from the enclave starts until the application runs), the enclave measures the data it loads from the host, including the guest kernel configuration, the application process spec, and the application binary. The result 
-of these measurements is known as the application launch hash, which is included in the remote attestation report sent to KBS. KBS subsequently compares the hash value to the reference hash value in the enclave policy, which was previously uploaded 
-by the application owner. If the hash values do not coincide, KBS denies the transfer of any sensitive information to the enclave.
-\begin{figure}[H]
-
-    \subfloat[Application launch process and it's result\label{fig:cquark_launch_measurement_demo}]{%
-      \includegraphics[clip,width=\columnwidth]{images/cquark_launch_measurement_demo.png}%
-    }
-    
-    \subfloat[KBS rejected the enclave's authentication request due to a mismatch in application launch measurements\label{fig:cquark_launch_measurement_demo_kbs}]{%
-      \includegraphics[clip,width=\columnwidth]{images/cquark_launch_measurement_demo_kbs.png}%
-    }
-    
-    \caption[Application launch measurement demo]{Application launch measurement}
-    \label{fig:cquark_launch_measurement}
-\end{figure}
-
-A demonstration is shown in Figure ~\ref{fig:cquark_launch_measurement}. Regarding the setup, we modifie the program\cite*{qualitativ_workload} in Figure ~\ref{fig:analysis_workload} (correspondent to image qualitative\-analyze) and create a new image labeled qualitative\-analyze\-fake. 
-The altered image is then deployed to the micro\-cquark pod in an attempt to obtain the image "qualitative\-analyze" 's secrets. However, as shown in Figure ~\ref{fig:cquark_launch_measurement_demo_kbs}, KBS rejecte the request initiated by micro-cquark due to a mismatch between the 
-application startup hash from the micro\-cquark pod and the reference application launch hash generated by qualitative-analyze image. In essence, the modification of the program caused the binary contents to change, resulting in startup measurements of the application launched from the 
- qualitative\-analyze\-fake image that does not correspond with the startup reference hash (for the original program) depicted in the enclave policy (Figure ~\ref{fig:generic_policy}). This experiment confirmed KBS would reject enclave requests if there is any modification 
- of data loading during the application startup process.
+\subsection{Application Runtime Measurements}
 
 
-\subsubsection{Shared library/executable measurement at runtime}
-Regarding runtime libraries and binaries loaded during application runtime, the enclave  measure the loaded data and compare the hash with the  reference hash in the enclave policy.
 
-\begin{figure}[H]
+
+According to the discussion in Section~\ref{sec:Enclave_Runtime_Measurement}, the enclave measures the binaries loaded from the host at application runtime and compares the resulting hashes with the reference hashes in the enclave policy. Binary refers to shared libraries and executables. 
+
+Figure~\ref{fig:cquark_runtime_runtime_lib_measurement_demo} shows a measurement demo of the runtime library. Regarding the setup, we intentionally reset the reference hash of the library "/lib/x86\_64-linux-gnu/libgcc\_s.so.1" in the enclave policy to empty and configure the maximum logging level of the Qlog manager to Info. Next, 
+we deploy the policy to the secret manager and use the demo application in Figure~\ref{fig:analysis_workload}. The Qkernel logs in Figure~\ref{fig:cquark_runtime_runtime_lib_measurement_demo} show that the enclave encountered a crash due to a discrepancy between the measurements of the loaded library and the corresponding reference hash stored in the policy.
+
+
+\begin{figure}[!htb]
     \centering
     \includegraphics[width=1\textwidth]{images/cquark_runtime_runtime_lib_measurement_demo.png}
     \caption[Shared library measurement demo]{Shared library measurement demo}
     \label{fig:cquark_runtime_runtime_lib_measurement_demo}
 \end{figure}
 
-Figure ~\ref{fig:cquark_runtime_runtime_lib_measurement_demo} shows a demo of measuring the runtime library. As part of the setup, We reset the reference hash of  library "/lib/x86\_64-linux-gnu/libgcc\_s.so.1" in the enclave policy to empty and 
-configure the logging level of Qkernel in the enclave policy to Info(refer to Figure ~\ref{fig:generic_policy}). Next, we deployed the program using the YAML in Figure ~\ref{fig:cquark_deployment} and observe the qkernel logs  The log reveales that the enclave encountered 
-a crash due to a difference between the measurement of the loaded library and the corresponding reference hash stored in the policy. This finding highlights the enclave's ability to reject execution when an adversary seeks to deceive the enclave 
-into loading harmful library code.
 
- \begin{figure}[H]
+
+
+To demonstrate measuring the executable loaded during application runtime, we intentionally configured the enclave policy to set the reference hash for the "ls" binary to empty and the Qlog manager's max log level to Info. Then, we submit the new policy to the secret manager,  
+redeploy the application, and issue the command "ls /var/log" to the enclave. Figure~\ref{fig:cquark_runtime_runtime_binary_measurement_demo}  shows that the command failed to get a response. By analyzing the Qkernel logs, we confirmed that the reason for the Qkernel crash was a mismatch between the reference hash of the ls binary and its actual hash.
+
+
+\begin{figure}[!htb]
     \centering
     \includegraphics[width=1\textwidth]{images/cquark_runtime_runtime_binary_measurement_demo.png}
     \caption[Runtime binary measurement demo]{Runtime binary measurement demo}
@@ -323,52 +277,52 @@ into loading harmful library code.
 \end{figure}
 
 
-Figure ~\ref{fig:cquark_runtime_runtime_binary_measurement_demo} is a demo of measuring binary loaded at application runtime  As part of the setup, We reset the reference hash of ls binary in the enclave policy to empty and configure the logging level of Qkernel in the enclave policy to 
-Info(Figure ~\ref{fig:generic_policy}). Subsequently, we facilitated deployment of the program using the YAML file in Figure ~\ref{fig:cquark_deployment} and executed the 'ls' command via 'kubeclt exec'\cite*{kubectl}, causing the enclave to load the 
-corresponding 'ls'binary from the host. However, the command failed to elicit a response. Upon analysis of the Qkernel log, we confirmed that the Qkernel crashed due to a mismatch between the reference hash of  binary and its actual hash. 
-This finding highlights the enclave's ability to refuse execution when an adversary attempts to trick the enclave into loading harmful binary code during application runtime.
+
+The above two examples highlight the ability of an enclave to refuse execution when an adversary tries to trick the enclave into loading harmful code during application runtime.
 
 \subsection{Missing administration to application restartup}
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\textwidth]{images/cquark_restart_administration_demo.png}
+
+As discussed in Section~\ref{sec:Enclave_Runtime_Measurement}, the enclave will measure the loaded binaries and shared libraries during the application rebuild process to extend the application restart hash. The enclave can ensure the rebuild process is correct by comparing the 
+application startup reference hash to the restart hash.
+\begin{figure}[!htb]
+
+    \subfloat[Application restart workflow\label{fig:app_restart_eva}]{%
+    \includegraphics[clip,width=\columnwidth]{images/app_restart_eva.png}%
+  }
+
+  \subfloat[Qkernel log\label{fig:app_restart_result}]{%
+  \includegraphics[clip,width=\columnwidth]{images/app_restart_result.png}%
+}
+  
     \caption[Demo for  administration to application restartup]{Demo for  administration to application restartup}
-    \label{fig:cquark_restart_administration_demo}
 \end{figure}
 
 
 
-In the event of an unexpected application process exit, Kubernetes may elect to recreate a pod to run the crashed program, or restart the program within the original pod if it still exists\cite*{k8s}. In the latter scenario, the Qkernel must reload the application 
-binary from the host, as well as the application process specification. Given that the application secrets are already stored within the enclave, remote attestation is skiped during application restart , meaning that the relying party is unable 
-to verify the integrity of the host loaded data. This opens the possibility for an attacker to provide the enclave with corrupted code. To address this risk, Enclave in confidential quark stores the hash value of the initial application 
-startup, known as app\_ref\_measurement, on guest memory. During the application rebuild process, cquark measures host-loaded data and calculate the hash value known as tmp\_measurement.  Enclave will compare these two hash values to ensure that the re-creation 
-process is correct.
+The application restarting process is exemplified in Figure~\ref{fig:app_restart_eva}. In this example, we configure the Qlog manager’s max log level to ’Info’ in the enclave policy and add the keywords ’stdin: true’ and ’tty: true’ to the container spec of the YAML file used to deploy the 
+application (Figure~\ref{fig:cquark_deployment}). These keywords keep the application’s stdin open and notify Kubernetes that it should be regarded as a terminal. We first create the application in the demo using the modified YAML file. Once the application starts, we use ’kubectl attach -it’ to 
+attach to the application process and send ’ctrl c’ to the enclave. The ctrl c will cause the terminal IO redirection thread sends SIGINT to terminate the application, as discussed in section~\ref{sec:security_analyse_STDIO}. The output of the second ’kubectl get’ command confirmed that the application had successfully restarted. 
 
-The processes described above are exemplified in Figure ~\ref{fig:cquark_restart_administration_demo}. In this example, we configure the Qkernel log level to 'Info' in the enclave policy displayed in Figure \ref{fig:generic_policy}, and add the keywords 
-'stdin: true' and 'tty: true' to the container spec of the YAML file used to deploy the application (as shown in Figure ~\ref{fig:cquark_deployment}). These keywords keep the application's stdin open and signal to Kubernetes that it should 
-be regarded as a terminal. In the demo, we first create the application using the modified YAML file. Once the application started, we use 'kubectl attach -it' to establish a connection with the application's stdin and halted the program using 'ctrl c'. The output of the second 'kubectl get' 
-command in Figure ~\ref{fig:cquark_restart_administration_demo} confirmed that the program had succesfully restarted. After analyzing the Qkernel log, we find that Qkernel measured the process spec and application binary loaded from the host during application recreation. This measurement is saved in the 
-'tmp\_measurement' variable and compared to the hash value, 'app\_ref\_measurement' before the program process entered the user space.
-
-
-
+After analyzing the Qkernel log shown in Figure~\ref{fig:app_restart_result}, we found that Qkernel measured binaries and shared libraries loaded from the host during the application restart. The enclave compared the resulting measurements with the application startup reference hash to determine that the binaries and shared libraries loaded during the two startups were 
+consistent.
 
 \subsection{Vulnerability Out of Scope}
+\todo{move to discussion}
 Besides the vulnerabilities already discussed, there are other security risks that affect Vanilla Quark but are beyond the scope of this thesis.
 
 
 
 \textbf{Physical Access Attacks.} An untrustworthy entity, including cloud operators who have physical access to the machine where the application runs, can carry out physical access attacks on the system. One example of such attacks 
-is Offline DRAM Analysis. A partial solution to alleviate the threat is to run guest on AMD SEV SNP or INTEL TDX.  Those interested in learning more about this topic should refer to \cite*{SEV_SNP_white_book}, \cite*{DBLP:journals/corr/abs-2303-15540}.
+is Offline DRAM Analysis. A partial solution to alleviate the threat is to run guests on AMD SEV SNP or INTEL TDX.  Those interested in learning more about this topic should refer to \cite*{SEV_SNP_white_book}, \cite*{DBLP:journals/corr/abs-2303-15540}.
 
 
-\textbf{Lack of protection to guest memory and register states.} Lack of protection to guest memory and register states.  Insufficient protection for guest memory and register states allows non-trusted entities, such as a hypervisor, to access guest confidential, leading to security breaches. 
-Trusted execution hardware like AMD SEV\cite*{SEV_SNP_white_book} and Intel TDX\cite*{Intel_tdx_whitepaper} address this by encrypting guset memory and registers. However, CQuark does not yet support running on the Trusted execution hardware yet.
+\textbf{Lack of protection to guest memory and register states.} Lack of protection to guest memory and register states.  Insufficient protection for guest memory and register states allows non-trusted entities, such as a hypervisor, to access guest secrets, leading to security breaches. 
+Trusted execution hardware like AMD SEV\cite*{SEV_SNP_white_book} and Intel TDX\cite*{Intel_tdx_whitepaper} address this by encrypting guest memory and registers. However, CQuark does not yet support running on the Trusted execution hardware yet.
 
 
 \textbf{Paravirtualized filesystem sharing mechanism.} Vanilla Quark uses this mechanism to share files and volumes stored on the host with applications on the guest. Any modifications made by an application on a file will be reflected on the host. This poses a security risk as an attacker could 
-gain access to application’s confidential by accessing the application's rootfs on the host. To address this, a common approach is to implement a guest filesystem shielding layer to cryptographically protect inbound and outbound guest data. Those interested in learning more about this topic should 
+gain access to the application’s private data by accessing the application's rootfs on the host. A common approach is implementing a guest filesystem shielding layer to protect inbound and outbound guest data. Those interested in learning more about this topic should 
 refer to \cite*{file_system_shield}.
 
 
@@ -470,11 +424,10 @@ incoming network requests and provides cryptographic protection for incoming and
 
 
 \section{Quantitative Analysis}
-In this section, we evaluate the performance of the system implementations described in the previous chapters through multiple benchmarks to assess the impact on the throughput and latency of the applications running in the confidential quark environment.
-
+In this section, we evaluate the performance of our system implementation in terms of both latency and throughput.
 
 \subsection{Overview of Quantitative Analysis}
-
+\todo{correct grammar error and revise}
 Our benchmarks  consist of micro-benchmarks and macro-benchmarks. The microbenchmarks are performed to  thoroughly understand the latency overhead of each new building block in CQuark, while the macro benchmarks are conducted to compare the speed of 
 real world applications run by confidential vs vanilla Quark. This give us a view of the overhead incurred by confidential Quark for protecting application’s confidentiality.
 
@@ -514,42 +467,31 @@ the TCB of confidential Quark is only roughly one-sixteenth of the size of the  
 
 \subsection{Hardware and Software Setup}\label{Hardware_and_Software_Setup}
 
-In this section, a summary of the hardware and software settings utilized for the benchmarks is provided. Regarding hardware, all measurements are performed on a server with AMD EPYC 7443P 24-Core cpu and 4 DDR4-3200 Mhz-16GB RAM. In terms of software, the host OS is Ubuntu 20.04.6 LTS and Linux 
-5.19.0 kernel. To establish a low-noise environment for benchmarking with reproducible results, the CPU governor is set to performance mode, and Hyper-Threading and Turbo Boost were disabled.  Moreover, all binaries used for testing, namely Qvisor, Qkernel, and the "hello-world" program in List ~\ref{code1}, 
-are built in release mode. Note that, unless otherwise mentioned, the vanilla Quark is in version v0.2.0, confidential Quarkuses this commit  \cite*{qualitativ_confidentail_quark} in the following.
+This section summarizes the hardware and software settings utilized for the benchmarks. Regarding hardware, all measurements are performed on a server with AMD EPYC 7443P 24-Core CPU and 4 DDR4-3200 Mhz-16GB RAM. Regarding software, the host OS is Ubuntu 20.04.6 LTS and Linux 5.19.0 kernel. 
+Furthermore, the CPU governor is set to performance mode, and Hyper-Threading and Turbo Boost were disabled to establish a low-noise environment for benchmarking with reproducible results. Besides, all test binaries, namely Qvisor, Qkernel, and the ”hello-world” program in List~\ref{code1}, are built in 
+release mode. Unless otherwise mentioned, the vanilla Quark is in version v0.2.0, and confidential Quarkuses use this commit~\cite*{qualitativ_confidentail_quark}.
 
 
-Regarding the tools for measuring latency, since all benchmark objects are located in the guest, we use the guest system call clock\_gettime(monotonic) \cite*{clock_gettime} for time measurement and print the results to the host using the qkernel logging system. The benchmarking framework \cite*{benchamark_framework} can analyze the 
-results by parsing the confidential quark log located under host directory /var/log/quark.
+Regarding the tools for measuring latency, since all benchmark objects are located in the guest, we use the guest system call clock\_gettime(monotonic)~\cite*{clock_gettime} for time measurement and print the results to the host using the Qkernel logging system. The 
+benchmarking framework~\cite*{benchamark_framework} can analyze the results by parsing the Quark log under the host directory /var/log/Quark. In addition, all benchmarks are performed multiple times. The following sections illustrate the measurement results in average time and variance format.
 
-In addition, all benchmarks are performed multiple times to minimize the impact of environmental noise on the results. Figures in the following sections illustrate the measurement results, conveying the average time and variance utilized for one run of the subject being measured.
+
 
 \subsection{Micro-benchmark – Attestation Report Syscall}\label{Attestation_Report_Syscall}
 
-Confidential quark enables guest user mode applications to obtain three types of attestation reports, that is, simulated AMD SEV SNP reports, software reports signed by KBS keys, or software reports signed by the application via a system call. In this section, we assess 
-the speed with which the application acquires various attestation reports.
+Confidential Quark enables applications to obtain three types of attestation reports via a system call. The type of the report includes simulated AMD SEV SNP report, software reports signed by KBS key, or software reports signed by the application. This section assesses the speed with which the 
+application acquires various reports. For this purpose, we prepared a Rust microbenchmark\cite*{benchamark_Attestation_Report_Syscall}. In order to ensure stable results, the test program submitted 10,000 requests for each type of report to the Qkernel. The benchmark program is containerized, 
+and the YAML file for the deployment can be found in the commit~\cite*{perf_attestation_report}.
 
-\begin{figure}[H]
+\begin{figure}[!htb]
     \centering
-    \includegraphics[width=0.8\textwidth]{images/perf_attestation_report_yaml.PNG}
-    \caption[Qkernel Attestation Report Syscall Benchmark Deployment]{Qkernel Attestation Report Syscall Benchmark Deployment}
-    \label{fig:perf_attestation_report_yaml}
-\end{figure}
-
-To this end, we prepared a Rust microbenchmark \cite*{benchamark_Attestation_Report_Syscall} that measures the mean and variance of the time requisite for obtaining the three types of reports and prints the results to its standard output. To ensure stable outcomes, the test program submits 10,000 requests for each type of report to the kernel. 
-As the benchmark program is containerized, we can deploy the benchmark to Cquark using the YAML file in Figure ~\ref{fig:perf_attestation_report_yaml}.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/perf_attestation_report_result.PNG}
+    \includegraphics[width=0.5\textwidth]{images/perf_attestation_report_result.PNG}
     \caption[Benchmark result of Attestation Report Syscall]{Qkernel Attestation Report Syscall Benchmark Result}
     \label{fig:perf_attestation_report_result}
 \end{figure}
 
-Figure \ref{fig:perf_attestation_report_result} depicts the speed of requesting three types of attestation reports for  applications in the confidential Quark. The data reveal that acquiring a software report requires approximately one-third of the time needed to obtain a simulated hardware report. 
-Specifically, requesting a simulated hardware report takes approximately 838.141us, whereas acquiring the two software reports needs only about 286us. The disparity stems from the dissimilarities in processing software and hardware reports by the qkernel. While the qkernel 
-system call handler generates software reports promptly, the handler needs to transmits hardware report requests through qkernel snp attestation driver to the host AMD SEV emulation module in order to generate a dummy report. This process involves expensive operations like VM exit, 
-encryption and decryption of messages for communication between the snp attestation driver and host AMD SEV emulation modul, reading the on-disk dummy snp report among others. Consequently, acquiring a simulated hardware repors is significantly slower than obtaining a software report.
+Figure~\ref{fig:perf_attestation_report_result}  depicts the result. The data reveal that requesting a simulated hardware report takes approximately 838.141us, whereas acquiring the two software reports needs only about 286us. This difference stems from the fact that generating the hardware report involves expensive operations 
+such as virtual machine exit, loading dummy SNP report from the disk, etc. Consequently, obtaining a simulated hardware report is significantly slower than a software report.
 
 
 \subsection{Micro-benchmark – Qkernel Syscall Interceptor}\label{bench_Interceptor}

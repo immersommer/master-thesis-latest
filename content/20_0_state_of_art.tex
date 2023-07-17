@@ -32,11 +32,12 @@
 %\ldots state of the art \ldots
 
 %\todo{write state}
-This chapter provides an overview of the state of the art. We first present the work related to pVM . Then we discuss the solutions proposed by various research groups for secure orchestration.
+This chapter provides an overview of the state of the art. We first present the work related to pVM. Then we discuss the solutions proposed by various research groups for secure orchestration.
 
 \section{pVM}
 
-Unikernel~\cite*{10.1145/2499368.2451167} uses a single-purpose, statically sealed, minimalist LibOS virtual machine to run individual programs. This single-purpose virtual machine, also known as an appliance, contains only the code and data the application needs. At compile time, the unikernel encapsulates the application 
+Unikernel~\cite*{10.1145/2499368.2451167} uses a single-purpose, statically sealed, minimalist LibOS virtual machine to run individual programs. This single-purpose virtual machine, also known as an appliance, contains only the code and data the application needs. At compile time, the unikernel 
+encapsulates the application 
 binary and the required LibOS modules into an image that can be run directly on a VMM. At runtime, the appliance provides only the application's required services and utilizes the VMM for isolation and resource multiplexing. Compared to traditional virtual machines (based on rich operating systems 
 such as Linux), the LibOS in an appliance is smaller. Thus, it boots faster and has a smaller memory footprint while maintaining the same isolation level. Furthermore, the unikernel's TCB is typically smaller than a container, picoproces, and traditional virtual machine~\cite*{10.1145/3436512}. Also, the appliance 
 employs the VM ABI to communicate with the host. It is much smaller than the system call API and, therefore, easier to protect~\cite*{10.1145/3436512}. However, the lack of support for dynamic code loading, process abstraction, and debug tools limits its flexibility~\cite*{10.1145/3436512, 10.1145/3267809.3267845}.
@@ -55,7 +56,7 @@ and applicability.
 
 IBM Nabla~\cite*{10.1145/3267809.3267845} proposes a novel single-container-per-VM secure container model. It is designed to run Unikernels VMs as processes, increasing flexibility while maintaining performance and security. The architecture of IBM Nabla is shown in Fig. 3. Tender is a VMM responsible for managing Unikernels VMs. 
 Unikernels VMs access Tender using procedure calls instead of hypercalls. Since Tender is running in Seccomp mode, Unikernels VMs cannot force Tender to execute system calls not in the Seccomp whitelist. By default, Tender is allowed only seven system calls. To this end, Tender implements a level 
-of isolation for unikernels virtual machines similar to that provided by hardware virtualization. Besides, Nabla runs the unikernel as a process. Specifically, Tender as a host process dynamically loads the unikernel image into its address space. It then configures the Seccomp filter and starts the 
+of isolation for unikernel virtual machines similar to that provided by hardware virtualization. Besides, Nabla runs the unikernel as a process. Specifically, Tender as a host process dynamically loads the unikernel image into its address space. It then configures the Seccomp filter and starts the 
 unikernel VM by jumping into the unikernel entry point. Once started, the unikernel uses the Tender's registers and stack and accesses the services provided by the Tender through the function call. In summary, unikernel as a process eliminates the need for virtualized hardware, can be debugged and 
 managed using standard process tooling, and improves performance by avoiding hypercalls.
 
@@ -63,7 +64,7 @@ Quark~\cite*{quark} provides a pVM-like architecture. They both support dynamic 
 where the VMM can run multiple appliances, the VMM in Quark only supports running one guest. Furthermore, the guest kernel in Quark is more like a forwarding kernel. It implements a small number of system calls and forwards others to the host. In addition, Quark's guest kernel implements process 
 management and memory management. This allows Quark guests to run multiple processes. More details about Quark can be found in Section~\ref{sec:Quark}.
 
-Other than pVM, some technologies also try to combine the container's speed and the VM's security. These technologies include micro VM and Sandbox containers~~\cite*{future_container}. One example of the micro VM is Kata containers~\cite*{Kata-Containers}, which use highly optimized QEMU and guest Linux kernel to bootstrap a VM for running containers. 
+Other than pVM, some technologies also try to combine the container's speed and the VM's security. These technologies include micro VM and Sandbox containers~~\cite*{future_container}. One example of the micro VM is Kata containers~\cite*{Kata-Containers}, which uses highly optimized QEMU and guest Linux kernel to bootstrap a VM for running containers. 
 A detailed explanation of the Kata container can be found in Section~\ref{sec:Kata}. Additionally, gvisor~\cite*{gvisor} is a sandboxed container runtime. It uses a specialized application kernel as an intermediate layer between applications and the host operating system. The application kernel runs in the userspace and 
 implements the Linux kernel features required to run containers in the sandbox. To this end, a malicious application that leverages the application kernel's vulnerability is limited only to accessing a restricted userspace process.
 
@@ -93,13 +94,13 @@ On the other hand, encrypted filesystems protect block devices and volumes conta
        \label{fig:pama}
 \end{figure}
 
-For secure orchestration, Pama provides the guest with an attested execution policy. It is passed to the guest during initialization and attested by relying party. This policy is defined by the guest owner and describes the operations that the host is allowed to perform when orchestrating 
+For secure orchestration, Pama provides the guest with an attested execution policy. It is passed to the guest during initialization and attested by the relying party. This policy is defined by the guest owner and describes the operations that the host is allowed to perform when orchestrating 
 containers. The guest agent, responsible for communicating with the host, can decide whether to execute commands based on this policy (Figure~\ref{fig:pama_policy}).  
 
 
-In Pama, user's sensitive data is transmitted to the guest in an encrypted manner while its encryption key is uploaded to the key release service. In order to decrypt the data, guest needs to perform remote attestation. The flow of remote attestation and provisioning 
-is shown in Figure~\ref{fig:pama_atte}. Guest first requests an attestation report containing the hash of an RSA-wrapped public key from the AMD PSP. It then sends the report and the public key to the attestation service. After verifying the identity of the guest, the attestation service issues an 
-attestation token for it. With this token, the guest can obtain a key cryptographically protected by the RSA public key from the key release service, then decrypts the user data.
+In Pama, users' sensitive data is transmitted to the guest in an encrypted manner while its encryption key is uploaded to the key release service. In order to decrypt the data, the guest needs to perform remote attestation. The flow of remote attestation and provisioning 
+is shown in Figure~\ref{fig:pama_atte}. Guest first requests an attestation report containing the hash of an RSA-wrapped public key from the AMD PSP. It then sends the report and the public key to the attestation service. After verifying the identity of the guest, 
+the attestation service issues an attestation token for it. With this token, the guest can obtain a key cryptographically protected by the RSA public key from the key release service, then decrypts the user data.
 
  
 \begin{figure}[htp]
@@ -148,22 +149,19 @@ node-to-node attestation, cluster-to-client attestation, and storage encryption~
 \end{figure}
 
 
-Constellation enables the cluster to scale securely according to the user's policy, and the whole cluster can consistently be attested in a transitive way. The workflow is shown in Figure~\ref{fig:constellation_join}. The client verifies the first node in the cluster using remote attestation and TLS. Once verified, 
-the client provides a configuration file to the node to bootstrap k8s and initialize all constellation components. This node then returns a Kubeconfig to the user over the TLS channel. Since the Kubeconfig is only accessible to the cluster owner, the cloud provider or other tenants cannot reach the 
-cluster. Instead of verifying every new node by hand, the constellation provides a service called Join Sevice. It runs on the master node and verifies the new node before it joins the cluster using remote attestation.
+Constellation enables the cluster to scale securely according to the user's policy, and the whole cluster can consistently be attested in a transitive way. The workflow is shown in Figure~\ref{fig:constellation_join}. The client verifies the first node in the cluster using remote attestation and TLS. 
+Once verified, the client provides a configuration file to the node to bootstrap k8s and initialize all constellation components. This node then returns a Kubeconfig to the user over the TLS channel. Since the Kubeconfig is only accessible to the cluster owner, the cloud provider or other tenants 
+cannot reach the cluster. Instead of verifying every new node by hand, the constellation provides a service called Join Sevice. It runs on the master node and verifies the new node before it joins the cluster using remote attestation.
 
 Constellation protects workloads within the cluster from infrastructure-based threats. This includes compromised cloud provider admin exploits, etc. Since all cluster nodes, including the master node running the control plane, are trusted, workloads in the cluster can be safely orchestrated. 
 Furthermore, the secrets are provisioned by the cluster owner and managed by k8s. An attacker cannot steal the cluster-managed secrets because the cluster is fully isolated.
  
  
-Both Pama~\cite*{Johnson2023ParmaCC} and Confidential Container~\cite*{confidential_kata} use a dedicated guest kernel, such as Linux, and therefore have larger TCBs than pVM and process-based TEE solutions, such as Scone~\cite*{10.5555/3026877.3026930}. This means that they inherited a larger attack surface. In addition, the security boundary of Pama and Confidential Container is 
-smaller than that of Scone. The reason is that Scone uses the System Call API as the security boundary. In contrast, the security boundary of the other two is the interface between the guest and the VMM, e.g., Hypercall. Finally, Confidential Container needs to use a modified Containerd~\cite*{containerd}, which 
-places an additional burden on its environment configuration. 
+Both Pama~\cite*{Johnson2023ParmaCC} and Confidential Container~\cite*{confidential_kata} use a dedicated guest kernel, such as Linux, and therefore have larger TCBs than pVM and process-based TEE solutions, such as Scone~\cite*{10.5555/3026877.3026930}. This means that they inherited a larger attack 
+surface. In addition, the security boundary of Pama and Confidential Container is smaller than that of Scone. The reason is that Scone uses the System Call API as the security boundary. In contrast, the security boundary of the other two is the interface between the guest and the VMM, e.g., 
+Hypercall. Finally, Confidential Container needs to use a modified Containerd~\cite*{containerd}, which places an additional burden on its environment configuration. 
 
 
 
 \cleardoublepage
 
-%%% Local Variables:
-%%% TeX-master: "diplom"
-%%% End:
