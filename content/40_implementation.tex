@@ -437,6 +437,7 @@ Like the encrypNormalIOStdouterr function, the function in Listing~\ref{lst:Term
 users from attaching to the application.
 
 \section{System Call Interceptor}
+\label{sec:impl_interceptor}
 The three functions in the Listing~\ref{lst:Interceptor} are responsible for updating the interceptor’s policy at runtime, initializing the interceptor’s policy at enclave startup, and determining whether a system call is allowed. When the interceptor operates in ContextBased mode, 
 the is\_guest\_syscall\_allowed function utilizes the application process id stored in the structure GuestSyscallInterceptor to identify whether a process is the application process. To prevent competition between the three functions accessing the interceptor's policy, the interceptor is 
 protected by RwLock. Additionally, the BackEndSyscallInterceptorConfig maintains a vector that contains the id of allowed system calls (allowlist). The is\_guest\_syscall\_allowed function checks whether a system call's ID is present in this list to determine whether the system call is allowed. 

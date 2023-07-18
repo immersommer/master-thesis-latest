@@ -13,7 +13,7 @@ In previous chapters, we analyzed the security issues of the vanilla quark and p
 qualitative and quantitative perspectives.
 
 \section{Qualitative Analysis}
-In this section, we evaluate the proposed mitigations for the vulnerabilities found in Section III.
+In this section, we evaluate the proposed mitigations for the vulnerabilities summarized in Section~\ref{sec:security_summarize}.
 
 \subsection{Common Setup}
 
@@ -52,14 +52,14 @@ policy to the secret manager. Note that the application is already containerized
     \begin{subfigure}[b]{0.45\linewidth}
       \centering
       \includegraphics[width=0.9\linewidth]{images/file_secrets.PNG} 
-      \caption{File type secrets managed by Secret Manager} 
+      \caption{File type secrets} 
       \label{fig:file_secrets} 
       \vspace{4ex}
     \end{subfigure}%% 
     \begin{subfigure}[b]{0.45\linewidth}
       \centering
       \includegraphics[width=0.9\linewidth]{images/cmd_env_secrets.png} 
-      \caption{Args and Envv based secrets managed by Secret Manager} 
+      \caption{Args and Envv based secrets} 
       \label{fig:cmd_env_secrets} 
       \vspace{4ex}
     \end{subfigure} 
@@ -428,42 +428,36 @@ In this section, we evaluate the performance of our system implementation in ter
 
 \subsection{Overview of Quantitative Analysis}
 \todo{correct grammar error and revise}
-Our benchmarks  consist of micro-benchmarks and macro-benchmarks. The microbenchmarks are performed to  thoroughly understand the latency overhead of each new building block in CQuark, while the macro benchmarks are conducted to compare the speed of 
-real world applications run by confidential vs vanilla Quark. This give us a view of the overhead incurred by confidential Quark for protecting application’s confidentiality.
+
+Our Benchmarking includes micro and macro-benchmarking. Microbenchmarks are performed to understand the latency overhead introduced by individual components in the shield, while macro benchmarks aim to evaluate the performance loss of running real-world applications in confidential Quark. 
+The section is structured around the following subsections.
+
+Section~\ref{Hardware_and_Software_Setup} first describes the hardware and software setup for benchmarking. Section~\ref{Attestation_Report_Syscall} then evaluates the speed of obtaining three types of attestation reports using a microbenchmark. We find that obtaining the simulation hardware report 
+is 50\% slower than getting the other two software reports.
+
+Subsequently, the overhead of the guest system call interceptor is evaluated in Section~\ref{bench_Interceptor}. The results show that the guest system interceptor imposes an overhead of 1.47x and 17x for guest-handled and host-handled system calls, respectively. Unlike vanilla Quark, 
+confidential Quark stores file-type secrets on the guest's memory. Therefore, Section~\ref{bench_reading_file_secret} estimates the speed at which applications can access file-type secrets in vanilla Quark and confidentiality Quark. The results reveal that in confidential Quark, the speed of 
+accessing file-type secrets is improved by a factor of 1.17.
+
+Later, in Section~\ref{bench_issuing_Instructions}, we present latency benchmark results for issuing commands using kubectl in confidential and vanilla Quark. Compared to vanilla Quark, confidential Quark introduces 1.15 times overhead. Also, we compare the speed of sending the same commands in 
+confidential Quark using kubectl and securectl. The results show that securectl executes 1.1 times faster than kubectl, even though the commands sent by securectl require additional cryptographic protection.
+
+Then after estimating the performance of accessing binary-mapped memory regions, we observed that confidential Quark outperforms vanilla Quark in this regard (Section~\ref{accesiing_binary_mapped_memory}). Sequential access in confidential Quark is 1.86 times faster, while random reading and 
+writing of binary-mapped memory regions exhibit approximately 1.08 times faster speed in confidential Quark. These results can be attributed to confidential Quark's measurement of binary files during program startup, which prompts the qkernel to load the files into memory, thus preventing 
+page fault handling during runtime.
+
+Section~\ref{micro_app_start_up} uses the "hello world" program to observe the effect of the number of file type secrets and the size of the measured binary on the application startup time duration. Findings indicate that the attestation and provisioning agent constitutes the bulk of the overhead 
+when the size of the measurement data is less than 100 MB. Furthermore, when the number of file type secrets reaches 128, the overhead associated with the remote attestation and provisioning agent reaches 4500 ms, more than 70\% of the total program startup time.
+
+In Section~\ref{macri_app_start_up}, we performed macro-benchmarks using Nginx~\cite*{nginx} and Redis~\cite*{redis}. Our benchmark explores the performance differences between applications running in confidential and vanilla Quark regarding startup time, exit time, and throughput. Our 
+findings demonstrate that Redis and Nginx require 1.49X and 1.55X startup times in confidential Quark than in vanilla Quark, respectively. In terms of application exit time, Redis and Nginx exhibit almost the same performance when running in confidential and vanilla Quark. Furthermore, we utilize 
+Redis-benchmark~\cite*{Redis_benchmark} and the Apache HTTP server benchmarking tool~\cite*{ab} to measure application throughput. The results indicate that Nginx and Redis running in confidential Quark encounter performance declines of approximately 9% and 20% due to guest system interceptor.
+
+Section~\ref{tcb} analyzes the TCB overhead incurred by our implementation and compares the TCB sizes of Kata containers~\cite*{Kata-Containers} and confidential Quark. The results show that our implementation increases the binary of the quark guest kernel by about 1.47 times. Nevertheless, 
+the TCB of confidential Quark is roughly one-sixteenth of the size of the Kata container.
 
 
-The benchmarking in this section is structured around the following subsections. First, we describe the hardware and software setup for benchmarking in Section \ref{Hardware_and_Software_Setup}. We then evaluate the speed of obtaining three different types of attestation reports (emulated hardware 
-reports, software reports signed by the kbs key or by the application key) using a microbenchmark that executes a certain number of a system call in a loop and records the time required to execute the system call (Section \ref{Attestation_Report_Syscall}). We found that the speed of obtaining the 
-emulated hardware report is 50\% slow than that of obtaining the other two reports due to VM exit. 
-
-Subsequently, in Section \ref{bench_Interceptor}, we evaluate the overhead of the guest system call interceptor using a micro test that executes a certain number of a specific system call in a loop in vanilla and confidential Quark, respectively. The results show that the guest system interceptor imposes an overhead of 1.47x 
-and 17x for system calls that are handled only by the guest and system calls that must be handled by the host, respectively
-
-Unlike vanilla Quark, which stores file-type secrets on the host, cquark stores file-type secrets directly on guest memory. Therefore, in Section \ref{bench_reading_file_secret}, we evaluate the speeds of an application accessing file-type secrets in vanilla and confidential Quark using a similar 
-approach as in Section \ref{Attestation_Report_Syscall}. The results reveal that in confidential Quark, the speed of accessing file-type secrets is improved by a factor of 1.17.
-
-% the authentication and access control for the exec endpointin 
-Later, in Section \ref{bench_issuing_Instructions}, we present latency  benchmark results for sending commands to containers in confidential and vanilla Quark. Compared to the speed of sending commands using kubectl exec\cite*{kubectl} in vanilla quark, confidential Quark's implementation 
-introduces 1.15 times overhead. Furthermore, We compare the speed of sending the same command with kubectl and securectl in confidential Quark. The results show that despite the additional encryption and decryption required by the commands sent by securectl, the commands are 
-executed 1.1 times faster than those sent by kubectl.
-
-Then after conducting an evaluation of the performance of accessing binary-mapped memory regions in cquark, we observed that confidential quark outperforms vanilla quark in this regard (Section \ref{accesiing_binary_mapped_memory}). Sequential access in confidential quark is 1.86 times faster than in 
-vanilla quark, while random reading and writing of binary-mapped memory regions exhibit approximately 1.08 times faster speed in confidential quark. These results can be attributed to confidential quark's measurement of binary files during program startup, which prompts the qkernel to load 
-the files into memory, thus preventing  page fault handling during runtime.
-
-In Section \ref{micro_app_start_up}, we conducted an evaluation of the latency overhead introduced by the our implementation during application deployment using a "hello world" program.  Specifically, the evaluation involved testing the latency overhead of the attestation and provisioning agent, 
-secret injector, software measurement manager, and hardware evidence driver. Throughout the experiments, we adjusted a critical parameter to observe how each component affects the overall application startup time. Findings indicate that the attestation and provisioning agent constitutes 
-the bulk of the overhead when the size of the measurement data is less than 100 MB, while the overhead introduced by the secret injector and hardware evidence driver is negligible in any case. 
 % Further details, including the benchmark configuration and results can be found on page XX.
-
-In Section \ref{macri_app_start_up}, we conclude the performance benchmarking exercise by conducting macro benchmarking using Nginx \cite*{nginx} and Redis \cite*{redis} as workloads. Our benchmarks focus on exploring the performance differences between applications running in confidential and vanilla Quark 
-in terms of startup time, exit time, and the application throughput. Our findings reveal that in confidential Quark, Redis \cite*{redis} and Nginx \cite*{nginx} require 1.49X and 1.55X startup times than in vanilla quark, respectively. The difference of startup time between Nginx and Redis in 
-confidential Quark primarily arises from the contrast in data size measured during application startup, i.e., 67.15 Mib in Nginx and 16.258 MiB in Redis. In terms of application exit time, Redis and Nginx exhibit nearly identical performance when running on confidential  and vanilla quark. 
-Furthermore, we utilized Redis-benchmark \cite*{Redis_benchmark} and Apache HTTP server benchmarking tool \cite*{ab} as load generators to gauge the application's throughput. Our experiment results indicate that Nginx and Redis running in cquark encounter performance declines of approximately 
-9\% and 20\%,respectively, due to guest system interceptor.
-
-In Section \ref{tcb}, we evaluated the TCB overhead incurred by our implementation and compared the TCB size of the Confidential Container \cite*{confidential_kata} with that of the confidential Quark. Our findings reveal that our implementation increases the quark guest kernel binariy by approximately 1.47 times. Nevertheless, 
-the TCB of confidential Quark is only roughly one-sixteenth of the size of the  Confidential Container \cite*{confidential_kata}.
 
 \subsection{Hardware and Software Setup}\label{Hardware_and_Software_Setup}
 
@@ -481,7 +475,7 @@ benchmarking framework~\cite*{benchamark_framework} can analyze the results by p
 
 Confidential Quark enables applications to obtain three types of attestation reports via a system call. The type of the report includes simulated AMD SEV SNP report, software reports signed by KBS key, or software reports signed by the application. This section assesses the speed with which the 
 application acquires various reports. For this purpose, we prepared a Rust microbenchmark\cite*{benchamark_Attestation_Report_Syscall}. In order to ensure stable results, the test program submitted 10,000 requests for each type of report to the Qkernel. The benchmark program is containerized, 
-and the YAML file for the deployment can be found in the commit~\cite*{perf_attestation_report}.
+and the YAML file for the deployment can be found in the repository~\cite*{perf_test_repo}.
 
 \begin{figure}[!htb]
     \centering
@@ -496,172 +490,154 @@ such as virtual machine exit, loading dummy SNP report from the disk, etc. Conse
 
 \subsection{Micro-benchmark – Qkernel Syscall Interceptor}\label{bench_Interceptor}
 
-Interception guest system calls introduces latency overhead to applications running in the confidential Quark.  To investigate this overhead, we employ a micro benchmark program written in Rust\cite*{benchamark_systemcall_intercetion}.  The benchmark measures the average and variance execution 
-time of chosen system calls. Furthermore, to obtain stable results., each system call is executed in a loop of 100,000 times. As the benchmark program is containerized, we can deploy the program to Cquark and upstream Quark using the YAML file in Figure \ref{fig:syscall_interceptor_yaml}.
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/perf_system_call_interceptor_yaml.PNG}
-    \caption[Qkernel Syscall Interceptor Benchmark Deployment]{Qkernel Syscall Interceptor Benchmark Deployment}
-    \label{fig:syscall_interceptor_yaml}
-\end{figure}
+We prepare a micro-benchmark to investigate the latency overhead introduced by intercepting guest system calls~\cite*{benchamark_systemcall_intercetion}. The benchmark executes a selected system call 100,000 times and outputs the average and variance time. The YAML file for deploying this benchmark is 
+in repository~\cite*{perf_test_repo}. The benchmark test four system calls: getpid, getppid, read, and write. Since Qkernel already implements process and thread objects, calling getpid or getppid using syscall instruction prompts Qkernel to directly return the corresponding pid/ppid without interference from the host. This provides us with a clear 
+understanding of the overhead introduced by the interceptor. Additionally, we measured the execution time of read() and write() system calls for confidential and vanilla Quark to evaluate the overhead that the interceptor brought to the host-handled system calls.
 
-
-For this benchmark, we select four system calls: getpid, getppid, read, and write. Since qkernel already implements process and thread objects, calling getpid or getppid using syscall instruction prompts qkernel to directly return the corresponding pid/ppid without interference from the host. 
-This provides us with a clear understanding of the overhead introduced by the interceptor. Additionally, we measured the execution time of read and write system calls for confidential and vanilla Quark to evaluate the overhead that the interceptor brought to the host-handled system calls
-\begin{figure}[H]
+\begin{figure}[!htb]
     \centering
-    \includegraphics[width=0.8\textwidth]{images/ben_results_syscall_interceptor.PNG}
-    \caption[Benchmark result of Syscall Interceptor]{Latency comparison of executing syctem calls in Cquark vs upstream Qaurk. The latency is thereby measured using the guest system call clock\_gettime(monotonic). 
-        Each system call is executed 1,000,000 times in a tight loop. Read and write buffer size is 100 bytes}
+    \includegraphics[width=0.5\textwidth]{images/ben_results_syscall_interceptor.PNG}
+    \caption[Benchmark result of Syscall Interceptor]{Latency comparison of executing system calls in confidential VS vanilla Quark. The latency is thereby measured using the guest system call clock\_gettime(monotonic). 
+        Each system call is executed 100,000  times in a tight loop. Read and write buffer size is 100 bytes}
     \label{fig:ben_results_syscall_interceptor}
 \end{figure}
 
-
-Figure ~\ref{fig:ben_results_syscall_interceptor} illustrates the mean and variance of execution times for the selected system calls in the both environments. We observed that vanilla Quark takes only around 270 ns to execute a single getpid and getppid call while confidential Quark
-takes approximately 4716 ns. This implies that the guest system call interceptor causes a delay of about 4500 ns per system call. Moreover, a comparable latency overhead is introduced for read and write system calls, i.e.,4500 ns.  However, since read and write system calls are processed on 
-the host side and take longer, their processing time in confidential Quark does not rise as significantly as that of getpid and getppid. To summarize, in confidential Quark, host handled system calls  (i.e., write and read) and guest handled-only (e.g., getpid and getppid) are 1.47x and 
-17x slower, respectively, compared to vanilla Quark
-
-
-The overhead incurred by the system call interceptor arises from two primary sources. Firstly, the whitelist of the guest system call interceptor is kept in a vector. Accessing the whitelist for system call authorization check is an operation with the complexity of O(N). 
-Secondly, to avert any contentions resulting from run-time updates and reads to the system call interceptor's metadata, this metadata is safeguarded with a lock. Consequently, a lock/unlock operation is initiated for every system call permission check.
-
-
+The test results in Figure~\ref{fig:ben_results_syscall_interceptor} reveal that vanilla Quark takes only around 270 ns to execute a single getpid and getppid call, while confidential Quark takes approximately 4716 ns. This indicates that the guest system call interceptor causes a delay of about 4500 ns per system call. Moreover, a 
+comparable latency overhead is introduced for read and write system calls, i.e.,4500 ns. However, read and write system calls are processed on the host side and take longer. Thus their processing time in confidential Quark rises less significantly than that of getpid and getppid. To summarize, in 
+confidential Quark, host-handled system calls (i.e., write and read) and guest-handled-only (e.g., getpid and getppid) are 1.47x and 17x slower, respectively, compared to vanilla Quark。 The interested reader is referred to Section~\ref*{sec:impl_interceptor} for information on the system call 
+interceptor overhead sources.
 
 \subsection{Micro-benchmark – Speed of Reading file base secret}\label{bench_reading_file_secret}
 
-Compared to vanilla Quark which stores file type secrets on the host, confidential Quark instead stores them on guest memory to prevent unauthorized access and avoid potential VM exits during read and write operations. Hence, the purpose of this benchmark is to evaluate the performance 
-enhancement achieved from accessing file type secrets in confidential Quark. The benchmark\cite*{benchamark_filebase_secret} measures the total time taken to perform one open() and read() operation on a target secret type file in both environments. The file size is 1302 bytes. To ensure stable results, 10,000 open and 
-read operations are performed. As the benchmark program is containerized, we deploy it to both confidential and vanilla Quark using the YAML file outlined in Figure ~\ref{fig:file_type_secret_access_test_deploy_yaml_baseline} and ~\ref{fig:file_type_secret_access_test_deploy_yaml_cquark}.
+Compared to vanilla Quark, confidential Quark stores file-type secrets on guest memory. Hence, this benchmark~\cite*{benchamark_filebase_secret}  aims to evaluate the performance enhancement achieved from accessing file type secrets in confidential Quark. 
+The benchmark measures the total time to perform one open() and read() operation on a file type secret in confidential and vanilla Quark. The file size is 1302 bytes. The test performs 10,000 open and read operations, and the read buffer size is 100 bytes. The YAML file used to deploy this test 
+is in repository~\cite*{perf_test_repo}.
+
+\begin{figure}[!htb]
+    \centering
+    \includegraphics[width=0.5\textwidth]{images/reading_speed_of_file_type_secrets_in_Baseline_and_Cquark.PNG}
+    \caption[Speed test for accessing file type secrets in Confidential Quark and Normal Quark]{Speed test for accessing file type secrets in Confidential Quark and Normal Quark.}
+    \label{fig:reading_speed_of_file_type_secrets_in_Baseline_and_Cquark}
+\end{figure}
+
+The results shown in Figure~\ref{fig:reading_speed_of_file_type_secrets_in_Baseline_and_Cquark} reveal that confidential Quark's performance in accessing file-type secrets is competitive with vanilla Quark. Surprisingly, the speed in 
+confidential Quark is only 1.17 times better. The likely reason for this is that the overhead of the guest system call interceptor in confidential Quark partially offsets the overhead incurred by the VM exit in vanilla Quark.
+
+\subsection{Micro-benchmark – Latency Test for issuing Instructions to Application}\label{bench_issuing_Instructions}
+
+This section presents the results of tests conducted to assess the latency of issuing instructions to applications in confidential Quark. The tests involved comparing the latency of sending commands using kubectl in confidential and vanilla Quark and the speed comparison test for issuing 
+unprivileged and privileged commands in confidential Quark using kubectl and securectl, respectively. As such, the test framework is extended to issue specific instructions to an application using either kubectl or securectl while recording command execution time~\cite*{benchamark_perf_kubectl}. 
+Besides, each command is issued 1,000 times to ensure dependable results. Due to time constraints, we chose four commonly used commands for the following testing: pwd, ls, cat, and cp.
+
+
+
+\begin{figure}[!htb] 
+    \begin{subfigure}[b]{0.5\linewidth}
+      \centering
+      \includegraphics[width=1\textwidth]{images/speed_of_issuing_cmd_in_cquark_upstream_quark.PNG} % first figure itself
+      \caption{Issueing commands}
+      \label{fig:speed_of_issuing_cmd_in_cquark_upstream_quark}
+      \vspace{4ex}
+    \end{subfigure}%% 
+    \begin{subfigure}[b]{0.5\linewidth}
+      \centering
+      \includegraphics[width=1\textwidth]{images/timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl.png} % second figure itself
+        \caption{Percentage of time that Qkernel and others take to execute a command}
+        \label{fig:timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl}
+      \vspace{4ex}
+    \end{subfigure} 
+    \caption{Latency comparison of issuing instruction in confidential vs vanilla Quark}
+    \label{fig8} 
+\end{figure}
+
+
+The results in Figure~\ref{fig:speed_of_issuing_cmd_in_cquark_upstream_quark} illustrate issuing instructions using Kubectl in confidential Quark is more expensive than in vanilla Quark. Figure~\ref{fig:timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl} exhibits that the additional overhead in confidential Quark comes from the Qkernel since it needs to authenticate and access control for each 
+command and measures the command binary. Besides, the guest system interceptor also places an extra burden on Qkernel to execute commands.
+
+
+
+\begin{figure}[!htb] 
+    \begin{subfigure}[b]{0.5\linewidth}
+      \centering
+      \centering
+      \includegraphics[width=1\textwidth]{images/speed_of_issuing_cmd_in_cquark_kubctl_securectl.png} % first figure itself
+      \caption{Issueing commands}
+      \label{fig:speed_of_issuing_cmd_in_cquark_kubctl_securectl}
+      \vspace{4ex}
+    \end{subfigure}%% 
+    \begin{subfigure}[b]{0.5\linewidth}
+      \centering
+      \includegraphics[width=1\textwidth]{images/timeshare_issuing_cmd_in_cquark_kubectl_securectl.png} % second figure itself
+      \caption{Percentage of time that Qkernel and others take to execute a command}
+      \label{fig:timeshare_issuing_cmd_in_cquark_kubectl_securectl}
+      \vspace{4ex}
+    \end{subfigure} 
+    \caption{Latency comparison of issuing privileged vs. unprivileged instruction in confidential Quark}
+    \label{fig9} 
+\end{figure}
+
+
+
+Figure~\ref{fig:speed_of_issuing_cmd_in_cquark_kubctl_securectl} compares the time required to issue privileged and unprivileged commands using Securectl and Kubectl in confidential Quark. The results show that issuing privileged commands is much faster than issuing unprivileged commands. 
+This finding is counterintuitive since privileged instructions require additional cryptographic protection, which implies executing additional code. To investigate this further, we measured the percentage of time that Qkernel and other components take to execute a command. The other components 
+refer to the tools for issuing instructions, i.e., kubectl or securectl, the Kubernetes components used to transfer commands. The results in Figure~\ref{fig:timeshare_issuing_cmd_in_cquark_kubectl_securectl} show that Qkernel takes roughly one millisecond longer to execute privileged commands than it does to execute unprivileged commands. However, non-privileged level commands spend significantly more 
+time in the other components than privileged commands (dashed-filled boxes). The only difference between the other components for the privileged and unprivileged commands is the tool used to issue the instructions. This means that securectl is more lightweight than 
+kubectl and thus offsets the cryptographic protection overhead of privileged commands.
+
+
+
+
+
 
 
 % \begin{figure}[H]
 %     \centering
-%     \subfloat[\centering Deployment File for upstream Quark]{{\includegraphics[width=5cm]{images/file_type_secret_access_test_deploy_yaml_baseline.PNG} }}
-%     \qquad
-%     \subfloat[\centering Deployment File for confidential Quark]{{\includegraphics[width=5cm]{images/file_type_secret_access_test_deploy_yaml_cquark.PNG} }}
-%     \caption{Benchmark Deployment for testing Speed of Reading file type Secrets }
-%     \label{fig:file_type_secret_access_test_deploy_yaml_baseline}
+%     \includegraphics[width=0.8\textwidth]{images/speed_of_issuing_cmd_in_cquark_upstream_quark.PNG}
+%     \caption[Benchmark result - Latency Comparison of sending Commands to Application in Cquark vs vanilla Quark]{A latency comparison test of sending commands to applications in cquark vs vanilla quark.  The test selects four 
+%     commonly used Linux commands as samples, each being executed one thousand times. The results indicate that utilizing Kubectl exec to issue instructions to applications in cquark takes over 9\% longer than in vanilla quark.
+%     }
+%     \label{fig:speed_of_issuing_cmd_in_cquark_upstream_quark}
 % \end{figure}
-% \end{document}
-
-\begin{figure}
-    \centering
-    \begin{minipage}{0.45\textwidth}
-        \centering
-        \includegraphics[width=0.9\textwidth]{images/file_type_secret_access_test_deploy_yaml_baseline.PNG} % first figure itself
-        \caption{Benchmark Deployment for testing Speed of accessing file type Secrets in upstream Quark}
-        \label{fig:file_type_secret_access_test_deploy_yaml_baseline}
-    \end{minipage}\hfill
-    \begin{minipage}{0.45\textwidth}
-        \centering
-        \includegraphics[width=0.9\textwidth]{images/file_type_secret_access_test_deploy_yaml_cquark.PNG} % second figure itself
-        \caption{Benchmark Deployment for testing Speed of accessing file type Secrets in confidential Quark}
-        \label{fig:file_type_secret_access_test_deploy_yaml_cquark}
-    \end{minipage}
-\end{figure}
-\todo{update Benchmark Deployment for testing Speed of accessing file type Secrets in upstream Quark, change it to 100000}
 
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/reading_speed_of_file_type_secrets_in_Baseline_and_Cquark.PNG}
-    \caption[Benchmark result of testing Speed of accessing file type Secrets in confidential Quark vs upstream quark]{The figure shows result of testing speed of accessing file type secrets in confidential vs vanilla Quark. 
-    The evaluations is performed using the open() and read() system calls, and ten thousand (10,000) operations are conducted with a 50-byte read buffer size.
-    }
-    \label{fig:reading_speed_of_file_type_secrets_in_Baseline_and_Cquark}
-\end{figure}
 
 
-The obtained results are presented in Figure ~\ref{fig:reading_speed_of_file_type_secrets_in_Baseline_and_Cquark}, revealing that the performance  in confidential Quark is competitive with vanilla Quark for accessing file-type secrets. Surprisingly, there is no significant difference in speed
-between the two, with confidential Quark providing only 1.17 times the performance improvement when accessing the target secret file.  The reason is that the larger performance loss resulting from system call execution due to the client system call interceptor in confidential Quark outweighs the overhead produced by VM exits in vanilla Quark.
-
-
-\subsection{Micro-benchmark – Latency Test for issuing Instructions to Application}\label{bench_issuing_Instructions}
-
-This section presents the results of tests conducted to assess the latency of issuing instructions to applications in confidential Quark. The tests involved comparing the latency of sending commands using kubectl between confidential and vanilla Quark, as well as the speed comparison test for issuing unprivileged 
-and privileged commands in confidential Quark using kubectl and securectl respectively.
-
-
-To facilitate the tests, we extended our test framework to enable it to issue specific instructions to the application using either kubectl or securectl, while recording command execution time\cite*{benchamark_perf_kubectl}. Similar to previous benchmarks, each instruction was iterated 1,000 times 
-to ensure dependable results. Due to time constraints, we were unable to measure all available commands on the Linux system, so we chose four commonly used commands for the following testing: pwd, ls, cat, and cp.
-
-% \begin{figure}
+% \begin{figure}[H]
 %     \centering
-%     \begin{minipage}{0.45\textwidth}
-%         \centering
-%         \includegraphics[width=0.9\textwidth]{images/speed_of_issuing_cmd_in_cquark_upstream_quark.PNG} % first figure itself
-%         \caption{Benchmark Deployment for testing Speed of accessing file type Secrets in upstream Quark}
-%         \label{fig:speed_of_issuing_cmd_in_cquark_upstream_quark}
-%     \end{minipage}\hfill
-%     \begin{minipage}{0.45\textwidth}
-%         \centering
-%         \includegraphics[width=0.9\textwidth]{images/timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl.PNG} % second figure itself
-%         \caption{Benchmark Deployment for testing Speed of accessing file type Secrets in confidential Quark}
-%         \label{fig:timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl}
-%     \end{minipage}
+%     \includegraphics[width=0.8\textwidth]{images/timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl.PNG}
+%     \caption[Benchmark result - The processing time for each component during the instruction execution lifecycle in confidential vs in vanilla Quark]{Benchmark result of evaluating the percentage of time spent by each component in processing instructions during the instruction execution lifecycle 
+%     in confidential vs in vanilla Quark . Here the components refer to kubectl,  Kubernetes components for instructions transmission, like containerd, etc., and Qkernel for instruction execution. 
+%     Each bar in the figure represents the total execution time of an instruction whereby the color-filled section represents the time qkernel used for instruction execution, while the dashed-filled segment implies the time other components took for instruction issuing, transmission, and result handling.
+%     }
+%     \label{fig:timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl}
 % \end{figure}
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/speed_of_issuing_cmd_in_cquark_upstream_quark.PNG}
-    \caption[Benchmark result - Latency Comparison of sending Commands to Application in Cquark vs vanilla Quark]{A latency comparison test of sending commands to applications in cquark vs vanilla quark.  The test selects four 
-    commonly used Linux commands as samples, each being executed one thousand times. The results indicate that utilizing Kubectl exec to issue instructions to applications in cquark takes over 9\% longer than in vanilla quark.
-    }
-    \label{fig:speed_of_issuing_cmd_in_cquark_upstream_quark}
-\end{figure}
 
 
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.8\textwidth]{images/speed_of_issuing_cmd_in_cquark_kubctl_securectl.PNG}
+%     \caption[Benchmark result - Latency Comparison of issuing privileged instruction vs unprivileged instruction in confidential Quark]{A latency comparison test of issuing privileged instruction vs unprivileged instruction in confidential Quark.  The test included four frequently used Linux 
+%     commands as samples, each being executed one thousand times.The results indicate that issuing privileged instructions is faster than issuing unprivileged instruction.
+%     }
+%     \label{fig:speed_of_issuing_cmd_in_cquark_kubctl_securectl}
+% \end{figure}
 
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl.PNG}
-    \caption[Benchmark result - The processing time for each component during the instruction execution lifecycle in confidential vs in vanilla Quark]{Benchmark result of evaluating the percentage of time spent by each component in processing instructions during the instruction execution lifecycle 
-    in confidential vs in vanilla Quark . Here the components refer to kubectl,  Kubernetes components for instructions transmission, like containerd, etc., and Qkernel for instruction execution. 
-    Each bar in the figure represents the total execution time of an instruction whereby the color-filled section represents the time qkernel used for instruction execution, while the dashed-filled segment implies the time other components took for instruction issuing, transmission, and result handling.
-    }
-    \label{fig:timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl}
-\end{figure}
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.8\textwidth]{images/timeshare_issuing_cmd_in_cquark_kubectl_securectl.PNG}
+%     \caption[Benchmark result - The processing time for components during the privileged vs unprivileged instruction execution lifecycle]{Benchmark result evaluating the percentage of time spent by each component in processing instructions during the privileged versus unprivileged instruction 
+%     execution lifecycle . Here the components refer to the tool the user employed to issue instructions, i.e., kubectl or securecli,  Kubernetes components for instructions transmission, like containerd, etc., and Qkernel for instruction execution.  Each bar in the 
+%     figure represents the total execution time of an instruction whereby the color-filled section represents the time qkernel used for instruction execution, while the dashed-filled segment implies the time other components took for instruction issuing, transmission, and result handling.
+%     }
+%     \label{fig:timeshare_issuing_cmd_in_cquark_kubectl_securectl}
+% \end{figure}
 
 
-This section analyses the results illustrated in Figures ~\ref{fig:speed_of_issuing_cmd_in_cquark_upstream_quark} and ~\ref{fig:timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl}. Our finding show that confidential Quark introduces approximately 9\% overhead to the instruction 
-execution compared to vanilla quark. This overhead stems from several factors. Firstly, unlike upstream quarks, the Qkernel in Cquark performs authentication and access control for each instruction. Besides, the measurement of the instruction's corresponding binary and guest system call 
-interception increases the instruction execution time.  This argument is confirmed in Figure 5.1b, where the average time for Qkernel to execute instructions in vanilla quark is between 1 and 2 ms, while in Cquark, instructions execution in Qkernel takes more than 10 ms. Thus, issuing 
-instructions using Kubectl in confidential Quark proves to be more expensive than in vanilla quark.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/speed_of_issuing_cmd_in_cquark_kubctl_securectl.PNG}
-    \caption[Benchmark result - Latency Comparison of issuing privileged instruction vs unprivileged instruction in confidential Quark]{A latency comparison test of issuing privileged instruction vs unprivileged instruction in confidential Quark.  The test included four frequently used Linux 
-    commands as samples, each being executed one thousand times.The results indicate that issuing privileged instructions is faster than issuing unprivileged instruction.
-    }
-    \label{fig:speed_of_issuing_cmd_in_cquark_kubctl_securectl}
-\end{figure}
-
-
-Out of curiosity, we compared the time required to issue privileged and unprivileged instructions in confidential Quark to the application using Securectl and Kubectl, respectively. The results in Figure ~\ref{fig:speed_of_issuing_cmd_in_cquark_kubctl_securectl} reveal that issuing privileged 
-instructions is much faster than issuing unprivileged commands. This finding is counterintuitive since privileged instructions require additional cryptographic protection to ensure the confidentiality and integrity of their contents, which implies executing additional code.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/timeshare_issuing_cmd_in_cquark_kubectl_securectl.PNG}
-    \caption[Benchmark result - The processing time for components during the privileged vs unprivileged instruction execution lifecycle]{Benchmark result evaluating the percentage of time spent by each component in processing instructions during the privileged versus unprivileged instruction 
-    execution lifecycle . Here the components refer to the tool the user employed to issue instructions, i.e., kubectl or securecli,  Kubernetes components for instructions transmission, like containerd, etc., and Qkernel for instruction execution.  Each bar in the 
-    figure represents the total execution time of an instruction whereby the color-filled section represents the time qkernel used for instruction execution, while the dashed-filled segment implies the time other components took for instruction issuing, transmission, and result handling.
-    }
-    \label{fig:timeshare_issuing_cmd_in_cquark_kubectl_securectl}
-\end{figure}
-
-To investigate the issue further, we conducted  measurements of processing time for each component during the privileged vs unprivileged instruction execution lifecycle. Here the components refer to the tool the user employed 
-to issue instructions, i.e., kubectl or securecli,  Kubernetes components for instructions transmission, like containerd, etc., and Qkernel for instruction execution.
-Figure ~\ref{fig:timeshare_issuing_cmd_in_cquark_kubectl_securectl} presents the results obtained. The time incurred by qkernel for executing unprivileged and privileged instructions (color-filled boxes) distinctly shows that the latter takes approximately 0.5 milliseconds more than the former does. 
-These latency overheads derive from the decryption and integrity checks that kernel performs for each privileged instruction, as well as the cryptographic protection for the instruction result. However, comparing the time taken by kubectl and securectl to process user requests 
-(dashed filled boxes), securectl is significantly faster. Thus, this offsets the cryptographic protection overhead for privileged instructions.
 
 \subsection{Micro-benchmark – Latency Test for accessing binary-mapped memory region}\label{accesiing_binary_mapped_memory}
 
-This section presents the results of a microbenchmark that assesses the speed of accessing binary mapped memory regions during runtime under vanilla and confidential Quark.
 % //%or \small or \footnotesize etc.
 % \begin{lstlisting}[language=C,frame=single,caption=Program for testing speed of accessing binary-mapped memory region Variant,label=code3,basicstyle=\tiny]
 %     #define ARRAY_LEN (unsigned long)(1024*1024*100)    
@@ -704,12 +680,18 @@ This section presents the results of a microbenchmark that assesses the speed of
  
 % \end{lstlisting}
 
-The benchmark utilizes a program\cite*{benchamark_micro} containing a global initialized array located in the binary data segment and a for loop. Within the for loop, the program can access the array by means of four access mode: random read, random write, sequential read, and sequential write. 
-We conduct the test in three binary data segment mapped memory sizes, i.e. 5MB, 10MB and 100MB. For each case, the test framework carries out 30 executions of the program in vanilla and confidential Quark in each access mode and calculates the average cost of accessing the array. Note that the size of the binary data 
-segment mapped memory region is controlled by the size of the array.
+This section evaluates the speed of accessing binary-mapped memory regions at runtime. The benchmark utilizes a program~\cite*{benchamark_micro} containing a global initialized array and a for loop. The program can access the array within the for loop using four access modes: random read, random write, 
+sequential read, and sequential write. We conduct the test in three binary data segment mapped memory sizes, i.e., 5MB, 10MB, and 100MB. For each case, the framework executes the program 30 times and calculates the average cost of accessing the array. Note that the size of the binary data segment 
+mapped memory region is controlled by the size of the array. 
 
 
-\begin{figure}[ht] 
+
+
+
+
+
+
+\begin{figure}[!htb] 
     \begin{subfigure}[b]{0.5\linewidth}
       \centering
       \includegraphics[width=0.9\linewidth]{images/Sequential_Read.PNG} 
@@ -742,41 +724,15 @@ segment mapped memory region is controlled by the size of the array.
 
 
 
-These results shown in Figure ~\ref{fig7:a} and ~\ref{fig7:b} reveal that confidential Quark improves the performance of sequentially reading and writing binary-mapped memory regions. Specifically, Sequential accessing in confidential Quark is 1.86 times faster than in vanilla quark. This performance 
-improvement is due to the fact that measuring binary loaded from host during the program startup prompted qkernel to load the program's binaries from disk into the guest memory. Consequently, the program can access these memory areas at runtime without necessitating page fault handling. 
-For the same reason, random reading and writing of binary-mapped memory regions exhibit around 1.08 times faster speed in confidential Quark than in vanilla Quark (Figure ~\ref{fig7:c} and Figure ~\ref{fig7:d}).
-
+The results shown in Figures~\ref{fig7:a} and~\ref{fig7:b} indicate that the sequential access in the confidential Quark is 1.86 times faster than in the vanilla Quark. The reason is that confidential Quark preloads the binary into the guest memory before the program launches, thus avoiding page fault handling at 
+runtime. For the same reason, random reads and writes in confidential Quark are 1.08 times faster than in vanilla Quark (Figure ~\ref{fig7:c} and Figure ~\ref{fig7:d}).
 
 
 \subsection{Micro-benchmark – Latency Test for Application Startup}\label{micro_app_start_up}
-The introduction of remote attestation, secret provisioning, and data measurement loaded from the host in confidential Quark results in additional latency overhead for application startup. To examine this overhead, we extended the testing framework to iteratively initiate and terminate the 
-application, measuring the start time, exit time, and latency overhead incurred by the remote attestation and provisioning agent, secret injector, hardware evidence driver, and software measurement manager\cite*{benchamark_framework}.
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/micro_benchmark_app_life_cycle_bencmark_pattern.png}
-    \caption[Benchmark Pattern - Latency Test for Application Startup]{Benchmark Pattern - Latency Test for Application Startup}
-    \label{fig:micro_benchmark_app_life_cycle_bencmark_pattern}
-\end{figure}
-
-
-Regarding the benchmark methodology. A statically linked hello-world program in Listing ~\ref{code1} is used. To reduce the interference of environmental noise，the test framework runs the application 100 times. In addition, since the remote attestation and provisioning agent, the secret injector, 
-the hardware evidence driver, and the software measurement manager shown in Figure  ~\ref{fig:micro_benchmark_app_life_cycle_bencmark_pattern}  (colored boxes) are located in the guest kernel, the test framework cannot directly measure the time spent by these components. Therefore, we use guest clock\_gettime(monotonic)\cite*{clock_gettime} to 
-record the time and print the latency overhead of each component to the host using the qkernel logging system. The same approach applies to record the size of data measured by the software measurement manager. 
-
-\begin{lstlisting}[language=C,frame=single,caption=Hello World Program,label=code1]
-int main() {
-    printf("Hello, World!\n");
-    return 0;
-}
-\end{lstlisting}
-
-
-As expounded in Chapter 4, two factors may impact the application startup time in confidential Quark: the number of file type secrets and the size of the data measured by the software measurement manager. Hence, this section conducts following three tests. First, we establish a baseline by setting the 
-number of file-type secrets to zero and running the hello world program. The test framework measures the program startup time, and records the latency overhead from the remote attestation and provisioning agent, the secret injector, the hardware evidence driver, and the software measurement manager。  
-In Experiment 2, we increase the number of file type secrets in order to observe the change in program startup time, as well as the latency overhead from the remote attestation and provisioning agent and the secret injector. In Experiment 3, we examine the growth in the latency overhead of the software 
-measurement manager during program startup as the amount of measured data increased. To conduct the test, we utilize a variant of the hello-world program as shown in Listing ~\ref{code2}, incorporating a global initialization array to regulate the data segment size in the binary and thus modify the size 
-of software manager measured data during program startup.
+This section evaluates the latency overhead that the shield imposes on application startup. As described in Chapter~\ref{sec:implementation}, two factors may affect the application startup time: the number of file type secrets and the data size measured by the Software Measurement Manager. Therefore, 
+the following three tests are performed in this section. First, we establish a baseline by setting the number of file type secrets to zero and running the hello world program. In this case, the enclave only obtains the enclave policy from the secret manager. In Experiment 2, we increase the number of 
+file type secrets to observe the change in program startup time. Experiment 3 examines how increasing the binary size affects the program startup time.
 
 \begin{lstlisting}[language=C,frame=single,caption=Hello World Program Variant,label=code2]
 #define ARRAY_LEN (unsigned long)(1024*1024*100)    
@@ -787,262 +743,231 @@ int main() {
 }
 \end{lstlisting}
 
+    
+We extend the test framework~\cite*{benchamark_framework} to start and terminate the application iteratively. It measures the mean and variance of the program startup time and evaluates the overhead imposed by the components in the shield. These components include the remote attestation and 
+provisioning agent,  secret injector,  hardware evidence driver, and software measurement manager. Additionally, we use the statically connected hello world program from Listing~\ref{code2} as the test workload, which contains a global initialization array to regulate the binary data segment size. 
+The framework will run the application 100 times. For the methodology for measuring the overhead introduced by the shield component, we refer the user to Section~\ref{Hardware_and_Software_Setup}.
 
-\subsubsection{Creating a Baseline}
-
-This benchmark measures the hello world program's startup time, and the latency overhead caused by remote attestation and provisioning agent, the secret injector, the hardware evidence driver, and the software measurement manager. Note that here the number of file type secrets is 0.
-
-\begin{figure}[H]
+\begin{figure}[!htb]
     \centering
-    \includegraphics[width=0.8\textwidth]{images/application_start_microtest_baseline_time_overhead_each_cmp.PNG}
-    \caption[Benchmark results: Latency Overhead introduce by new Componnents in Cquark]{Benchmark results: Latency Overhead introduce by new Componnents in Cquark}
+    \includegraphics[width=0.7\textwidth]{images/application_start_microtest_baseline_time_overhead_each_cmp.PNG}
+    \caption[Baseline: latency overhead introduced by shielding layer]{Baseline: latency overhead introduced by shielding layer}
     \label{fig:application_start_microtest_baseline_time_overhead_each_cmp}
 \end{figure}
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/application_start_microtest_baseline_time_distribution.PNG}
-    \caption[Time  Distribution of the application startup ]{Distribution of the time consumed by different components in the application startup}
-    \label{fig:application_start_microtest_baseline_time_distribution}
-\end{figure}
 
-
-
-The benchmark results in figure ~\ref{fig:application_start_microtest_baseline_time_overhead_each_cmp} and ~\ref{fig:application_start_microtest_baseline_time_distribution} shows that the remote attestation and provisioning agent, the secret injector, the hardware evidence driver, 
-and the software measurement manager doubled the program startup time. Notably, the remote attestation and provisioning agent contributed the most to the latency overhead, which is expected, given its necessity to establish the TLS connection with the relying party, complete the remote 
-attestation process, and fetch the enclave policy following the KBS attestation protocol. With regards to the secret injector, the hardware evidence object driver, which is primarily responsible for loading secrets into the application process and generating a simulated hardware report accordingly,  
-exhibited a delay overhead of 0.90 milliseconds and 1.73 milliseconds, respectively. However, this delay is negligible compared to the overhead caused by the remote attestation and provisioning agent (~837 milliseconds).  Furthermore, based on the data presented in 
-Table ~\ref{table: Measurement_For_Hello_world}, the software measurement manager is found to measure approximately 1.47 MiB of data during program startup, leading to an overhead of only about 10 milliseconds.
-
-
-\begin{table}[htbp]
+\begin{table}[!htb]
     \centering
     \footnotesize
     \caption{Software measurement manager measured data during application startup\strut}
     \begin{tabularx}{1\textwidth}{@{} l L L L L L L@{}}
     \toprule
-        Matrics    & ELF &  Shared Library   & Process Spec    & Guest Kernel Args  & Total Measurement\\
+        Matrics    & ELF &  Shared Lib   & Qkernel Config File    & Public Key of Secret Manager  & Total\\
     \midrule
 
-        \vn{Measurement}     &  1.447 MiB    &   0 MiB  &   304 Byte      &25004 Byte  & 1.47`' MiB\\
+        \vn{Measurement}     &  1.447 MiB    &   0 MiB  &   534 Byte      &2017 Byte  & 1.449 MiB\\
     \bottomrule
     \end{tabularx}
     \label{table: Measurement_For_Hello_world}
 \end{table}
+\todo{fix the table}
 
+The baseline results in Figure~\ref{fig:application_start_microtest_baseline_time_overhead_each_cmp} show that the shielding layer doubled the program startup time. Notably, the remote attestation and provisioning agent contributed the most to the latency overhead, which is expected since it must establish a TLS connection with the relying party, complete the 
+remote attestation process, and retrieve the secrets. The Secret Injector, Hardware Evidence Driver, introduces a latency overhead of 0.90 ms and 1.73 ms. However, this latency is negligible compared to the overhead caused by the attestation agent (837 ms). In addition, the data in 
+Table~\ref{table: Measurement_For_Hello_world} indicates that the Software Measurement Manager measured approximately 1.449 MiB of data during program startup, resulting in an overhead of only 10 milliseconds. 
 
-
-\subsubsection{Determining Attestation \&\& Provisioning Agent and Secret Injector Overhead}
-The baseline results confirm that the remote attestation and provisioning agent is a significant source of latency overhead. To this end, this section aims to examine how the latency overhead of the remote attestation and provisioning agent, along with the secret injector, changes as the number 
-of file-type secrets increases.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/overhead_attestation_agent_as_file_num_increasing.PNG}
-    \caption[Benchmark result: Latency Overhead from Attestation \&\& Provisioning Agent as the number of file-based secrets increases]{Benchmark result: Latency Overhead from Attestation \&\& Provisioning Agent as the number of file-based secrets increases}
-    \label{fig:overhead_attestation_agent_as_file_num_increasing}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/overhead_secret_injector_as_file_num_increasing.PNG}
-    \caption[Benchmark result: Latency Overhead from Secret Injector as the number of file-based secrets increases]{Benchmark result: Latency Overhead from Secret Injector as the number of file-based secrets increases}
-    \label{fig:overhead_secret_injector_as_file_num_increasing}
-\end{figure}
-
-% , which reveal the evolution of the overhead introduced by the remote attestation and provisioning agent, and 
-% secret injector, as the number of file-type secrets grows.
-
-\todo{ add lable after As discussed in Chapter 5,}
-This paragraph discusses the benchmark results in Figure ~\ref{fig:overhead_attestation_agent_as_file_num_increasing} and Figure ~\ref{fig:overhead_secret_injector_as_file_num_increasing}. The results demonstrate that the increase in overhead from the remote attestation and provisioning agent, 
-and secret injector, is proportional to the number of file-type secrets. As discussed in Chapter 5, constrained by the maximum TLS record size supported by the embedded\_tls library (16kb), the remote attestation and provisioning 
-agent must perform one HTTP get + TLS operation for each file-type secret. For the secret injector, it is evident that as the number of files increases, it needs more time to inject the files into the target location in the application process.  Additionally,
-Figure ~\ref{fig:startup_time_change_as_file_type_secret_increasing} reveals that although the overhead from the secret injector increases as the number of file secrets grows, it is negligible compared to the overhead from remote attestation and provisioning agent. Moreover, when the 
-number of file-type secrets reaches 128, the overhead associated with the remote attestation and provisioning agents becomes astounding, reaching 4500 ms, accounting for over 70\% of the total program startup time.
-
-\begin{figure}[H]
+\begin{figure}[!htb]
     \centering
     \includegraphics[width=0.8\textwidth]{images/startup_time_change_as_file_type_secret_increasing.PNG}
     \caption[Distribution of the time consumed by attestation \&\& provisioning agent, secret injector and others in the application startup]{Distribution of the time consumed by attestation \&\& provisioning agent, secret injector and others in the application startup}
     \label{fig:startup_time_change_as_file_type_secret_increasing}
 \end{figure}
 
-
-
-\subsubsection{Impact of measured Data Size}
-This benchmark assesses the changes in the software measurer's latency overhead as the application binary size grows.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/overhead_software_measurement_manager_as_elf_size_increasing.PNG}
-    \caption[Benchmark result: Latency Overhead from Software Measurement Manager as the measured Data Size increases]{Benchmark result: Latency Overhead from Software Measurement Manager as the measured Data Size increases}
-    \label{fig:overhead_software_measurement_manager_as_elf_size_increasing}
-\end{figure}
-
-\begin{figure}[H]
+Figure~\ref{fig:startup_time_change_as_file_type_secret_increasing} shows how the latency overhead of the remote attestation and provisioning agent changes as the number of file-type secrets increases. The overhead from the remote authentication and provisioning agent is proportional to the 
+number of file type secrets because it must perform one HTTP + TLS operation for each file. When the number of file-type secrets reaches 128, the overhead associated with the agent becomes astounding, reaching 4500 ms, accounting for over 70\% of the total program startup time.
+\begin{figure}[!htb]
     \centering
     \includegraphics[width=0.8\textwidth]{images/startup_time_change_as_elf_size_increasing.PNG}
-    \caption[Distribution of the time consumed by Attestation \&\& Provisioning Agent, Software Measurement Manager and others in the Application Startup]{Distribution of the time consumed by Attestation \&\& Provisioning Agent, Software Measurement Manager and others in the Application Startup}
+    \caption[Distribution of the time consumed by software measurement manager and others in the Application Startup]{Distribution of the time consumed by software measurement manager and others in the Application Startup}
     \label{fig:startup_time_change_as_elf_size_increasing}
 \end{figure}
 
 
+Figure~\ref{fig:startup_time_change_as_elf_size_increasing} shows that the latency overhead of the software measurement manager is proportional to the size of the binary. Besides, when the measured data is less than or equal to 100MB, the latency overhead of the software measurer is lower than the 
+overhead introduced by the remote attestation and provisioning agent.
 
-The benchmark results are in Figure ~\ref{fig:overhead_software_measurement_manager_as_elf_size_increasing}, which shows the latency overhead of the software measurer is proportional to the binary file size, i.e., the more data to be measured, the higher the overhead introduced by the 
-software measurer. Furthermore, it is worth mentioning that when measured data less than or equal to 100 MiB, the latency overhead of the software measurer is lower than the overhead introduced by the remote attestation and provisioning agent. 
-(Figure ~\ref{fig:startup_time_change_as_elf_size_increasing}).
+
+
+
+
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.8\textwidth]{images/application_start_microtest_baseline_time_distribution.PNG}
+%     \caption[Time  Distribution of the application startup ]{Distribution of the time consumed by different components in the application startup}
+%     \label{fig:application_start_microtest_baseline_time_distribution}
+% \end{figure}
+
+
+
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.8\textwidth]{images/overhead_attestation_agent_as_file_num_increasing.PNG}
+%     \caption[Benchmark result: Latency Overhead from Attestation \&\& Provisioning Agent as the number of file-based secrets increases]{Benchmark result: Latency Overhead from Attestation \&\& Provisioning Agent as the number of file-based secrets increases}
+%     \label{fig:overhead_attestation_agent_as_file_num_increasing}
+% \end{figure}
+
+
+% , which reveal the evolution of the overhead introduced by the remote attestation and provisioning agent, and 
+% secret injector, as the number of file-type secrets grows.
+
+
+
+
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.8\textwidth]{images/overhead_software_measurement_manager_as_elf_size_increasing.PNG}
+%     \caption[Benchmark result: Latency Overhead from Software Measurement Manager as the measured Data Size increases]{Benchmark result: Latency Overhead from Software Measurement Manager as the measured Data Size increases}
+%     \label{fig:overhead_software_measurement_manager_as_elf_size_increasing}
+% \end{figure}
+
 
 
 
 \subsection{Macro-Benchmark– Application Life Cycle Performance Benchmark}\label{macri_app_start_up}
 
-To evaluate the performance of confidential Quark in a real-world scenario, we conducted the following macro benchmark. The test compares the startup time, exit time, and runtime throughput of real-world applications in confidential and vanilla Quark using Nginx\cite*{nginx} and Redis\cite*{redis}. It should be noted that 
-program startup time is measured from the start of the Qkernel to the completion of the dynamic linker (ld.so) loading the application's shared libraries, while the program exit time refers to the time from the time the exit system call is called until qkernel stops running. 
-Regarding the application runtime throughput, we use the Apache HTTP server benchmarking tool (AB)\cite*{ab} and Redis-benchmark\cite*{Redis_benchmark} to generate workloads for Nginx and Redis, respectively
+This section evaluates the performance of running real-world applications in confidential and vanilla Quark. We chose Nginx~\cite*{nginx} and Redis~\cite*{redis} as test subjects and compared their startup time, exit time, and runtime throughput. At program runtime, we use the Apache HTTP Server 
+Benchmarking Tool (AB)~\cite*{ab} and Redis-benchmark~\cite*{Redis_benchmark} to generate workloads for Nginx and Redis, respectively.
+
+Regarding the benchmarking methodology, we extended the testing framework~\cite*{benchamark_framework} to repeatedly launch the target application 100 times, record its startup and exit times, and the results of AB and Redis-benchmark. Redis benchmark and AB
+ are set to issue 1,000,000 requests using 50 concurrent clients to Redis and Nginx, respectively. In addition, the file size requested by ab from Nginx is 181 bytes. In addition, AB requests a file size of 181 bytes from Nginx. Both applications fetch enclave policy from the secret manager only.
 
 
-Regarding the benchmark methodology and setup, our testing framework\cite*{benchamark_framework} was extended to launch the target application repeatedly, record its startup and exit times, and results from AB\cite*{ab} and Redis-benchmark\cite*{Redis_benchmark}. Specifically, the test framework launches the 
-target application 100 times, with the remote attestation and provisioning agent only fetching the shield policy from the relying party. For workload generator’s configuration, Redis benchmark\cite*{Redis_benchmark} and AB\cite*{ab} are set to issue 1,000,000 requests using 50 concurrent clients to Redis and Nginx, respectively. 
-In addition, the size of the file requested by ab from Nginx\cite*{nginx} is 181 bytes.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/reds_nginx_startup_comp.PNG}
-    \caption[Redis \&\& Nginx Startup Time in Cquark vs vanilla Quark]{Redis \&\& Nginx Startup Time in confidential vs vanilla Quark}
-    \label{fig:reds_nginx_startup_comp}
-\end{figure}
-
-The results presented in Figure ~\ref{fig:reds_nginx_startup_comp} indicate that confidential Quark takes about twice as long as vanilla quark to complete the application setup. This result is reasonable, given that Qkernel in Cquark must perform additional operations like remote attestation, 
-secret provisioning, and host loaded data measurement, which prolongs the startup time of an application. When comparing the startup time of Nginx and Redis in the Cquark(~\ref{fig:reds_nginx_startup_comp}), we observed that Nginx takes approximately  324 ms longer than Redis to start. 
-Since both applications only fetch the shield policy during startup, the latency overhead from the remote attestation and provisioning agent should be identical for both. Therefore, we deduce that the longer Nginx startup time is due to the software measurement manager measuring more data,
-resulting in an increased startup time.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/time_disribution_startup_redis_nginx.PNG}
-    \caption[Redis \&\& Nginx  Startup Time in Cquark vs vanilla Quark]{Redis \&\& Nginx  Startup Time in Cquark vs vanilla Quark}
-    \label{fig:time_disribution_startup_redis_nginx}
+ \begin{figure}[!htb]
+  \centering
+  \includegraphics[width=0.5\textwidth]{images/reds_nginx_startup_comp.PNG}
+  \caption[Redis \&\& Nginx Startup Time in Cquark vs vanilla Quark]{Redis \&\& Nginx Startup Time in confidential vs vanilla Quark}
+  \label{fig:reds_nginx_startup_comp}
 \end{figure}
 
 
-\begin{table}[htbp]
-    \centering
-    \footnotesize
+\begin{figure}[!htb]
+  \centering
+  \includegraphics[width=0.8\textwidth]{images/time_disribution_startup_redis_nginx.PNG}
+  \caption[Redis \&\& Nginx  Startup Time in Cquark vs vanilla Quark]{Redis \&\& Nginx  Startup Time in Cquark vs vanilla Quark}
+  \label{fig:time_disribution_startup_redis_nginx}
+\end{figure}
+\todo{fix naming issue kbs client to attestation agent}
 
-    \begin{tabularx}{1\textwidth}{@{} l L L L L L L@{}}
-    \toprule
-        Matrics    & ELF &  Shared Library   & Process Spec     & Guest Kernel Args  & Total Measurement\\
-    \midrule
 
-        \vn{Measurement for Redis}     &  3.64 MiB   &   12.61 MiB  &   304 Byte   &25004 Byte  & 16.27 MiB\\
-        \vn{Measurement for Nginx}     &  5.5 MiB    &   61.64 MiB  &   304 Byte   &25004 Byte  & 67.16 MiB\\
-    \bottomrule
-    \end{tabularx}
-    \caption{Software Measurement Manager measured Data during Application Startup\strut}
-    \label{table: Measurement_For_Nginx_Redis}
+\begin{table}[!htb]
+  \centering
+  \scriptsize
+
+  \begin{tabularx}{1\textwidth}{@{} l L L L L L L@{}}
+  \toprule
+      Matrics    & ELF &  Shared Library   &Qkernel Config File    & Public Key of Secret Manager  & Total Measurement\\
+  \midrule
+
+      \vn{Measurement for Redis}     &  3.64 MiB   &   12.61 MiB  &   534 Byte      &2017 Byte   & 16.25 MiB\\
+      \vn{Measurement for Nginx}     &  5.5 MiB    &   61.64 MiB  &   534 Byte      &2017 Byte   & 67.14 MiB\\
+  \bottomrule
+  \end{tabularx}
+  \caption{Software Measurement Manager measured Data during Application Startup\strut}
+  \label{table:Measurement_For_Nginx_Redis}
 \end{table}
 
+The results shown in Figure~\ref{fig:reds_nginx_startup_comp} indicate that confidential Quark takes about twice as long as vanilla Quark to complete the application setup. This result is reasonable because the confidential Quark must perform additional operations such as remote attestation and 
+measuring data loaded from the host. When comparing the startup times of Nginx and Redis in Confidential Quark, we observe that Nginx takes about 324 ms longer than Redis. From Fig~\ref{fig:time_disribution_startup_redis_nginx}, we find that the difference mainly comes from the latency overhead 
+difference of the software measurement manager and the remote attestation and provisioning agent, i.e., 424 ms and 65 ms, respectively. Since both applications retrieve the same number of secrets from the secret manager, we speculate that the difference in remote attestation and provisioning 
+agent's overhead comes from network jitter or measurement errors. In addition, Table~\ref{table: Measurement_For_Nginx_Redis} shows that the software measurement manager measured 67.14 and 16.25 Mb in Nginx and Redis, respectively. Because the software measurement manager has to measure more data in 
+Nginx, its latency overhead is larger in Nginx. 
 
-To validate our hypothesis, we measured the overhead induced by the remote attestation and provisioning agent, the secret injector, the hardware evidence driver, and the software measurement manager, as well as the size of the data measured by the software measurer during the application 
-startup in confidential Quark. The relevant details can be found in Figure  ~\ref{fig:time_disribution_startup_redis_nginx} and Table ~\ref{table:Measurement_For_Nginx_Redis}. Our findings show that the software measurer measured 16.27 MiB and 67.16 MiB of data for Redis and Nginx respectively, 
-leading to a latency of 60.69 ms and 324 ms. Additionally, even though both applications have the same setup for the remote attestation and provisioning agent, the difference in latency overhead from the remote attestation and provisioning agent due to possible network transmission jitter 
-was approximately 65 ms. Moreover, the latency generated from the hardware evidence driver and secret injection was less than 1 ms in both cases, which was insignificant compared to the software measurer and remote attestation and provisioning agent's overhead. To summarize, 
-Nginx's startup time is longer compared to Redis due to two key reasons - network jitter and Nginx requires the software measurement manager to process more data during setup.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/reds_nginx_exit_comp.PNG}
-    \caption[Redis \&\& Nginx Exit Time in Cquark vs vanilla Quark]{Redis \&\& Nginx Exit Time in Cquark vs vanilla Quark}
-    \label{fig:reds_nginx_exit_comp}
+\begin{figure}[!htb]
+  \centering
+  \includegraphics[width=0.5\textwidth]{images/reds_nginx_exit_comp.PNG}
+  \caption[Redis \&\& Nginx Exit Time in Cquark vs vanilla Quark]{Redis \&\& Nginx Exit Time in Cquark vs vanilla Quark}
+  \label{fig:reds_nginx_exit_comp}
+\end{figure}
+Figure~\ref{fig:reds_nginx_exit_comp} shows that the exit time for Redis and Nginx is around 2529 milliseconds in both confidential Quark and vanilla Quark, as confidential Quark does not modify the critical path for program exit.
+\begin{figure}[!htb]
+  \centering
+  \includegraphics[width=1\textwidth]{images/redis_throughput.PNG}
+  \caption[Redis Throughout Test]{Redis Throughout Test Result}
+  \label{fig:redis_throughput}
 \end{figure}
 
 
-With respect to the application (sandbox) exit, Figure ~\ref{fig:reds_nginx_exit_comp}  shows that confidential Quark can achieves the same performance as vanilla Quark. Specifically, in both confidential and vanilla Quark, the exit time of Redis and Nginx is around 2529 ms.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\textwidth]{images/redis_throughput.PNG}
-    \caption[Redis Throughout Test]{Redis Throughout Test Result}
-    \label{fig:redis_throughput}
+\begin{figure}[!htb]
+  \centering
+  \includegraphics[width=0.5\textwidth]{images/nginx_throughput.PNG}
+  \caption[Nginx Throughout Test]{Nginx Throughout Test Result}
+  \label{fig:nginx_throughput}
 \end{figure}
 
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\textwidth]{images/nginx_throughput.PNG}
-    \caption[Nginx Throughout Test]{Nginx Throughout Test Result}
-    \label{fig:nginx_throughput}
-\end{figure}
-
-
-The throughput test results for Redis\cite*{redis} and Nginx\cite*{nginx} can be found in Figures ~\ref{fig:redis_throughput} and  ~\ref{fig:nginx_throughput}, respectively. Our analysis shows that execution of Redis and Nginx in confidential Quark led to a performance degradation of 
-approximately 22\% and 10\%, respectively. The primary reason for this effect is the interception of the guest system calls.
-
+The throughput test results for Redis and Nginx are shown in Figure~\ref{fig:redis_throughput} and Figure~\ref{fig:redis_throughput}. Our analysis shows that executing Redis and Nginx in confidential Quark leads to about 22\% and 10\% performance degradation, respectively. 
+The possible reason for this impact is the overhead introduced by intercepting guest system calls.
 
 
 \subsection{Trust Computing Base}\label{tcb}
 
-In VM-based Trusted Execution Environments (TEE), the Trusted Computing Base (TCB) comprises the necessary hardware, firmware, and software modules, like the guest operating system, that ensure the required security guarantee while handling confidential data. The smaller the TCB, the lower the 
-risk of a TEE being compromised by a vulnerability. Therefore, in this section, we evaluate the TCB overhead introduced by our implementation and compares the TCB size between confidential Quark and Confidential Container\cite*{confidential_kata}. To assess confidential Quark-incurred TCB overhead, 
-we compare the lines of code and the size of the guest kernel binary in confidential and vanilla Quark as both use a application kernel as the guest kernel and the shield layer is part of  the guest kernel binary.  For the TCB size comparison between confidential Quark and the Confidential Container\cite*{confidential_kata}, 
-we use the binary size of the Guest assets as a reference.  To ensure fairness, we employ the strip utility\cite*{strip} to remove unused symbols in binaries.
+This section evaluates the TCB overhead introduced by our implementation and compares the TCB sizes of confidential Quark and Kata containers~\cite*{Kata-Containers}. To this end, we compare the lines of code and the size of the guest kernel binary for confidential and vanilla Quark. Note that the 
+guest kernel binary comprises the code from 3 components, Qkernel, Qlib, and the shielding layer. In comparing the TCB sizes of confidential Quark and Kata containers, we use the binary sizes of the guest assets as a reference. The assets for confidential Quark are the Qkernl binary, while the 
+assets for the Kata container include the Kata agent~\cite*{kata_agent}, OVMF~\cite*{ovmf}, and the Linux kernel. To ensure fairness, we use the strip utility~\cite*{strip} to remove unused symbols from the binaries.
 
 \begin{table}[htbp]
-    \centering
+  \centering
 \begin{tabular}{lrrrcrrr}\toprule
-    \hline
-    \multicolumn{3}{c}{Vanilla Quark}&&\multicolumn{3}{c}{Confidential Quark}\\
-    \cline{1-3}\cline{5-7}
-    $Component$ & $LoC$ & $Size$$^{3}$ && $Component$ & $LoC$ & $Size$$^{3}$\\
-  \midrule
-     Qkernel &32487 & -&& Qkernel&32487&-\\
-     Qlib &85128  & -&&Qlib&  86609 &-\\
-     Shield  & 0 & - && Shield&2805&-\\
-  
-     \midrule
-      Total  & 117615& 3.1MiB&& & 121901 &  4.6 MiB\\
-      \bottomrule
-  \end{tabular}
+  \hline
+  \multicolumn{3}{c}{Vanilla Quark}&&\multicolumn{3}{c}{Confidential Quark}\\
+  \cline{1-3}\cline{5-7}
+  $Component$ & $LoC$ & $Size$$^{3}$ && $Component$ & $LoC$ & $Size$$^{3}$\\
+\midrule
+   Qkernel &32487 & -&& Qkernel&32487&-\\
+   Qlib &85128  & -&&Qlib&  86609 &-\\
+   Shield  & 0 & - && Shield&2805&-\\
 
-  \caption{Comparison of the LoC and compiled size of vanilla quark and confidential quark\strut}
-  \label{table:tcb_size_quark_vs_cquark}
+   \midrule
+    Total  & 117615& 3.1MiB&& & 121901 &  4.6 MiB\\
+    \bottomrule
+\end{tabular}
+
+\caption{Comparison of the LoC and compiled size of vanilla quark and confidential quark\strut}
+\label{table:tcb_size_quark_vs_cquark}
 \end{table}
 
-Table ~\ref{table:tcb_size_quark_vs_cquark} provides a summary of the TCB overhead required to achieve confidentiality in confidential Quark. The vanilla Quark version v2.0 has a guest kernel with 11,7615 lines of code and generates a 3.10 MB static linked binary. In confidential Quark, our implementation adds 4286 LoC to the guest binary, 
-bringing the total to 12,1901 LoC and 4.6 MB of compiled static linked binary. Overall, our implementation makes the guest binary 1.48 times larger compared to vanilla Quark.
 
-
+Table~\ref{table:tcb_size_quark_vs_cquark}  summarizes the TCB overhead required to implement secrecy in Secrecy Quark. Vanilla Quark's guest kernel has 117615 lines of code and generates a statically linked binary of 3.10 MB. In Secrecy Quark, our implementation adds 4286 lines of code to the guest kernel binary, bringing the total 
+number of lines of code to 121981, and the binary reaches 4.6 MB. Overall, our implementation increases the size of the guest binary by a factor of 1.48 compared to vanilla Quark.
 \begin{table}[htbp]
-    \centering
+  \centering
 \begin{tabular}{lrrcrr}\toprule
-    \hline
-    \multicolumn{2}{c}{Confidential Container}&&\multicolumn{2}{c}{Confidential Quark}\\
-    \cline{1-2}\cline{4-5}
-    $Component$  & $Size$$^{3}$ && $Component$  & $Size$$^{3}$\\
-  \midrule
-     Guest Kernel &47.16 MiB && Guest kernel &4.6 MiB\\
-     OVMF   & 4 MiB && &   &\\
-     Kata agent  & 22.65MiB  && &&\\
-  
-     \midrule
-        & 73.81 MB&& &   4.6 MiB\\
-      \bottomrule
-  \end{tabular}
+  \hline
+  \multicolumn{2}{c}{Kata Container}&&\multicolumn{2}{c}{Confidential Quark}\\
+  \cline{1-2}\cline{4-5}
+  $Component$  & $Size$$^{3}$ && $Component$  & $Size$$^{3}$\\
+\midrule
+   Guest Kernel &47.16 MiB && Guest kernel &4.6 MiB\\
+   OVMF   & 4 MiB && &   &\\
+   Kata agent  & 22.65MiB  && &&\\
 
-  \caption{TCB size comparison between confidential container vs confidential quark in terms of compiled size of guest assets \strut}
-  \label{table:tcb_size_quark_vs_kata}
+   \midrule
+      & 73.81 MB&& &   4.6 MiB\\
+    \bottomrule
+\end{tabular}
+
+\caption{TCB size comparison between kata container vs. confidential quark in terms of binary size of guest assets \strut}
+\label{table:tcb_size_quark_vs_kata}
 \end{table}
 
-Table ~\ref{table:tcb_size_quark_vs_kata} shows the outcomes of comparing the TCB size in the Confidential Container (Kata)\cite*{confidential_kata} and confidential Quark. Unlike confidential Quark, which uses the application kernel as the guest kernel, Confidential Container deploys 
-the qemu-linux base virtual machine. Therefore, the guest assets in the Confidential Container context include the Kata agent\cite*{kata_agent}, OVMF\cite*{ovmf}, and Linux Guest kernel. In the Confidential Container version v0.4, the compiled static binary sizes of Kata agent, OVMF, and Guest kernel are 22.65 Mb, 4.0 MB, and 47.16 MB, 
-respectively. This totals a TCB size of 73.81 MB, which is about 16 times greater than that of confidential Quark.
-
-It is noteworthy that there is potential to further optimize the size of Quark's Trusted Computing Base (TCB).  In Quarkv version 2.0, qlib contributes some redundant code to guest kernel binary. To facilitate code development, the qlib code is shared between qvisor and guest kernel. 
-However, our founding shows some code in qlib is only used by functions in qvisor, thus increasing the size of the guest kernel’s binary. 
+Table~\ref{table:tcb_size_quark_vs_kata} compares the size of TCBs in the kata container and the confidential Quark. In the Kata container, the binary sizes of the Kata agent, OVMF, and guest kernel are 22.65 MB, 4.0 MB, and 47.16 MB, respectively. The total TCB size is 73.81 MB, about 16 times that of the confidential 
+Quark.
 
 \section{Summary}
-In this chapter, I conducted both qualitative and quantitative analyses to evaluate my work. In the qualitative analysis, I identified potential security vulnerabilities in vanilla Quark and explained how my work mitigates these vulnerabilities. 
-Regarding the quantitative analysis, I developed a testing framework to characterize the performance of CQuark. The obtained results showed that confidential Quark engenders significant overhead compared to vanilla Quark. 
+I conducted qualitative and quantitative analyses in this chapter to evaluate my work. In the qualitative analysis, I identified potential security vulnerabilities in vanilla Quark and explained how my work mitigates these vulnerabilities. 
+Regarding the quantitative analysis, I developed a testing framework to characterize the performance of CQuark. The results showed that confidential Quark engenders significant overhead compared to vanilla Quark. 
 This overhead is visible in longer program creation times, reduced runtime program throughput, reduced speed of issuing instructions to the program, increased trusted computing base (TCB) size, etc.
 
 

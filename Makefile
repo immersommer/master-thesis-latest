@@ -115,26 +115,26 @@ DOC_IMG_JPG  = images/cquark_runtime_runtime_lib_measurement_demo.png
 
 
 # evaluation images for performance
-DOC_IMG_JPG  = images/perf_system_call_interceptor_yaml.PNG
+# DOC_IMG_JPG  = images/perf_system_call_interceptor_yaml.PNG
 DOC_IMG_JPG  = images/ben_results_syscall_interceptor.PNG
 # DOC_IMG_JPG  = images/perf_attestation_report_yaml.PNG
 
 DOC_IMG_JPG  = images/perf_attestation_report_result.PNG
-DOC_IMG_JPG  = images/file_type_secret_access_test_deploy_yaml_baseline.PNG
-DOC_IMG_JPG  = images/file_type_secret_access_test_deploy_yaml_cquark.PNG
+# DOC_IMG_JPG  = images/file_type_secret_access_test_deploy_yaml_baseline.PNG
+# DOC_IMG_JPG  = images/file_type_secret_access_test_deploy_yaml_cquark.PNG
 
 
-DOC_IMG_JPG  = images/speed_of_issuing_cmd_in_cquark_kubctl_securectl.PNG
+DOC_IMG_JPG  = images/speed_of_issuing_cmd_in_cquark_kubctl_securectl.png
 
 DOC_IMG_JPG  = images/speed_of_issuing_cmd_in_cquark_upstream_quark.PNG
-DOC_IMG_JPG  = images/timeshare_issuing_cmd_in_cquark_kubectl_securectl.PNG
-DOC_IMG_JPG  = images/timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl.PNG
+DOC_IMG_JPG  = images/timeshare_issuing_cmd_in_cquark_kubectl_securectl.png
+DOC_IMG_JPG  = images/timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl.png
 
 
 
-DOC_IMG_JPG  = images/micro_benchmark_app_life_cycle_bencmark_pattern.png
+# DOC_IMG_JPG  = images/micro_benchmark_app_life_cycle_bencmark_pattern.png
 
-DOC_IMG_JPG  = images/application_start_microtest_baseline_time_distribution.PNG
+# DOC_IMG_JPG  = images/application_start_microtest_baseline_time_distribution.PNG
 
 DOC_IMG_JPG  = images/application_start_microtest_baseline_time_overhead_each_cmp.PNG
 
