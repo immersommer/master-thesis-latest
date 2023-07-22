@@ -20,6 +20,32 @@
 
 \todo{write conclusion}
 
+\section{Furture Work}
+\subsection{Vulnerability Out of Scope}
+Besides the vulnerabilities already discussed, the following security risks may affect Vanilla Quark:
+
+
+\textbf{Physical Access Attacks.} An untrustworthy entity, including cloud operators who have physical access to the machine where the application runs, can carry out physical access attacks on the system. One example of such attacks 
+is Offline DRAM Analysis. A partial solution to alleviate the threat is to run guests on AMD SEV SNP or INTEL TDX.  Those interested in learning more about this topic should refer to \cite*{SEV_SNP_white_book}, \cite*{DBLP:journals/corr/abs-2303-15540}.
+
+
+\textbf{Lack of protection to guest memory and register states.} Lack of protection to guest memory and register states.  Insufficient protection for guest memory and register states allows non-trusted entities, such as a hypervisor, to access guest secrets, leading to security breaches. 
+Trusted execution hardware like AMD SEV\cite*{SEV_SNP_white_book} and Intel TDX\cite*{Intel_tdx_whitepaper} address this by encrypting guest memory and registers. However, CQuark does not yet support running on the Trusted execution hardware yet.
+
+
+\textbf{Paravirtualized filesystem sharing mechanism.} Vanilla Quark uses this mechanism to share files and volumes stored on the host with applications on the guest. Any modifications made by an application on a file will be reflected on the host. This poses a security risk as an attacker could 
+gain access to the application’s private data by accessing the application's rootfs on the host. A common approach is implementing a guest filesystem shielding layer to protect inbound and outbound guest data. Those interested in learning more about this topic should 
+refer to \cite*{file_system_shield}.
+
+
+\textbf{No security guarantee for communications over the Internet (unbounded network access to containers).} The qkernel in Vanilla Quark lacks authentication to network requests and cryptographic protection for transmitted data, resulting in potential unauthorized access to the application or 
+man-in-the-middle attack\cite*{Man_in_the_middle_attack}. For instance, attackers can use Kubectl port forwarding to connect to an application listening on the target port and acquire the application’s confidential data or service. A possible solution is implementing a guest network shield that leverages TLS to authorize 
+incoming network requests and provides cryptographic protection for incoming and outgoing data. However, this thesis does not cover this type of vulnerability, and readers are encouraged to refer to reference \cite*{network_shiled}.
+
+\textbf{Side channel attack.} Side channels, such as TLB side channel\cite*{217454}, cache side channel\cite*{7163050}, ciphertext side channel\cite*{274707} , and page-fault side-channel\cite*{236278}, can jeopardize the confidentiality of programs.  This type of vulnerability is considered out of the scope.
+
+
+
 \cleardoublepage
 
 %%% Local Variables:

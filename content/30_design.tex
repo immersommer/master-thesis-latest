@@ -180,7 +180,7 @@ manager in the shielding layer to measure the data loaded from the host while th
 \textbf{Enclave startup hash.} This value refers to the measures of host-loaded data until the application process starts. This includes the secret manager's key, the Qkernel's configuration file, the application's binary, and multiple binaries and shared libraries loaded to set up the application environment. Notably, since each Pod uses a pause container to hold the 
 sandbox's metadata, the enclave startup hash also contains a measurement of the binaries and shared libraries loaded when the pause container was created. The attestation and provisioning agent include this hash in the attestation report, which is conveyed to the secret manager. The secret manager compares the measurement to the reference value provided 
 by the enclave owner to ensure the enclave is properly configured. This hash effectively solves the problems~\ref{vulnerabilities:1},~\ref{vulnerabilities:7},~\ref{vulnerabilities:11} identified in Chapter~\ref{sec:security_analyse}.
-\todo{add link}
+
 
 \textbf{Application startup reference hash.} As shown in the figure, this value records the measure of all binaries and shared libraries loaded during the application's first startup. This measurement is a subset of the enclave's startup measurements and is stored in the enclave's memory. It will be used as a reference value for the application restart hash to ensure the 
 the integrity of the binary and shared libraries load during the restart. 
@@ -306,6 +306,7 @@ both the application process and processes executing privileged EXEC commands. T
 
 
 \subsection{Distinguish the STDIO type of the processes}
+\label{sec:design_Distinguish_io}
 
 The guest user space can accommodate various types of processes, including privileged-level non-interactive EXEC processes, privileged-level interactive EXEC processes, session or policy update processes, and various non-privileged-level EXEC processes. The STDIO shield handles the STDIO of these processes differently. For instance, 
 to send the session id to a user, the shield intercepts the session process's STDOUT, replaces the content with the session ID assigned to the user, and encrypts it. Similarly, data written to the STDOUT and STDERR of privileged-level non-interactive processes is encrypted. Conversely, data belonging 
@@ -328,7 +329,7 @@ As shown in Figure~\ref{fig:differenciate_fds}, when the Quark agent creates a p
 with the STDIO. By utilizing the inode id, the shield can retrieve the relevant record from the inode table and secure the data within the STDIO stream based on the shield policy.
 
 \subsection{Non-interactive process STDIO Protection}
-
+\label{sec:design_non_interactive_stdio}
 \begin{figure}[!htb]
     \centering
     \includegraphics[width=0.3\textwidth]{images/normal_io_shiled_encryption_schema.png}

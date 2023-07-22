@@ -22,11 +22,13 @@
 
 %\ldots implementation \ldots
 
-The chapter outlines the implementation of the shielding layer. Firstly, it illustrates the implementation of the quark attestation and provisioning infrastructure. This includes the communication establishment between the attestation and provisioning agent with the secret manager, the way the secret 
-injector deploys secrets, the runtime attestation service's implementation, and how the attestation driver acquires attestation reports from TEE. Secondly, it details the software measurement manager's function to measure the data loaded from the host. Section 5.5 presents the EXEC checker's steps for 
-checking an exec request. Finally, sections 5.5, 5.6, and 5.7 explain the implementation of the process's STDIO protection, system call interceptor, and the Qkernel log manager, respectively. The source code for the implementation is accessible on GitHub~\cite*{theis_source_code}.
+The chapter outlines the implementation of the shielding layer. Firstly, it illustrates the implementation of the quark attestation and provisioning infrastructure (Section~\ref{sec:impl_attestation_infr}). This includes the communication establishment between the attestation and provisioning agent 
+with the secret manager, the way the secret injector deploys secrets, the runtime attestation service's implementation, and how the attestation driver acquires attestation reports from TEE. Secondly, it details the software measurement manager's function to measure the data loaded from the 
+host (~\ref{sec:impl_measurement}). Section~\ref{sec:impl_exec} presents the EXEC checker's steps for checking an exec request. Finally, sections~\ref{sec:impl_STDIO},~\ref{sec:impl_interceptor}, and~\ref{sec:iml_qlog} explain the implementation of the process's STDIO protection, system call 
+interceptor, and the Qkernel log manager, respectively. The source code is accessible on GitHub~\cite*{theis_source_code}.
 
 \section{Quark Attestation and Provisioning Infrastructure}
+\label{sec:impl_attestation_infr}
 
 \subsection{Secret Uploading}
 The secret manager must operate within the application owner's local environment. It implements a local file system backend. The application owner can deploy secrets to a path the secret manager can find using a script~\cite*{secret_uploading_script}. The functionality to create a secure channel 
@@ -39,7 +41,7 @@ The attestation and provisioning agent is an HTTPS client designed to provide th
     pub fn provisioning_http_client(task: &Task, software_maasurement: &str, sm_cert: Vec<u8>) -> Result<(KbsPolicy, KbsSecrets)>
 \end{lstlisting}
 
-The function takes enclave startup measurement and the secret manager’s public key as arguments and returns the enclave policy and application’s secrets if attestation succeeds. Note that this function is called only after loading the application binary because enclave startup measurement is 
+The function takes the enclave startup hash and the secret manager’s public key as arguments and returns the enclave policy and application’s secrets if attestation succeeds. Note that this function is called only after loading the application binary because the enclave startup hash is 
 generated afterward. This function solves the following three problems:
 
 \begin{enumerate}
@@ -50,8 +52,8 @@ generated afterward. This function solves the following three problems:
 
 \subsubsection{TCP connection establishment}
 
-Listing~\ref{lst:api_for_tcp_connection} shows the API for establishing the TCP connection. To make the Qkernel socket object available to the shield layer, we implement the Provider interface for the ShieldSocketProvider. Since each socket implements trait SockOperations, the shield layer can first use ShieldSocketProvider to 
-obtain a socket object and then use Connect() method to connect the socket to the secret manager.
+Listing~\ref{lst:api_for_tcp_connection} shows the API for establishing the TCP connection. To make the Qkernel socket object available to the shield layer, we implement the Provider interface for the ShieldSocketProvider. Since each socket implements trait SockOperations, the shielding layer can 
+first use ShieldSocketProvider to obtain a socket object and then use Connect() method to connect the socket to the secret manager.
 
 \begin{lstlisting}[language=rust, caption= API for establishing the TCP connection, label={lst:api_for_tcp_connection}]
 pub struct ShieldSocketProvider {
@@ -73,7 +75,7 @@ Listing~\ref{lst:api_for_tls_connection} shows the functions for creating a TLS 
 ShieldProvisioningHttpSClient. Therefore, we implement embedded\_io::blocking::Read and embedded\_io::blocking::Write for ShieldProvisioningHttpSClient. The embedded-tls library can then use the functions in these two traits to read and write 
 the socket stored in ShieldProvisioningHttpSClient.
 
-\begin{lstlisting}[language=rust, caption= API for establishing the TCP connection, label={lst:api_for_tls_connection}]
+\begin{lstlisting}[language=rust, caption= API for establishing the TLS channel, label={lst:api_for_tls_connection}]
 pub struct ShieldProvisioningHttpSClient {
     pub socket_file: Arc<File>,
     ...
@@ -88,11 +90,11 @@ impl embedded_io::blocking::Write for ShieldProvisioningHttpSClient {
 }
 \end{lstlisting}
 \subsubsection{Building HTTP requests according to the KBS attestation protocol}
-Listing~\ref{lst:http_connection} shows the functions for constructing the HTTP requests defined in the KBS attestation protocol. ShieldProvisioningHttpSClient holds the metadata used in the protocol. The explanation of those data can be found in section XXX
-\todo{add link for ata can be found in section XX}
+Listing~\ref{lst:http_connection} shows the functions for constructing the HTTP requests defined in the KBS attestation protocol. ShieldProvisioningHttpSClient holds the metadata used in the protocol. The explanation of those data can be found in section~\ref{sec:kbs};
 
-To construct the HTTP requests specified in the KBS  attestation protocol, we implement functions prepair\_post\_auth\_http\_req, prepair\_post\_attest\_http\_req, and prepair\_get\_resource\_http\_req. These functions create the Post /kbs/v0/auth, Post /kbs/v0/attest, and GET /kbs/v0/<resource\_id> HTTP 
-request string, respectively. The generated string is submitted to the embedded-tls library by the function send\_http\_request\_to\_sm. The embedded-tls library wraps the string into a TLS record and writes it to the socket stored in ShieldProvisioningHttpSClient via the embedded\_io::blocking::Write 
+
+The functions prepair\_post\_auth\_http\_req, prepair\_post\_attest\_http\_req, and prepair\_get\_resource\_http\_req are employed to construct the HTTP request string defined in the KBS attestation protocol, i.e., "Post /kbs/v0/auth", "Post /kbs/v0/attest", and "GET /kbs/v0/<resource\_id>". 
+The generated string is submitted to the embedded-tls library by the function send\_http\_request\_to\_sm. The embedded-tls library wraps the string into a TLS record and writes it to the socket stored in ShieldProvisioningHttpSClient via the embedded\_io::blocking::Write 
 function. When the secret manager receives the request, it processes the request accordingly and returns the response, which is encapsulated in a TLS record. The embedded-tls library reads the record through the embedded\_io::blocking::Read function, then decrypts it.
 
 The decrypted string is parsed by parse\_auth\_http\_resp , parse\_attest\_http\_resp, or parse\_http\_get\_resource\_resp. These functions first interpret the string according to the HTTP specification. They will then process the HTTP 
@@ -100,8 +102,8 @@ response according to the semantics of the KBS attestation protocol. Specificall
 check HTTP response status codes to determine if the attestation is successful. When a GET /kbs/v0/ response is received, the parse\_http\_get\_resource\_resp function is called. It decrypts the payload using the private part of tee\_key, and returns the secret.
 
 Furthermore, the generate\_evidenc function is invoked by the prepair\_post\_attest\_http\_req when generating the Post /kbs/v0/attest request string. It prompts the attestation driver to produce an attestation report with a custom field. The custom field includes the hash of the nonce, 
-the public part of the tee\_key, and the enclave's startup measurement. The workflow of all the above functions can be found in Figure 5.                                                                                                                                                                                                                                                                                                  
-\todo{add figure}
+the public part of the tee\_key, and the enclave's startup hash.                                                                                                                                                                                                                                                                                                
+
 
 \begin{lstlisting}[language=rust, caption= Functions for building the HTTP requests defined in the KBS attestation protocol, label={lst:http_connection}]
 fn send_http_request_to_sm (...)->  core::result::Result<… >；
@@ -127,24 +129,22 @@ impl ShieldProvisioningHttpSClient {
 \end{lstlisting}
 
 It is important to note that HTTP requests and responses alike are bound within a strict 16 KB limit, as the maximum TLS record size is 16 KB~\cite*{tls_record_size}. Inevitably, the secret size is also subject to the 16 KB limit. Since file type secrets can be huge, the 
-enclave must execute a single HTTP GET request for each file. Generally speaking, the application owner may inject an enclave policy, a file containing environment variable and command line arguments of the application, and n file type secrets into the enclave. 
+enclave must execute a single HTTP GET request for each file. Generally speaking, the application owner may inject an enclave policy, a file containing environment variables and command line arguments of the application, and n file type secrets into the enclave. 
 In this case, the enclave needs to execute n+2 HTTP get requests.
-\todo{add ref for tls size}
 
 \subsubsection{Limitations}
 \label{subsec:Limitations}
 
-Given that the enclave cannot operate within a TEE, the attestation report is fake. Upon receipt of a POST /kbs/v0/attest request, the secret manager will omit to verify the report signatures and TEE hardware's measurements for the VM startup. This means the secret manager will not validate the report's 
+The attestation report is fake because the enclave cannot operate within a TEE. Upon receipt of a POST /kbs/v0/attest request, the secret manager will omit to verify the report signatures and TEE hardware's measurements for the VM startup. This means the secret manager will not validate the report's 
 Genuineness and the integrity of the Qkernel binary. Furthermore, the Secret Manager cannot identify an enclave by examing the enclave id in the host data fields of the report since there is no efficient way to pass the enclave ID to the Qvisor before starting the enclave. As a result, the secret 
-manager only validates the custom field in the report, which includes the hash of the nonce, the public part of the tee\_key, and the enclave's startup measurement. This ensures that the enclave startup hash is consistent with the reference hash provided by the application owner. Identifying the enclave 
+manager only validates the custom field in the report, which includes the hash of the nonce, the public part of the tee\_key, and the enclave's startup hash. This ensures that the enclave startup hash is consistent with the reference hash provided by the application owner. Identifying the enclave 
 identity, checking the report's signature, and verifying the TEE's measurement are left for later implementation.
 
 
 \subsection{Secret Injector}
-The secret injector is responsible for keeping application secrets, as well as deploying file type secrets. It has the following API. 
+The secret injector keeps application secrets and deploys file-type secrets. It has the following API. 
 \begin{lstlisting}[language=rust, caption= API for Secret Injector, label={lst:Secret_injector}]
 pub struct SecretKeeper {
-    initialized: bool,
     pub secrets_mount_info: FileSystemMount,
     pub file_secrets:  BTreeMap<String, Vec<u8>>,  // key: file name, value: secret
     pub arg_env_based_secrets: Option<EnvCmdBasedSecrets>,
@@ -157,47 +157,32 @@ impl SecretKeeper {
 }   
 \end{lstlisting}
 
-Function set\_secrets\_mount\_info records information about the application process's file system, which can be used to create a sub filesystem for the file type secrets. As discussed in Chapter 3, the file system is mounted under directory /secret. Mounting the file system is facilitated by the function
-inject\_file\_based\_secret\_to\_secret\_file\_system, which calls the function MountSubmounts in Qkernel. The function bookkeep\_secrets stores the application's secrets in the SecretKeeper. Additionally, since the command-line and environment variable type secrets are pushed onto the application's 
+Function set\_secrets\_mount\_info records information about the application's file system, which can be used to create a sub-filesystem for the file type secrets. As discussed in Section~\ref{sec:design_Quark_Attestation_and_Provisioning_Infrastructure}, the file system is mounted under directory 
+/secret. Mounting the file system is facilitated by the function inject\_file\_based\_secret\_to\_secret\_file\_system, which calls the function MountSubmounts in Qkernel. The function bookkeep\_secrets stores the application's secrets in the SecretKeeper. Additionally, since the command-line and environment variable type secrets are pushed onto the application's 
 stack,  SecretKeeper does not implement any function to deploy these types of secrets.
-\todo{ets. As discussed in Chapter 3, the file system i}
+
 \subsubsection{Secret Sub-filesystem}
-Listing~\ref{lst:sub_filesystem} presents the API of the filesystem for file type secrets, i.e, SecretFileSystem. SecretFileSystem implements the  Qkernel's Filesystem interface, which can be called by the mountSubmounts() to mount the file secrets to this sub-filesystem.  During this process, 
-the Mount function invokes the NewSecret function, which creates an inode for each file type secret and saves it in a BTreeMap called contents. The BTreeMap is used to initialize the Qkernel object Dir. Dir represents the directory object in the file system. Dir is then used to initialize the inode 
-representing the subfile system, i.e., NewSecretInode. Later, MountSubmounts will add this inode to the mounts fields in the structure MountNsInternal, which represents the application process mount namespace.
+Listing~\ref{lst:sub_filesystem} presents the API for creating the filesystem for file type secrets. SecretFileSystem implements the  Qkernel's Filesystem interface, which can be called by the mountSubmounts() to mount the file secrets to this sub-filesystem.  During this process, 
+the Mount function creates an inode for each file type secret stored in SecretKeeper and saves it in a BTreeMap called contents. The BTreeMap is used to initialize the Qkernel object Dir, which represents the directory object in Qkernel. Dir is then used to initialize the inode 
+representing the sub-filesystem, i.e., NewSecretInode. Later, MountSubmounts will add this inode to the mounts fields in the structure MountNsInternal, which stands for the application process mount namespace.
 
 \begin{lstlisting}[language=rust, caption= API for secret file system, label={lst:sub_filesystem}]
 pub struct SecretFileSystem {}
 impl Filesystem for SecretFileSystem {
     fn Mount(&mut self, task: &Task, device: &str, flags: &MountSourceFlags, data: &str) -> Result<Inode> {
             ...
-            let inode = NewSecret(task, &Arc::new(QMutex::new(msrc)), cgroups);
-            return Ok(inode);
     }
-}
-
-pub fn NewSecret(task: &Task, msrc: &Arc<QMutex<MountSource>>,  cgroupControllers: BTreeMap<String, String>) -> Inode {
-    let mut contents = BTreeMap::new();
-    let secret_keeper = SECRET_KEEPER.read();
-    for (file_name, content) in secret_keeper.file_secrets.iter() {
-        let inode = NewSecinfo(task, msrc, content.len() as i64);
-        contents.insert(file_name.clone(), inode);
-    }
-    ...
-    let iops = Dir::New(task, contents, &ROOT_OWNER, &FilePermissions::FromMode(FileMode(0o0555)));	
-    return NewSecretInode(...);
 }
 
 pub struct MountNsInternal {
-    pub root: Dirent,
     pub mounts: QMutex<BTreeMap<u64, Arc<QMutex<Mount>>>>,
     ...
 }
       
 \end{lstlisting}
 
-The Dir and the NewSecretInode object implement the InodeOperation trait, as depicted in Listing~\ref{lst:accessing_file}. This trait helps the Qkernel find the inode corresponding to the secret when the application reads a file under directory /secret. This inode also adopts the InodeOperation trait, 
-in which GetFile() will return a file object. This file object implements the FileOperations trait. The Qkernel can utilize the ReadAt function in this trait to read the file secret stored in SecretKeeper. Moreover, the file does not implement WriteAt, as the file system is read-only.
+The Dir and the NewSecretInode object implement the InodeOperation trait, as depicted in Listing~\ref{lst:accessing_file}. The function Lookup in the trait helps the Qkernel find the inode corresponding to the secret when the application reads a file under directory /secret. The secret inode also adopts the InodeOperation trait, 
+in which GetFile() will return a file object. This file object implements the FileOperations trait. The Qkernel can utilize the ReadAt function in this trait to read the file secret stored in SecretKeeper. Moreover, the file does not implement WriteAt, as the secret sub-filesystem is read-only.
 
 \begin{lstlisting}[language=rust, caption= Interface for accessing the file type secrets, label={lst:accessing_file}]
 
@@ -232,19 +217,19 @@ report are encrypted by vmpck and returned to the guest via the SNP response. Th
     \label{fig:amd_snp_driver}
 \end{figure}
 
-To simulate the aforementioned process, as shown in Figure~\ref{fig:amd_snp_driver}, Qvisor's VM initialization module initializes a secret page during the virtual machine's creation process. This page is mapped to shared memory between Qvisor and Qkernel. When the enclave requests an attestation 
-report, the attestation driver creates an  SNP request using a VMPCK on the secret page. This request is relayed to the AMD SEV SNP firmware emulation module in Qvisor via the hyper call SVM\_VMGEXIT\_GUEST\_REQUEST. This module is responsible for emulating SNP firmware. It will decrypt the request 
-using the vmpck on the page. A dummy report is then retrieved from the disk and tweaked according to the attestation driver's requirements for user-defined fields. Subsequently, the SNP module encrypts the altered report with vmpck and returns it to the attestation driver as the SNP response payload. The attestation driver can 
+To simulate the process above, as shown in Figure~\ref{fig:amd_snp_driver}, Qvisor's VM initialization module initializes a secret page during the virtual machine's creation process. This page is mapped to shared memory between Qvisor and Qkernel. When the enclave requests an attestation 
+report, the attestation driver creates an  SNP request using a VMPCK on the secret page. This request is relayed to the AMD SEV SNP firmware emulation module in Qvisor via the hypercall SVM\_VMGEXIT\_GUEST\_REQUEST. This module emulates SNP firmware. It will decrypt the request 
+using the vmpck on the page. A dummy report is then retrieved from the disk and tweaked according to the attestation driver's requirements for the user-defined field. Subsequently, the SNP module encrypts the altered report with vmpck and returns it to the attestation driver as the SNP response payload. The attestation driver can 
 decrypt the response and retrieve the report using VMPCK.
 
 This driver provides the API in Listing~\ref{lst:Attestation_driver} . It takes user-defined data and returns a report serialized as a JSON string. The user-defined data is added to the custom field of the report. Returning a string instead of a specific report allows extending this driver to support multiple TEEs. Specifically,  
-When it receives a request to generate a report, it will generate a report in different formats depending on the type of TEE. Then, it will serialize this report into a string and return it to the requestor. The requestor can deserialize this string to get the specific report according to the TEE type
+when it receives a request to generate a report, it will generate a report in different formats depending on the type of TEE. Then, it will serialize this report into a string and return it to the requestor. The requestor can deserialize this string to get the specific report according to the TEE type
 \begin{lstlisting}[language=rust, caption= API of attestation driver, label={lst:Attestation_driver}]
 pub fn get_report(&mut self, report_data: String) -> Result<String>   
 \end{lstlisting}
 
 \subsection{Runtime Attestation Service}
-The API of runtime attestation service is shown in the Listing~\ref{lst:runtime_attestation}. We have added a new system call with id 451 to the Qkernel. the SysAttestationReport function is the handler for this system call. It accepts user-defined data, data length, a structure called Request, and returns a report to 
+The API of the runtime attestation service is shown in the Listing~\ref{lst:runtime_attestation}. We have added a new system call with id 451 to the Qkernel. The SysAttestationReport function is the handler for this system call. It accepts parameters, user-defined data, data length, and Request structure and returns a report to 
 the application. Here, the Request allows the application to specify the desired report type.
 
 \begin{lstlisting}[language=rust, caption= Interface for accessing the file type secrets, label={lst:runtime_attestation}]
@@ -267,13 +252,14 @@ pub struct Report {
 pub fn SysAttestationReport(task: &mut Task, args: &SyscallArguments) -> Result<i64>      
 \end{lstlisting}
 
-SysAttestationReport can generate software or hardware reports. To return a report of any type, the function serializes a report as a JSON string. It then converts the string into a byte array and embeds the array in the report field of the Report structure. After that, SysAttestationReport copies 
+SysAttestationReport can generate software or hardware reports. In order to return a report of any type, the function serializes a report as a JSON string. It then converts the string into a byte array and embeds the array in the report field of the Report structure. After that, SysAttestationReport copies 
 the Report structure to the address specified by the application. The application can get the length of the report character array from the report\_length in the Report structure. After converting the report character array to a string, the type of the report can be determined from the tee\_type field, 
 and the string can then be deserialized to an appropriate report. The format of the software report has been described in the design chapter, while the format of a hardware report depends on the TEE type.
 
 \section{Software measurement manager}
-This section describes how software measurement managers measure data loaded from the host, e.g., dynamic libraries, binaries, etc., and how to get the four hash values described in the.
-\todo{Add link}
+\label{sec:impl_measurement}
+
+This section describes how the software measurement manager measures data loaded from the host, such as dynamic link libraries, binary files, etc., and obtains enclave startup hash, application startup reference hash, runtime hashes, and enclave restart hash.
 
 \subsection{Binary Measurement}
 
@@ -284,18 +270,20 @@ This section describes how software measurement managers measure data loaded fro
     \label{fig:binary_measurement}
 \end{figure}
 
+Figure~\ref{fig:binary_measurement} depicts the workflow of binary measurement. Before the Qkernel loader loads a binary file, the manager initializes a hash and saves it in a BtreeMap. While the binary is being measured, the manager can find the hash value using the binary name and extend it. 
+As discussed in Section~\ref{sec:app_binary_loading}, the loader loads a binary by reading the binary header and creating a Virtual Memory Area (VMA) for each loadable segment. After creating a VMA, the manager reads the guest virtual address range of the VMA and extends the binary's hash utilizing 
+the data read. The read operation will trigger page fault processing, which loads the appropriate data into guest memory (refer to Section~\ref{sec:app_binary_loading}). After the loader completes the creation of VMAs for all loadable segments, the manager can obtain the binary measurement 
+from the BtreeMap.
 
-The Figure~\ref{fig:binary_measurement} depicts the workflow of binary measurement. When the Qkernel loader starts loading a binary, the software measurement manager initializes a hash for it. The hash is then stored within a map. The secret manager can find the corresponding hash based on the name of the binary in the map. 
-Subsequently, the loader reads the binary header and creates a Virtual Memory Area (VMA) for each loadable segment. Meanwhile, the software measurement manager reads the guest virtual address range of each VMA and extends the binary's hash utilizing the data read.
-The read operation will trigger page fault handling, loading the corresponding data into the guest memory and setting up the page table. After the loader completes the creation of VMAs for all loadable segments, the software measurement manager obtains the binary measurement. Depending on the time the 
-binary is loaded, the software measurement manager will process it differently. If the binary is loaded during application run-time, the resulting measurement will be compared with the reference value within the enclave policy. If the binary is loaded before the application process is launched, this 
-measurement will extend the enclave startup measurement. If this measurement is loaded when restarting the application, it will extend the measurement associated with the application restart.
+
+
 
 \subsection{Shared Library Measurement}
 
-The workflow for shared library measurement is depicted in Figure~\ref{fig:measure_load_shared_libarart}. When the interpreter begins to load a dynamic library, it initiates the open system call to obtain the file descriptor for the shared library file. The open system call is processed by the Qkernel open system call handler。 
-The handler determines whether a file is a shared library by checking its suffix (i.e., .so). If so, the handler notifies the secret manager to initialize a hash for the shared library, which is then stored in a B-tree map. Based on the library's name, the software manager can retrieve and extend the 
-hash from the map.
+The workflow for shared library measurement is depicted in Figure~\ref{fig:measure_load_shared_libarart}. When the interpreter begins to load a dynamic library, it initiates the open system call to obtain the file descriptor for the shared library. The Qkernel open system call handler processes 
+the open system call and determines whether a file is a shared library by checking its suffix (i.e., .so). If so, the handler notifies the software measurement manager to initialize a hash for the shared library, which is then stored in a BtreeMap. The manager can retrieve the hash from the map 
+and extend it based on the library's name.
+
 
 \begin{figure}[!htb]
     \centering
@@ -304,48 +292,30 @@ hash from the map.
     \label{fig:measure_load_shared_libarart}
 \end{figure}
 
+Once the open system call completes, the interpreter uses the read system call to read the library's header and find the loadable segments of the library. It then calls the mmap system call to create a virtual memory area (VMA) for each segment. After the Qkernel mmap system call handler creates a VMA, 
+it invokes the software measurement manager. The manager will read the guest virtual memory range of the VMA and extends the library's hash in the BtreeMap. As analyzed in Section~\ref{fig:measure_load_shared_libarart}, the read operation will cause the page fault handler to load the necessary data 
+into the Qkernel. Since a shared library can have several loadable segments, the mmap system call can be invoked several times. The library's hash may thus be extended multiple times.
 
-Once the open system call completes, the interpreter uses the read system call to read the library's header and find the loadable segments of the library. It then calls the mmap system call to create a virtual memory area (VMA) for each segment. After the Qkernel mmap system call handler creates a 
-VMA,  the handler invokes the software measurement manager to measure it. Specifically, the manager reads the guest virtual memory range of the VMA and extends the library's hash using the data it reads. The read operation will cause the page fault handler to load the necessary data into the Qkernel. 
-Since a shared library can have several shared segments, the mmap system call can be invoked several times. The library's hash may thus be extended multiple times.
 
-Measuring the loadable segments of a shared library can be challenging. Since the shared library is location-independent, the interpreter may map it to any location supported by the Qkernel. The only requirement is that the Qkernel must make room for all the segments in their specified positions 
-relative to the first segment. For this reason, the interpreter increases the mapping length to cover all the segments while mapping the first loadable segment. Since the mapping for all the segments might not be contiguous, the first VMA's virtual address range may be larger than the file size. 
-This makes measuring the first segment difficult. If the software measurement manager reads the first VMA's address range directly, it may trigger a KVM segment fault. 
+Measuring the loadable segments of a shared library is a challenge. Since the shared library is location-independent, the interpreter may map it to any location. The only requirement is that the Qkernel must make room for all the segments in their specified positions relative to the first segment. 
+For this reason, the interpreter increases the mapping length to cover all the segments while mapping the first loadable segment. Because the mapping for all the segments might not be contiguous, the first VMA's virtual address range may be larger than the file size. This makes measuring the first 
+segment difficult, as A KVM segment fault may be triggered if the software measurement manager reads the first VMA's address range directly. To avoid this, the software manager checks whether the VMA size exceeds the shared library's size. If it does, the manager sets the measurement length to the 
+file size of the shared library, which will cause the entire shared library to be measured. This way, the software manager can measure the first loadable segment and avoid the segment fault.
 
-To avoid this,  as shown in Listing~\ref{lst:shared_Lib_measurement}, function measure\_shared\_lib\_loadable\_segment checks whether the mmmap\_len exceeds the size of the loadable file. If the mmmap\_len is larger, the interpreter maps the shared library's first loadable segment. By 
-setting the real\_mmap\_size to the library's file size,measure\_shared\_lib\_loadable\_segment will measure the entire shared library. This enables the function to gauge the shared library's first segment and eliminate the possibility of a segment fault.
 
-\begin{lstlisting}[language=rust, caption= Interface for accessing the file type secrets, label={lst:shared_Lib_measurement}]
-pub fn measure_shared_lib_loadable_segment(&mut self, start_addr: u64, file: &File, task: &Task, fixed: bool, mmmap_len: u64, offset: u64, file_name: String) -> Result<()> {
-    let uattr = file.UnstableAttr(task)?;
-    let real_mmap_size = if uattr.Size as u64 > mmmap_len {
-        mmmap_len
-    } else {
-        uattr.Size as u64
-    };
-    
-    //read the range of the VMA
-    let data: Result<Vec<u8>> = task.CopyInVec(start_addr, real_mmap_size as usize);
-    ....
-}
-\end{lstlisting}
+
 After creating the last VMA, the interpreter executes the close system call to release the shared library's file descriptor. The system call handler, in turn, notifies the software measurement manager that the library loading is completed. The software measurement manager then obtains the measurement 
-result of the shared library from the map. Depending on the library's loading timing, the software measurement manager processes the result differently. When the shared library is loaded during the application's runtime, the software measurement manager compares the measurement result with the 
-reference values in the enclave policy. Alternatively, if the library is loaded before the application process starts, the measurement will be used to extend the enclave startup measurement. Should this measurement occur upon application restart, it is saved and employed for comparison with the 
-measurement during application startup. This approach ensures correct shared library is loaded during application restarts.
-
+result of the shared library from the map. The software measurement manager processes the result differently depending on the library's loading timing, as discussed in Section~\ref{sec:Enclave_Runtime_Measurement}
 \subsection{Other Measurements}
-Software measurement manager uses the SHA-512 hash function. This function accepts an array of bytes and returns a hash. Since the Qkernel configuration file is a structure, the software manager first serializes it into a JSON string and then converts it into a byte array. The generated array will 
+The software measurement manager uses the SHA-512 hash function. This function accepts an array of bytes and returns a hash. Since the Qkernel configuration file is a structure, the software manager first serializes it into a JSON string and then converts it into a byte array. The generated array will 
 be used as input to the hash function to extend the enclave startup measurement. The secret manager's public key is a byte array. After the software measurement manager reads it into the enclave from the directory /usr/local/secret\_manager\_cert.pem, it can be used directly to extend the enclave 
 startup measurement.
 
 \subsection{Implementation Detail}
-The data structure presented in Listing~\ref{lst:shared_Lib_measurement_implementation_detail} maintained the metadata for the software measurement manager. The variables is\_app\_loaded, load\_app\_start, and load\_app\_end are employed to track the periods during which measurements are taken. 
-The software measurement manager can decide what to do with the measurements based on these three variables. The variable runtime\_binary\_reference\_measurement stores the reference measurements for the binaries and shared libraries loaded at runtime. By utilizing these reference values, the software 
-measurement manager can verify the integrity of these binaries and shared libraries. Variable global\_measurement is a hash, which can be used to track the measurement of binaries loaded after the enclave starts, the Qkernel configuration file, and secret manager’s public key.
-Additionally, during program startup and restart, the software manager utilizes the variables app\_binary\_ref\_measurement and restart\_binary\_measurement to track the measurement of binaries. Moreover, the variable shared\_lib\_measurements and binary\_measurement record the temporary hash values 
-assigned to shared libraries and binarise during the measurement process, respectively. The software manager can retrieve the corresponding hash by the file name and extend it accordingly.
+The data structure presented in Listing~\ref{lst:shared_Lib_measurement_implementation_detail} maintained the metadata for the software measurement manager. The variables is\_app\_loaded, load\_app\_start, and load\_app\_end are employed to track the time measurements taken. The manager can decide 
+what to do with the measurements based on these three variables. The variable runtime\_binary\_reference\_measurement stores the reference measurements for the binaries and shared libraries loaded at runtime. The variable global\_measurement is a hash that can track the host data measurements since 
+the enclave starts. Additionally, during program startup and restart, the manager utilizes the variables app\_binary\_ref\_measurement and restart\_binary\_measurement to track the measurement of binaries. 
+Moreover, the variable shared\_lib\_measurements and binary\_measurement record the temporary hash values assigned to shared libraries and binarise during the measurement process, respectively. The  manager can retrieve the corresponding hash by the file name and extend it accordingly.
 
 
 \begin{lstlisting}[language=rust, caption= Interface for accessing the file type secrets, label={lst:shared_Lib_measurement_implementation_detail}]
@@ -366,18 +336,20 @@ pub struct SoftwareMeasurementManager {
 }
 \end{lstlisting}
 
-Since the order in which shared libraries are loaded may vary each time the application starts, software managers use BTreeMap to record the measurement results for each shared library during application startup and restart, i.e., startup\_shared\_lib\_measurement\_results and restart\_shared\_lib.
-Each shared library has an entry in the BTreeMap. As the Qkernel might initiate multiple processes during application startup to establish the application environment, a shared library can be loaded and measured multiple times. Thus, when a shared library undergoes repeated measurement, 
-the software manager compares the measurements stored in the BTreeMap with the hash obtained from the library's repeated measurement. If discrepancies arise between the two, the software manager triggers a panic.
+Since the order in which shared libraries are loaded may vary each time the application starts, the software measurement manager uses BTreeMap to record the measurement results for each shared library loaded during application startup and restart, i.e., startup\_shared\_lib\_measurement\_results 
+and restart\_shared\_lib. As the Qkernel might initiate multiple processes during application startup to establish the application environment, a shared library can be loaded and measured multiple times. Therefore, when repeated measurements are made on a shared library, the manager compares 
+the measurement stored in BTreeMap with the hash obtained when the library is repeatedly loaded. If there is a difference between the two, manager will trigger a panic.
 
 
-Following the completion of the initial application setup, the software manager generates the enclave startup measurement using the measurements stored in global\_measurement and startup\_shared\_lib\_measurement\_results. This hash is then stored in the variable enclave\_ref\_measurement. The ordered 
-nature of the BTreeMap ensures that the generated enclave startup hash remains consistent. 
+After the initial application setup, the manager generates an enclave startup hash using the measurements stored in global\_measurement and startup\_shared\_lib\_measurement\_results. This hash is stored in the variable enclave\_ref\_measurement as the startup hash. The ordering of BTreeMap 
+ensures that the generated enclave startup hash is consistent each time.
 
-The application startup reference measurement generally refers to the measurements stored in variable app\_binary\_ref\_measurement and startup\_shared\_lib\_measurement\_results, whereas the application restart measurements pertain to measurement in variable restart\_binary\_measurement and 
-restart\_shared\_lib\_measurement\_results. When the application is restarted, the software measurement manager first compares the app\_binary\_ref\_measurement with the restart\_binary\_measurement. This guarantees that the binaries loaded during the application restart and initial startup are 
-identical. Subsequently, a comparison is made between the measurements stored in startup\_shared\_lib\_measurement\_results and restart\_shared\_lib\_measurement\_results for the shared libraries. This verification ensures that all shared libraries loaded during application restart are consistent 
+The application startup reference hash generally refers to the measurements stored in variableapp\_binary\_ref\_measurement and startup\_shared\_lib\_measurement\_results, whereas the application restart measurements involve the measurements in variable restart\_binary\_measurement and 
+restart\_shared\_lib\_measurement\_results. When the application is restarted, the manager first compares the app\_binary\_ref\_measurement with the restart\_binary\_measurement. This guarantees that the binaries loaded during the application restart and initial startup are identical. Subsequently, 
+a comparison is made between the measurements stored in startup\_shared\_lib\_measurement\_results and restart\_shared\_lib\_measurement\_results for the shared libraries. This verification ensures that all shared libraries loaded during application restart are consistent 
 with those loaded during the initial application startup.
+
+
 
 \section{EXEC Checker}
 \label{sec:impl_exec}
@@ -409,32 +381,34 @@ the function saves the EXEC request's command and argument in plaintext. The Qua
 \end{figure}
 
 \section{STDIO Protection}
+\label{sec:impl_STDIO}
 
 \subsection{Inode Tracker}
-The data structure InodeTracker in Listing~\ref{lst:Inode_Tracker} records information about the file descriptor that is the process’s STDIO. It maintains a map where the key is the inode id, and the value contains the type of the file descriptor and some metadata. 
-The detail of the data structure can be found in Section XX. For example, when the inode type is session, the metadata includes the session id and the counter assigned to a privileged user. Normal IO shield can take the session's metadata from the inode\_track, encrypt it, and send it to
-the privileged user via STDOUT of an EXEC process.
-\todo{e can be found in Section XX.}
+The data structure InodeTracker in Listing~\ref{lst:Inode_Tracker} records information about a file descriptor that represents a process’s STDIO. It maintains a map where the key is the inode id, and the value contains metadata related to the process. 
+The detail of the data structure can be found in Section~\ref{sec:design_Distinguish_io}
+
+
 \begin{lstlisting}[language=rust, caption= API of Inode Tracker, label={lst:Inode_Tracker}]
 pub struct InodeTracker {
     inode_track: BTreeMap<u64, TrackInodeType>,
 } 
 \end{lstlisting}
 
-\subsection{Normal IO Protection}
+\subsection{Non-interactive process STDIO Protection}
 \begin{lstlisting}[language=rust, caption= API of normal IO shield, label={lst:Normal_IO}]
 fn encrypNormalIOStdouterr (&self, src: DataBuff, inode_id: u64) -> Result<DataBuff>
 \end{lstlisting}
-The function in Listing~\ref{lst:Normal_IO} encrypts STDOUT and STDERR for processes whose STDIO type is Normal IO. It accepts the data written to STDOUT or STDERR and the id of the inode corresponding to the STDOUT or STDERR file descriptor. Depending on the enclave policy and inode type, the 
-function encrypts the data using the method specified in section XX. Subsequently, it returns the encrypted data to Qkernel. Qkernel then sends encrypted data out via Qcall.
+The function in Listing~\ref{lst:Normal_IO} encrypts STDOUT and STDERR for non-interactive processes. It accepts data written to STDOUT or STDERR and the inode id corresponding to the STDOUT or STDERR file descriptor. Depending on the enclave policy and the stored metadata in the InodeTracker, 
+the function encrypts the data using the method specified in Section~\ref{sec:design_non_interactive_stdio}. Subsequently, it returns the encrypted data to Qkernel. Qkernel then sends encrypted data out via Qcall.
 
 
-\subsection{Terminal IO Protection}
+
+\subsection{Interactive process STDIO Protection}
 \begin{lstlisting}[language=rust, caption= API of system call interceptor, label={lst:Termianl_IO}]
 fn termianlIoEncryption(&self, src: &[IoVec], task: &Task,  inode_id: u64) -> Result<(Vec::<IoVec>)
 \end{lstlisting}
-Like the encrypNormalIOStdouterr function, the function in Listing~\ref{lst:Termianl_IO} is responsible for encrypting the STDOUT and STDERR of processes whose STDIO is of terminal type. This not only ensures that the logs of the interactive application are encrypted but also prevents malicious 
-users from attaching to the application.
+Like the encrypNormalIOStdouterr function, the function in Listing~\ref{lst:Termianl_IO} is responsible for encrypting the STDOUT and STDERR of interactive processes. This not only ensures that the logs of the interactive application are encrypted but also prevents malicious 
+users from attaching to the application, as discussed in Section~\ref{subsec:design_terminal}.
 
 \section{System Call Interceptor}
 \label{sec:impl_interceptor}
@@ -464,11 +438,11 @@ pub fn is_guest_syscall_allowed(current_pid: i32, syscall_id: u64) -> bool
 
 
 \section{Qlog Manager}
-
-Listing~\ref{lst:Qlog} presents the API of the Qkernel log manager. The QlogManager structure maintains the Qlog manager's policy, as shown in Figure XX. The shielding layer uses the function  qlog\_manager\_init to initialize or update the policy. The function is\_log\_level\_allowed  is invoked by 
+\label{sec:iml_qlog}
+Listing~\ref{lst:Qlog} presents the API of the Qkernel log manager. The QlogManager structure maintains the Qlog manager's policy, as shown in Figure~\ref{fig:qkernel_Log_config}. The shielding layer uses the function  qlog\_manager\_init to initialize or update the policy. 
+The function is\_log\_level\_allowed  is invoked by 
 the Qkernel logging system. It accepts the level of the log that currently needs to be printed. It returns true if the log level is the same or less than the log level specified in the policy. If this function returns false, the Qkernel logging system will not print the log message.
 
-\todo{icy, as shown in Figure XX}
 \begin{lstlisting}[language=rust, caption= API of Qlog manager, label={lst:Qlog}]
 pub struct QlogManager {
     policy: QlogPolicy,

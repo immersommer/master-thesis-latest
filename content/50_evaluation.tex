@@ -13,7 +13,7 @@ In previous chapters, we analyzed the security issues of the vanilla quark and p
 qualitative and quantitative perspectives.
 
 \section{Qualitative Analysis}
-In this section, we evaluate the proposed mitigations for the vulnerabilities summarized in Section~\ref{sec:security_summarize}.
+This section evaluates the proposed mitigations for the vulnerabilities summarized in Section~\ref{sec:security_summarize}.
 
 \subsection{Common Setup}
 
@@ -144,6 +144,10 @@ have been effectively resolved.
 
   \subfloat[Attempting to allocate a terminal through both securectl and kubectl\label{fig:cquark_terminal}]{%
   \includegraphics[clip,width=\columnwidth]{images/cquark_terminal.png}%
+  }
+
+  \subfloat[The privileged request is denied as the session is old\label{fig:seesion_is_old}]{%
+  \includegraphics[clip,width=\columnwidth]{images/seesion_is_old.PNG}%
 }
     
     \caption[The result of issuing  commands to enclave]{The result of issuing  commands to enclave\label{fig:exec}}
@@ -151,10 +155,12 @@ have been effectively resolved.
 
 
 In Section~\ref*{sec:design_EXEC_Requests}, we propose a novel schema for handling EXEC requests. As depicted in Figure~\ref{fig:ls_exec}, both privileged and unprivileged users are prohibited from executing the "ls /" command within the enclave due to the enclave policy's restriction on running commands in the root directory. 
-Figure~\ref{fig:ls_allow_unprivileged} and~\ref{fig:ls_allow_previleged} illustrate that privileged and unprivileged users can issue the "ls /var" and "ls /var/log" commands to the enclave, respectively. This allowance stems from the enclave policy's command and directory allowlist， which includes these specific commands and their corresponding arguments. 
-Conversely, since the command whitelist for non-privileged users excludes the "cat" command, unprivileged users are incapable of issuing the "cat" command to access the log file "/var/log/fontconfig.log."(figure~\ref{fig:cat_unpri}) 
-Furthermore, as observed in Figure~\ref{fig:cquark_terminal},  privileged users can spawn a terminal, while unprivileged users cannot. 
-This is as expected since the unprivileged user's command allowlist does not include any terminal allocation instructions. By implementing this innovative mechanism, we effectively safeguard the enclave against attacks exploiting the EXEC endpoint, resolving weakness three as identified in our security analysis.
+Figure~\ref{fig:ls_allow_unprivileged} and~\ref{fig:ls_allow_previleged} illustrate that privileged and unprivileged users can issue the "ls /var" and "ls /var/log" commands to the enclave, respectively. This allowance stems from the enclave policy's command and directory allowlist， which 
+includes these specific commands and their corresponding arguments. Conversely, since the command whitelist for non-privileged users excludes the "cat" command, unprivileged users are incapable of issuing the "cat" command to access the log file "/var/log/fontconfig.log."(figure~\ref{fig:cat_unpri}) 
+Furthermore, as Figure~\ref{fig:cquark_terminal} shows, privileged users can spawn a terminal, while unprivileged users cannot. 
+This is as expected since the unprivileged user's command allowlist does not include any terminal allocation instructions. 
+Besides, securectl saves the session id and counter as a file locally. Securectl uses this file to build the frame structure for privileged commands. Compared to Figure~\ref{fig:ls_allow_previleged}, the same privilege command is denied in Figure~\ref{fig: seesion_is_old} as we modified the session 
+id in the file. This shows that the enclave can prevent reply attacks from EXEC.
 
 
 \begin{figure}[!htb]
@@ -165,8 +171,7 @@ This is as expected since the unprivileged user's command allowlist does not inc
 \end{figure}
 
 
-
-In addition, we modified securectl to print the command it issues, and the execution result returned from the enclave. As can be seen in Figure~\ref{fig:cquark_priviled_cmd_result_protection}, both the EXEC command and its execution result are cryptographically protected. The protection mechanisms for the command and the execution result are 
+In addition, we modified securectl to print the command it issues, and the execution result returned from the enclave. As shown in Figure~\ref{fig:cquark_priviled_cmd_result_protection}, both the EXEC command and its execution result are cryptographically protected. The protection mechanisms for the command and the execution result are 
 discussed in Sections~\ref{sec:design_prptect_privileged_request} and~\ref{sec:design_STDIO_PROTECTION}, respectively.
 
 
@@ -307,31 +312,6 @@ attach to the application process and send ’ctrl c’ to the enclave. The ctrl
 After analyzing the Qkernel log shown in Figure~\ref{fig:app_restart_result}, we found that Qkernel measured binaries and shared libraries loaded from the host during the application restart. The enclave compared the resulting measurements with the application startup reference hash to determine that the binaries and shared libraries loaded during the two startups were 
 consistent.
 
-\subsection{Vulnerability Out of Scope}
-\todo{move to discussion}
-Besides the vulnerabilities already discussed, there are other security risks that affect Vanilla Quark but are beyond the scope of this thesis.
-
-
-
-\textbf{Physical Access Attacks.} An untrustworthy entity, including cloud operators who have physical access to the machine where the application runs, can carry out physical access attacks on the system. One example of such attacks 
-is Offline DRAM Analysis. A partial solution to alleviate the threat is to run guests on AMD SEV SNP or INTEL TDX.  Those interested in learning more about this topic should refer to \cite*{SEV_SNP_white_book}, \cite*{DBLP:journals/corr/abs-2303-15540}.
-
-
-\textbf{Lack of protection to guest memory and register states.} Lack of protection to guest memory and register states.  Insufficient protection for guest memory and register states allows non-trusted entities, such as a hypervisor, to access guest secrets, leading to security breaches. 
-Trusted execution hardware like AMD SEV\cite*{SEV_SNP_white_book} and Intel TDX\cite*{Intel_tdx_whitepaper} address this by encrypting guest memory and registers. However, CQuark does not yet support running on the Trusted execution hardware yet.
-
-
-\textbf{Paravirtualized filesystem sharing mechanism.} Vanilla Quark uses this mechanism to share files and volumes stored on the host with applications on the guest. Any modifications made by an application on a file will be reflected on the host. This poses a security risk as an attacker could 
-gain access to the application’s private data by accessing the application's rootfs on the host. A common approach is implementing a guest filesystem shielding layer to protect inbound and outbound guest data. Those interested in learning more about this topic should 
-refer to \cite*{file_system_shield}.
-
-
-\textbf{No security guarantee for communications over the Internet (unbounded network access to containers).} The qkernel in Vanilla Quark lacks authentication to network requests and cryptographic protection for transmitted data, resulting in potential unauthorized access to the application or 
-man-in-the-middle attack\cite*{Man_in_the_middle_attack}. For instance, attackers can use Kubectl port forwarding to connect to an application listening on the target port and acquire the application’s confidential data or service. A possible solution to this is implementing a guest network shield that leverages TLS to authorize 
-incoming network requests and provides cryptographic protection for incoming and outgoing data. However, this thesis does not cover this type of vulnerability, and readers are encouraged to refer to reference \cite*{network_shiled}.
-
-\textbf{Side channel attack.} Side channels, such as TLB side channel\cite*{217454}, cache side channel\cite*{7163050}, ciphertext side channel\cite*{274707} , and page-fault side-channel\cite*{236278}, can jeopardize the confidentiality of programs.  This type of vulnerability is considered out of the scope.
-
 
 
 % \begin{table}[H]
@@ -427,7 +407,6 @@ incoming network requests and provides cryptographic protection for incoming and
 In this section, we evaluate the performance of our system implementation in terms of both latency and throughput.
 
 \subsection{Overview of Quantitative Analysis}
-\todo{correct grammar error and revise}
 
 Our Benchmarking includes micro and macro-benchmarking. Microbenchmarks are performed to understand the latency overhead introduced by individual components in the shield, while macro benchmarks aim to evaluate the performance loss of running real-world applications in confidential Quark. 
 The section is structured around the following subsections.
@@ -882,7 +861,7 @@ Regarding the benchmarking methodology, we extended the testing framework~\cite*
 The results shown in Figure~\ref{fig:reds_nginx_startup_comp} indicate that confidential Quark takes about twice as long as vanilla Quark to complete the application setup. This result is reasonable because the confidential Quark must perform additional operations such as remote attestation and 
 measuring data loaded from the host. When comparing the startup times of Nginx and Redis in Confidential Quark, we observe that Nginx takes about 324 ms longer than Redis. From Fig~\ref{fig:time_disribution_startup_redis_nginx}, we find that the difference mainly comes from the latency overhead 
 difference of the software measurement manager and the remote attestation and provisioning agent, i.e., 424 ms and 65 ms, respectively. Since both applications retrieve the same number of secrets from the secret manager, we speculate that the difference in remote attestation and provisioning 
-agent's overhead comes from network jitter or measurement errors. In addition, Table~\ref{table: Measurement_For_Nginx_Redis} shows that the software measurement manager measured 67.14 and 16.25 Mb in Nginx and Redis, respectively. Because the software measurement manager has to measure more data in 
+agent's overhead comes from network jitter or measurement errors. In addition, Table~\ref{table:Measurement_For_Nginx_Redis} shows that the software measurement manager measured 67.14 and 16.25 Mb in Nginx and Redis, respectively. Because the software measurement manager has to measure more data in 
 Nginx, its latency overhead is larger in Nginx. 
 
 \begin{figure}[!htb]

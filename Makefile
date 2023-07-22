@@ -19,8 +19,18 @@ DOC_TEX_ADD ?= preamble/packages.tex \
 # your bibtex databases
 DOC_BIB     ?= own.bib
 
+
+
+
+
 # images
-DOC_IMG_JPG  = images/squirrel.jpg # you can specify multiple images here
+
+
+
+
+DOC_IMG_JPG  = images/VM_vs_PVM.png # you can specify multiple images here
+
+
 DOC_IMG_JPG  = images/hypercall_qcall_ucall.pdf
 DOC_IMG_JPG  = images/attestation.PNG
 DOC_IMG_JPG  = images/resourcerequrie.PNG
@@ -170,6 +180,7 @@ DOC_IMG_JPG  = images/page_fault_handling.png
 DOC_IMG_JPG  = images/load_shared_libarart.png
 DOC_IMG_JPG  = images/loader_flow.png
 DOC_IMG_JPG  = images/quark_config.PNG
+DOC_IMG_JPG  = images/seesion_is_old.PNG
 
 # design
 DOC_IMG_JPG  = images/genaral_architechture.png
