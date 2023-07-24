@@ -16,33 +16,63 @@
 % weitsichtig man doch ist. Dieses Kapitel muß kurz sein, damit es
 % gelesen wird.
 
-\ldots conclusion \ldots
+% \ldots conclusion \ldots
 
-\todo{write conclusion}
+% \todo{write conclusion}
+
+This thesis aims to enable untrustworthy cloud providers to orchestrate applications within enclaves while ensuring the security and privacy of sensitive data. In particular, to minimize the TCB of the enclave, we have selected pVM as a starting point.
+ 
+Chapter 3 analyzes the security risks of the OCI runtime interface. To address these concerns, the thesis introduces the OCI runtime specification shield and proposes modifications to the OCI runtime interface in Chapter IV. The shield is implemented within the enclave and enforces a policy provided by 
+the application owner on the OCI interface. Figure 3 illustrates an example of such a policy. The shield allows the enclave owner to remotely verify the state of the enclave and securely deploy secrets. While the enclave is operational, the shield can authenticate and do access control on EXEC requests, 
+encrypts STDIO for the processes running in the enclave, restricts guest system calls, and manages enclave logs. Additionally, a secure client for the enclave owners is implemented, enabling them to issue privilege commands and update the enclave policy.
+ 
+The qualitative analysis in Section 3.3 proves that our implementation can effectively mitigate the security found in security analysis. However, the quantitative analysis in Section 3.4 reveals performance degradation due to our implementation. This is evident in longer application startup time, 
+decreased application throughput, an increased TCB size, etc. Nevertheless, Quark's TCB is only one-sixteenth the size of Kata Containers, highlighting the superiority of the pVM architecture.
+ 
+Further work is required before the solution can be officially deployed. For example, support for running Quark on encrypted VMs and enhancing the remote attestation infrastructure are necessary. The following section provides a detailed discussion of these aspects.
+
 
 \section{Furture Work}
-\subsection{Vulnerability Out of Scope}
-Besides the vulnerabilities already discussed, the following security risks may affect Vanilla Quark:
+
+Chapter 3 Design provides solutions to the problems identified through the security analysis in Chapter 2. However, some of these were not implemented due to time constraints. Specifically, the unimplemented designs include the secret uploading discussed in Section 3.1, the methods to mitigate secret cross-leakage described in Section 3 on page 34, and the terminal protection outlined in Section 4. In the next step, our priority will be to implement these designs.
+
+Currently, the secret manager operates locally and utilizes a local file system backend to save secrets. However, in the future, our goal is for the secret manager to run in the cloud and manage secrets from multiple stakeholders. Thus, it is necessary to place the secret manager in a secure virtual machine and develop a confidential backend. The backend can be memory-based or storage-based. The former is more straightforward because the VM's memory is encrypted. On the other hand, if the latter option is chosen, it is essential to incorporate a file system shielding layer to prevent any leakage of secrets written to the VOLUME.
+
+Our remote attestation infrastructure is immature, as Quark can only generate fake attestation reports. As discussed in Section 3, in this case, the secret manager cannot verify the report's authenticity. Future implementations will have to close this critical security gap.
+
+The performance evaluation in Section 3 shows that the guest system interceptor imposes a significant latency overhead. As discussed in Section 3, these overheads arise from accessing the vector that holds the system calls whitelist and the lock that safeguards the vector. In future implementations, a possible solution could involve storing the system call whitelist in eight AtomicU64 variables, with each bit in the variable representing a system call ID. Given that Quark consists of a total of 451 system calls, eight variables would suffice. The whitelist can then be accessed using atomic operations to circumvent the previously mentioned overhead.
+
+Quark lacks protection for the enclave's memory and registers states. Thus, untrusted entities (e.g., virtual machine hypervisors) can gain access to secrets stored within the enclave. To tackle this issue, the future implementation must modify Quark's architecture to support either AMD SEV SNP [7] or Intel TDX [45].
+
+Quark uses a pare-virtualized file system sharing mechanism to share files and volumes stored on the host with applications on the guest. Any changes made to the files by the application are reflected on the host. This poses a security risk because an attacker can access an application's secrets by accessing the rootfs of the application on the host. A common approach is to implement a guest filesystem shield to protect inbound and outbound guest data. Those interested in learning more about this topic should refer to [40].
+
+Enclave lack authentication to network requests and cryptographic protection for transmitted data, resulting in potential unauthorized access to the application or man-in-the-middle attack[54]. For instance, attackers can use Kubectl port forwarding to connect to an application listening on the target port and acquire the application's confidential data or service. A possible solution is implementing a guest network shield that leverages TLS to authorize incoming network requests and provides cryptographic protection for incoming and outgoing data. However, this thesis does not cover this type of vulnerability, and readers are encouraged to refer to reference [73]
+
+Currently, enclaves are restricted to running a single container, i.e., the application container. Attempting to load additional containers into the enclave will cause the software measurement manager to panic since the application restart hash does not match the application startup reference hash. This prevents the service mesh from working properly since it requires the sidecar container to be run in the enclave. As such,  future releases will involve an extension of the software measurement manager. The enclave owner can specify the loadable containers and their reference hashes in the enclave policy. This will allow enclaves to load additional containers. During the loading process, the software measurer will use the container's reference hash to ensure that the loaded container binaries are correct.
 
 
-\textbf{Physical Access Attacks.} An untrustworthy entity, including cloud operators who have physical access to the machine where the application runs, can carry out physical access attacks on the system. One example of such attacks 
-is Offline DRAM Analysis. A partial solution to alleviate the threat is to run guests on AMD SEV SNP or INTEL TDX.  Those interested in learning more about this topic should refer to \cite*{SEV_SNP_white_book}, \cite*{DBLP:journals/corr/abs-2303-15540}.
+% \subsection{Vulnerability Out of Scope}
+% Besides the vulnerabilities already discussed, the following security risks may affect Vanilla Quark:
 
 
-\textbf{Lack of protection to guest memory and register states.} Lack of protection to guest memory and register states.  Insufficient protection for guest memory and register states allows non-trusted entities, such as a hypervisor, to access guest secrets, leading to security breaches. 
-Trusted execution hardware like AMD SEV\cite*{SEV_SNP_white_book} and Intel TDX\cite*{Intel_tdx_whitepaper} address this by encrypting guest memory and registers. However, CQuark does not yet support running on the Trusted execution hardware yet.
+% \textbf{Physical Access Attacks.} An untrustworthy entity, including cloud operators who have physical access to the machine where the application runs, can carry out physical access attacks on the system. One example of such attacks 
+% is Offline DRAM Analysis. A partial solution to alleviate the threat is to run guests on AMD SEV SNP or INTEL TDX.  Those interested in learning more about this topic should refer to \cite*{SEV_SNP_white_book}, \cite*{DBLP:journals/corr/abs-2303-15540}.
 
 
-\textbf{Paravirtualized filesystem sharing mechanism.} Vanilla Quark uses this mechanism to share files and volumes stored on the host with applications on the guest. Any modifications made by an application on a file will be reflected on the host. This poses a security risk as an attacker could 
-gain access to the application’s private data by accessing the application's rootfs on the host. A common approach is implementing a guest filesystem shielding layer to protect inbound and outbound guest data. Those interested in learning more about this topic should 
-refer to \cite*{file_system_shield}.
+% \textbf{Lack of protection to guest memory and register states.} Lack of protection to guest memory and register states.  Insufficient protection for guest memory and register states allows non-trusted entities, such as a hypervisor, to access guest secrets, leading to security breaches. 
+% Trusted execution hardware like AMD SEV\cite*{SEV_SNP_white_book} and Intel TDX\cite*{Intel_tdx_whitepaper} address this by encrypting guest memory and registers. However, CQuark does not yet support running on the Trusted execution hardware yet.
 
 
-\textbf{No security guarantee for communications over the Internet (unbounded network access to containers).} The qkernel in Vanilla Quark lacks authentication to network requests and cryptographic protection for transmitted data, resulting in potential unauthorized access to the application or 
-man-in-the-middle attack\cite*{Man_in_the_middle_attack}. For instance, attackers can use Kubectl port forwarding to connect to an application listening on the target port and acquire the application’s confidential data or service. A possible solution is implementing a guest network shield that leverages TLS to authorize 
-incoming network requests and provides cryptographic protection for incoming and outgoing data. However, this thesis does not cover this type of vulnerability, and readers are encouraged to refer to reference \cite*{network_shiled}.
+% \textbf{Paravirtualized filesystem sharing mechanism.} Vanilla Quark uses this mechanism to share files and volumes stored on the host with applications on the guest. Any modifications made by an application on a file will be reflected on the host. This poses a security risk as an attacker could 
+% gain access to the application’s private data by accessing the application's rootfs on the host. A common approach is implementing a guest filesystem shielding layer to protect inbound and outbound guest data. Those interested in learning more about this topic should 
+% refer to \cite*{file_system_shield}.
 
-\textbf{Side channel attack.} Side channels, such as TLB side channel\cite*{217454}, cache side channel\cite*{7163050}, ciphertext side channel\cite*{274707} , and page-fault side-channel\cite*{236278}, can jeopardize the confidentiality of programs.  This type of vulnerability is considered out of the scope.
+
+% \textbf{No security guarantee for communications over the Internet (unbounded network access to containers).} The qkernel in Vanilla Quark lacks authentication to network requests and cryptographic protection for transmitted data, resulting in potential unauthorized access to the application or 
+% man-in-the-middle attack\cite*{Man_in_the_middle_attack}. For instance, attackers can use Kubectl port forwarding to connect to an application listening on the target port and acquire the application’s confidential data or service. A possible solution is implementing a guest network shield that leverages TLS to authorize 
+% incoming network requests and provides cryptographic protection for incoming and outgoing data. However, this thesis does not cover this type of vulnerability, and readers are encouraged to refer to reference \cite*{network_shiled}.
+
+% \textbf{Side channel attack.} Side channels, such as TLB side channel\cite*{217454}, cache side channel\cite*{7163050}, ciphertext side channel\cite*{274707} , and page-fault side-channel\cite*{236278}, can jeopardize the confidentiality of programs.  This type of vulnerability is considered out of the scope.
 
 
 
