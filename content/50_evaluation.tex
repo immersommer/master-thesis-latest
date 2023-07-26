@@ -13,6 +13,7 @@ In previous chapters, we analyzed the security issues of the vanilla quark and p
 qualitative and quantitative perspectives.
 
 \section{Qualitative Analysis}
+\label{sec:eva_qualitativ}
 This section evaluates the proposed mitigations for the vulnerabilities summarized in Section~\ref{sec:security_summarize}.
 
 \subsection{Common Setup}
@@ -404,6 +405,7 @@ consistent.
 
 
 \section{Quantitative Analysis}
+\label{sec:eva_Quantitative}
 In this section, we evaluate the performance of our system implementation in terms of both latency and throughput.
 
 \subsection{Overview of Quantitative Analysis}
@@ -483,7 +485,7 @@ understanding of the overhead introduced by the interceptor. Additionally, we me
 
 The test results in Figure~\ref{fig:ben_results_syscall_interceptor} reveal that vanilla Quark takes only around 270 ns to execute a single getpid and getppid call, while confidential Quark takes approximately 4716 ns. This indicates that the guest system call interceptor causes a delay of about 4500 ns per system call. Moreover, a 
 comparable latency overhead is introduced for read and write system calls, i.e.,4500 ns. However, read and write system calls are processed on the host side and take longer. Thus their processing time in confidential Quark rises less significantly than that of getpid and getppid. To summarize, in 
-confidential Quark, host-handled system calls (i.e., write and read) and guest-handled-only (e.g., getpid and getppid) are 1.47x and 17x slower, respectively, compared to vanilla Quark。 The interested reader is referred to Section~\ref*{sec:impl_interceptor} for information on the system call 
+confidential Quark, host-handled system calls (i.e., write and read) and guest-handled-only (e.g., getpid and getppid) are 1.47x and 17x slower, respectively, compared to vanilla Quark。 The interested reader is referred to Section~\ref{sec:impl_interceptor} for information on the system call 
 interceptor overhead sources.
 
 \subsection{Micro-benchmark – Speed of Reading file base secret}\label{bench_reading_file_secret}

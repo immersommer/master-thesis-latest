@@ -63,15 +63,17 @@ pdfborder={0.75 0.75 1},plainpages=false,pdfpagelabels=true]{hyperref}
 %\newcommand{\printdate}{\@date}
 
 
+\makeglossaries
+\newacronym{gcd}{GCD}{Greatest Common Divisor}
 
-
+\newacronym{lcm}{LCM}{Least Common Multiple}
 \begin{document}
 
 \pagenumbering{Roman}
 
 \input{content/00_title.tex}
 
-\includepdf[page=1-]{images/yaoxin_jing_signed.pdf}
+\includepdf[page=1-3]{images/yaoxin_jing_signed.pdf}
 %\cleardoublepage
 
 \input{content/01_disclaimer.tex}
@@ -88,6 +90,7 @@ pdfborder={0.75 0.75 1},plainpages=false,pdfpagelabels=true]{hyperref}
 \tableofcontents
 
 \cleardoublepage
+
 
 % remove this on final
 % \listoftodos
@@ -110,13 +113,18 @@ pdfborder={0.75 0.75 1},plainpages=false,pdfpagelabels=true]{hyperref}
 %\input{content/60_futurework.tex}
 \input{content/70_conclusion.tex}
 
-\appendix
+% \appendix
 
-%\addchap{Glossar}
+
+
+% \printglossary[type=\acronymtype]
+
+% \addchap{Glossar}
 
 % makeglossaries diplom
-%\printglossary[style=altlist]
-%\printglossary[type=\acronymtype,style=long]
+% \printglossary[style=altlist]
+\printglossary[type=\acronymtype,style=long]
+
 
 \printbibliography
 \iffalse

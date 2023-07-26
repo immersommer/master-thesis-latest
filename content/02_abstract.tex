@@ -13,16 +13,16 @@
 %\todo{write abstract}
 
 Container technology, such as Docker~\cite*{docker} and Kubernetes~\cite*{k8s}, has gained significant popularity in recent years due to the microservices trend. This technology allows tenants to quickly deploy and automate the management of applications in cloud environments. However, privacy concerns 
-have hindered the popularity of cloud services in industries such as finance or healthcare~\cite*{data_privacy}~\cite*{eu_data_Privacy}. Even though novel container runtimes (e.g., kata container~\cite*{Kata-Containers}) leverage hardware virtualization to increase the isolation level of containers dramatically. The standard hardware isolation mechanisms have proven to be 
-insufficient when the host system is untrustworthy.
+have hindered the popularity of cloud services in industries such as finance or healthcare~\cite*{data_privacy}~\cite*{eu_data_Privacy}. Even though novel container runtimes (e.g., kata container~\cite*{Kata-Containers}) increase the isolation level of containers dramatically by using hardware virtualization. 
+It fails to ensure the confidentiality of the container's data when the host system is untrustworthy.
 
-Trusted execution environments provide a mechanism to protect the privacy of code and data running in untrusted environments. However, none of the existing TEEs are designed for secure orchestration of containers. Untrusted Kubernetes can employ the OCI runtime interface~\cite*{oci-runtime-spec} to coordinate the execution of 
+Trusted execution environments (TEEs) provide a mechanism to protect the privacy of code and data running in untrusted environments. However, none of the existing TEEs are designed for secure orchestration of containers. Untrusted Kubernetes can employ the OCI runtime interface~\cite*{oci-runtime-spec} to coordinate the execution of 
 TEE-protected applications and issue arbitrary commands to them. This interface enables attackers to circumvent the TEE's protection mechanisms and gain unauthorized access to the application's sensitive information.
 
 Consequently, this thesis aims to analyze the OCI runtime interface and propose a policy for safeguarding containers from attacks from the above interface. The policy ensures the privacy of container data and code in the TEE while enabling untrusted Kubernetes to deploy and manipulate containers as 
-before. In particular, we choose the quark framework, a container runtime based on the pVM architecture, as a starting point for investigating container secure orchestration. In comparison, the quark framework offers a smaller Trusted Computing Base (TCB) and substantial performance 
-benefits over the traditional virtual machine-based Kata container runtimes~\cite*{quark_performance_report}. Evaluation results demonstrate that our implementation successfully achieves the design goal, albeit resulting in a 35\% increase in the Trusted Execution Environment's TCB size. Nevertheless, quark's TCB is only 
-one-sixteenth of that of the kata container runtime. Inevitably, due to the interception and checking of commands from the OCI runtime interface, our implementation imposes overheads on containers, such as longer startup times, reduced throughput, etc.
+before. In particular, we choose the Quark framework~\cite*{quark}, a container runtime based on the process VM (pVM) architecture, as a starting point for investigating container secure orchestration. In comparison, Quark offers a smaller Trusted Computing Base (TCB) and substantial performance 
+benefits over the traditional virtual machine-based Kata containers~\cite*{quark_performance_report}. Evaluation results demonstrate that our implementation successfully achieves the design goal, albeit resulting in a 35\% increase in the TEE's TCB size. Nevertheless, Quark's TCB is only 
+one-sixteenth of that of the Kata containers. Inevitably, due to the interception and checking of commands from the OCI runtime interface, our implementation imposes overheads on containers, such as longer startup times, reduced throughput, etc.
 %%% Local Variables:
 %%% TeX-master: "diplom"
 %%% End:

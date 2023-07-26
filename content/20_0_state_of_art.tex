@@ -54,16 +54,17 @@ and applicability.
     \label{fig:nabla}
 \end{figure}
 
-IBM Nabla~\cite*{10.1145/3267809.3267845} proposes a novel single-container-per-VM secure container model. It is designed to run Unikernels VMs as processes, increasing flexibility while maintaining performance and security. The architecture of IBM Nabla is shown in Fig. 3. Tender is a VMM responsible for managing Unikernels VMs. 
+IBM Nabla~\cite*{10.1145/3267809.3267845} proposes a novel secure container model, namely single-container-per-VM. It is designed to run Unikernels VMs as processes, increasing flexibility while maintaining performance and security. The architecture of IBM Nabla is shown in Fig. 3. Tender is a VMM responsible for managing Unikernels VMs. 
 Unikernels VMs access Tender using procedure calls instead of hypercalls. Since Tender is running in Seccomp mode, Unikernels VMs cannot force Tender to execute system calls not in the Seccomp whitelist. By default, Tender is allowed only seven system calls. To this end, Tender implements a level 
 of isolation for unikernel virtual machines similar to that provided by hardware virtualization. Besides, Nabla runs the unikernel as a process. Specifically, Tender as a host process dynamically loads the unikernel image into its address space. It then configures the Seccomp filter and starts the 
 unikernel VM by jumping into the unikernel entry point. Once started, the unikernel uses the Tender's registers and stack and accesses the services provided by the Tender through the function call. In summary, unikernel as a process eliminates the need for virtualized hardware, can be debugged and 
 managed using standard process tooling, and improves performance by avoiding hypercalls.
 
-Quark~\cite*{quark} provides a pVM-like architecture. They both support dynamic shared library loading and use a minimalist guest kernel. However, Quark differs from Kylinx in several ways. First, Quark does not currently support pVM fork and pVM inter-process communication. Second, unlike the Kylinx architecture, 
-where the VMM can run multiple appliances, the VMM in Quark only supports running one guest. Furthermore, the guest kernel in Quark is more like a forwarding kernel. It implements a small number of system calls and forwards others to the host. In addition, Quark's guest kernel implements process 
-management and memory management. This allows Quark guests to run multiple processes. More details about Quark can be found in Section~\ref{sec:Quark}.
+% Quark~\cite*{quark} provides a pVM-like architecture. They both support dynamic shared library loading and use a minimalist guest kernel. However, Quark differs from Kylinx in several ways. First, Quark does not currently support pVM fork and pVM inter-process communication. Second, unlike the Kylinx architecture, 
+% where the VMM can run multiple appliances, the VMM in Quark only supports running one guest. Furthermore, the guest kernel in Quark is more like a forwarding kernel. It implements a small number of system calls and forwards others to the host. In addition, Quark's guest kernel implements process 
+% management and memory management. This allows Quark guests to run multiple processes. More details about Quark can be found in Section~\ref{sec:Quark}.
 
+\todo{fix the issue}
 Other than pVM, some technologies also try to combine the container's speed and the VM's security. These technologies include micro VM and Sandbox containers~~\cite*{future_container}. One example of the micro VM is Kata containers~\cite*{Kata-Containers}, which uses highly optimized QEMU and guest Linux kernel to bootstrap a VM for running containers. 
 A detailed explanation of the Kata container can be found in Section~\ref{sec:Kata}. Additionally, gvisor~\cite*{gvisor} is a sandboxed container runtime. It uses a specialized application kernel as an intermediate layer between applications and the host operating system. The application kernel runs in the userspace and 
 implements the Linux kernel features required to run containers in the sandbox. To this end, a malicious application that leverages the application kernel's vulnerability is limited only to accessing a restricted userspace process.

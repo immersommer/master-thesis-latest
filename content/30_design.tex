@@ -133,7 +133,7 @@ In order to prevent an attacker from hijacking the secret manager's address and 
 The enclave reads the public key into the guest memory and uses it to set up the TLS connection to the secret manager. When an attacker provides the public key of a fake secret manager to the enclave, the TLS handshake fails due to a mismatch between the public key and the certificate of the real secret manager. In other words, the enclave can only establish a 
 connection with the fake secret manager.
 
-The KBS attestation protocol~\cite*{kbs_Attestation_protocol} needs improvement. Since all enclaves use a standard Qkernel binary and applications are created from classic images, the attestation evidence cannot uniquely identify an enclave. Instead, the evidence only certifies that the attester is an enclave running in a TEE with the correctly loaded application. 
+\label{eq:1}The KBS attestation protocol~\cite*{kbs_Attestation_protocol} needs improvement. Since all enclaves use a standard Qkernel binary and applications are created from classic images, the attestation evidence cannot uniquely identify an enclave. Instead, the evidence only certifies that the attester is an enclave running in a TEE with the correctly loaded application. 
 When a secret manager manages the secrets of multiple stakeholders, an enclave belonging to one stakeholder could steal the secrets of another. To address this issue, the application owner should assign a unique ID to each enclave. This ID should be added to the host data field of the attestation report by Qvisor before the enclave starts. This field is immutable after 
 launching the enclave, so the ID is bound to the enclave's attestation evidence. When the secret manager receives an enclave's attestation report, it can use this ID to determine the enclave's identity. In the authentication phase of the KBS attestation protocol, the secret manager should bind not only the authentication result but also the enclave's ID to the Cookie identifier. 
 This way, the secret manager can map the cookie identifier in the attester's resource request message to its attestation result and the enclave's ID. As such, the secret manager can use the ID and the secret owner's policy to determine whether to grant access to a particular secret to the enclave. The attester's resource request URL should have the following 
@@ -400,7 +400,7 @@ system call handler.
     \label{fig:policy_system_call}
 \end{figure}
 
-The interceptor policy is part of the enclave policy and is displayed in Figure~\ref{fig:policy_system_call}. When the keyword "enable" determines whether the interceptor is enabled. The keyword mode specifies the system interceptor's mode: ContextBased or GlobalBased. In GlobalBased mode, the interceptor 
+The interceptor policy is part of the enclave policy and is displayed in Figure~\ref{fig:policy_system_call}. The keyword "enable" determines whether the interceptor is enabled. The keyword mode specifies the system interceptor's mode: ContextBased or GlobalBased. In GlobalBased mode, the interceptor 
 functions across all guest processes, while in ContextBased mode, it operates exclusively for the application process. Considering the potential presence of multiple processes in the guest user space, it is strongly recommended to employ GlobalBased mode. Currently, the system 
 interceptor supports only the action, ScmpActErrno, which entails rejecting system calls when their IDs are absent from the allowlist termed "syscalls."
 
@@ -458,6 +458,8 @@ We make the following changes to the container lifecycle. Note that the bold tex
     \item The poststop hooks MUST be invoked by the runtime. If any poststop hook fails, the runtime MUST log a warning, but the remaining hooks and lifecycle continue as if the hook had succeeded.    
   \end{enumerate}
 
+  
+
   The application launch measurement hook should be called when the enclave loads the application binary from the host. This hook must be executed in the enclave namespace. It measures the binaries loaded from the host before the application process starts. The attestation and provisioning hook will add the measurement result to attestation evidence and then 
   forward it to the relying party for integrity check. Note that the TEE hardware must measure this hook as part of the enclave container runtime component.
  
@@ -470,7 +472,7 @@ We make the following changes to the container lifecycle. Note that the bold tex
    
   The STDIO protection hook should be invoked when an application or a privileged exec process reads or writes its STDIO. It encrypts the privileged process's STDIN, STDOUT, and STDERR based on policy obtained from relying party. A reference design can be found in Section~\ref{sec:design_STDIO_PROTECTION}.
    
-  The attestation and provisioning hook, runtime measurement hook, and STDIO Protection hooks may be included as part of the enclave's operating system or loaded from the host after the enclave starts. In the former case, these hooks will be measured by the TEE hardware or bootloader. In the latter case, The application launch measurement hook should measure 
+  The attestation and provisioning hook, runtime measurement hook, and STDIO protection hook may be included as part of the enclave's operating system or loaded from the host after the enclave starts. In the former case, these hooks will be measured by the TEE hardware or bootloader. In the latter case, The application launch measurement hook should measure 
   these hooks. 
 \subsection{EXEC Operating Guidelines}
 \label{subsec:oci_exec}
