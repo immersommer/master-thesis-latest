@@ -38,12 +38,12 @@ This chapter provides an overview of the state of the art. We first present the 
 
 Unikernel~\cite*{10.1145/2499368.2451167} uses a single-purpose, statically sealed, minimalist LibOS virtual machine to run individual programs. This single-purpose virtual machine, also known as an appliance, contains only the code and data the application needs. At compile time, the unikernel 
 encapsulates the application 
-binary and the required LibOS modules into an image that can be run directly on a VMM. At runtime, the appliance provides only the application's required services and utilizes the VMM for isolation and resource multiplexing. Compared to traditional virtual machines (based on rich operating systems 
-such as Linux), the LibOS in an appliance is smaller. Thus, it boots faster and has a smaller memory footprint while maintaining the same isolation level. Furthermore, the unikernel's TCB is typically smaller than a container, picoproces, and traditional virtual machine~\cite*{10.1145/3436512}. Also, the appliance 
+binary and the required LibOS modules into an image that can be run directly on a virtual machine manager (VMM). At runtime, the appliance provides only the application's required services and utilizes the \acrshort{VMM} for isolation and resource multiplexing. Compared to traditional virtual machines (based on rich operating systems 
+such as Linux), the LibOS in an appliance is smaller. Thus, it boots faster and has a smaller memory footprint while maintaining the same isolation level. Furthermore, the unikernel's \acrshort{TCB} is typically smaller than a container, picoproces, and traditional virtual machine~\cite*{10.1145/3436512}. Also, the appliance 
 employs the VM ABI to communicate with the host. It is much smaller than the system call API and, therefore, easier to protect~\cite*{10.1145/3436512}. However, the lack of support for dynamic code loading, process abstraction, and debug tools limits its flexibility~\cite*{10.1145/3436512, 10.1145/3267809.3267845}.
 
-Kylinx~\cite*{10.1145/3436512} debuted the concept of pVM, which uses VMM as the operating system and appliances as processes. It extends unikernel to provide process-level abstraction and dynamic library loading. The above two features are realized by dynamic mapping at the page level and library level. 
-Specifically, at the page level, it supports pVM fork and pVM-to-pVM communication. A pVM can use the fork interface and the VMM's memory-sharing mechanism to generate a new pVM. The communication between the two is enabled by an event channel and shared pages. At the library level, Kylinx 
+Kylinx~\cite*{10.1145/3436512} debuted the concept of \acrshort{pVM}, which uses \acrshort{VMM} as the operating system and appliances as processes. It extends unikernel to provide process-level abstraction and dynamic library loading. The above two features are realized by dynamic mapping at the page level and library level. 
+Specifically, at the page level, it supports pVM fork and \acrshort{pVM}-to-\acrshort{pVM} communication. A \acrshort{pVM} can use the fork interface and the VMM's memory-sharing mechanism to generate a new \acrshort{pVM}. The communication between the two is enabled by an event channel and shared pages. At the library level, Kylinx 
 can load shared libraries into the appliance at runtime by adding a dynamic segment to the appliance's original memory layout. This allows the pVM to perform online library updates. With the above approach, Kylinx retains the benefits of unikernel and improves its flexibility, efficiency, 
 and applicability.
  
@@ -54,7 +54,7 @@ and applicability.
     \label{fig:nabla}
 \end{figure}
 
-IBM Nabla~\cite*{10.1145/3267809.3267845} proposes a novel secure container model, namely single-container-per-VM. It is designed to run Unikernels VMs as processes, increasing flexibility while maintaining performance and security. The architecture of IBM Nabla is shown in Fig. 3. Tender is a VMM responsible for managing Unikernels VMs. 
+IBM Nabla~\cite*{10.1145/3267809.3267845} proposes a novel secure container model, namely single-container-per-VM. It is designed to run Unikernels VMs as processes, increasing flexibility while maintaining performance and security. The architecture of IBM Nabla is shown in Fig.~\ref{images/nabla.png}. Tender is a \acrshort{VMM} responsible for managing Unikernels VMs. 
 Unikernels VMs access Tender using procedure calls instead of hypercalls. Since Tender is running in Seccomp mode, Unikernels VMs cannot force Tender to execute system calls not in the Seccomp whitelist. By default, Tender is allowed only seven system calls. To this end, Tender implements a level 
 of isolation for unikernel virtual machines similar to that provided by hardware virtualization. Besides, Nabla runs the unikernel as a process. Specifically, Tender as a host process dynamically loads the unikernel image into its address space. It then configures the Seccomp filter and starts the 
 unikernel VM by jumping into the unikernel entry point. Once started, the unikernel uses the Tender's registers and stack and accesses the services provided by the Tender through the function call. In summary, unikernel as a process eliminates the need for virtualized hardware, can be debugged and 
@@ -71,8 +71,8 @@ implements the Linux kernel features required to run containers in the sandbox. 
 
 
 \section{Secure Orchestration}
-Pama~\cite*{Johnson2023ParmaCC} offers a mechanism for securely running a pod (a set of containers) in AMD SNP~\cite*{SEV_SNP_white_book} using a so-called execution policy. It supports remote attestation and secret provisioning and implements two types of filesystems to protect the container root filesystem 
-(consisting of the container image layers and scratch space) and the user's sensitive data. The two types of filesystems are integrity-protected and encrypted filesystems. Each container image layer (pulled by the Containerd~\cite*{containerd} and stored in a host-side block device) is mounted by Pama as an 
+Pama~\cite*{Johnson2023ParmaCC} offers a mechanism for securely running a pod (a set of containers) in AMD SNP~\cite*{SEV_SNP_white_book} using a so-called execution policy. It supports remote attestation and secret provisioning and implements two types of confidential filesystems, i.e., integrity-protected and encrypted filesystems. These filesystems protect the container root filesystem 
+(consisting of the container image layers and scratch space) and the user's sensitive data. Each container image layer (pulled by the Containerd~\cite*{containerd} and stored in a host-side block device) is mounted by Pama as an 
 integrity-protected read-only guest file system. When accessing the file system, a guest filesystem driver uses reference values in the execution policy to force integrity checks. This way, Pama ensures the host cannot tamper with the container image.
 On the other hand, encrypted filesystems protect block devices and volumes containing users' private sensitive data. When an encrypted file system is accessed, a guest driver decrypts the corresponding memory-mapped block and copies the output to the guest's private memory. 
 \begin{figure}[htp]
@@ -100,8 +100,8 @@ containers. The guest agent, responsible for communicating with the host, can de
 
 
 In Pama, users' sensitive data is transmitted to the guest in an encrypted manner while its encryption key is uploaded to the key release service. In order to decrypt the data, the guest needs to perform remote attestation. The flow of remote attestation and provisioning 
-is shown in Figure~\ref{fig:pama_atte}. Guest first requests an attestation report containing the hash of an RSA-wrapped public key from the AMD PSP. It then sends the report and the public key to the attestation service. After verifying the identity of the guest, 
-the attestation service issues an attestation token for it. With this token, the guest can obtain a key cryptographically protected by the RSA public key from the key release service, then decrypts the user data.
+is shown in Figure~\ref{fig:pama_atte}. Guest first requests an attestation report containing the hash of an RSA public key from the AMD PSP~\cite*{snp_firmware}. It then sends the report and the public key to the attestation service. After verifying the identity of the guest, 
+the attestation service issues an attestation token for it. With this token, the guest can obtain a key cryptographically protected by the public key from the key release service.
 
  
 \begin{figure}[htp]
@@ -111,11 +111,11 @@ the attestation service issues an attestation token for it. With this token, the
     \label{fig:confidentail_kata}
 \end{figure}
 
-The confidential container~\cite*{confidential_kata} is another solution that protects users' sensitive data at the pod level. It originates from the Kata container and uses TEE to provide security and privacy for the data and code inside a pod. Figure~\ref{fig:confidentail_kata} presents its architecture, i.e., a Kubernetes pod runs in a 
-TEE-protected virtual machine. In order to prevent the host from tampering with the container's image, the confidential container offloads the image management from the Containerd to the Image Mgmt module within the guest. It is responsible for image pulling, unpacking, and generating the 
+The confidential container~\cite*{confidential_kata} is another solution that protects users' sensitive data at the pod level. It originates from the Kata container~\cite*{Kata-Containers} and uses \acrshort{TEE} to provide privacy for the data and code inside a pod. Figure~\ref{fig:confidentail_kata} presents its architecture, i.e., a Kubernetes pod runs in a 
+TEE-protected virtual machine. In order to prevent the host from tampering with the container's image, the confidential container offloads the image management from the Containerd\cite*{containerd} to the Image Mgmt module within the guest. It is responsible for image pulling, unpacking, and generating the 
 application bundle. Since untrusted third parties manage container images, all container images are either encrypted or signed. Note that image encryption only occurs if the image contains sensitive data or code. Upon receiving the image, the guest must perforce image decryption and signature 
-verification using a key managed by the relying party. In this case, the attestation agent uses the KBS attestation protocol to prove its identity to the relying party and retrieve the corresponding key. During the remote attestation process, the relying party utilizes the attestation report to ensure the guest components 
-shown in the figure are loaded correctly. An explanation of the KBS attestation protocol can be found in Section~\ref{sec:kbs}. The unpacked images are saved in the TEE-protected VM memory and used to create containers. The untrustworthy kata runtime sends commands to the kata agent inside the guest for container 
+verification using a key managed by the relying party. In this case, the attestation agent uses the KBS attestation protocol~\cite*{kbs_Attestation_protocol} to prove its identity to the relying party and retrieve the corresponding key. An explanation of the KBS attestation protocol can be found in Section~\ref{sec:kbs}. The unpacked images are saved in 
+the TEE-protected VM memory and used to create containers. The untrustworthy kata runtime sends commands to the kata agent inside the guest for container 
 orchestration. For security reasons, like Pama, the confidential container allows the user to define a policy for the Kata agent~\cite*{kata_api_restriction}. This policy is a blacklist that describes the commands that the Kata agent will reject. Currently, the project does not support persistent trusted storage. 
 Some discussion about it can be found in~\cite*{confidentail_kata_storage}.
 
@@ -151,15 +151,15 @@ node-to-node attestation, cluster-to-client attestation, and storage encryption~
 
 
 Constellation enables the cluster to scale securely according to the user's policy, and the whole cluster can consistently be attested in a transitive way. The workflow is shown in Figure~\ref{fig:constellation_join}. The client verifies the first node in the cluster using remote attestation and TLS. 
-Once verified, the client provides a configuration file to the node to bootstrap k8s and initialize all constellation components. This node then returns a Kubeconfig to the user over the TLS channel. Since the Kubeconfig is only accessible to the cluster owner, the cloud provider or other tenants 
+Once verified, the client provides a configuration file to the node to bootstrap Kubernetes and initialize all constellation components. This node then returns a Kubeconfig to the user over the TLS channel. Since the Kubeconfig is only accessible to the cluster owner, the cloud provider or other tenants 
 cannot reach the cluster. Instead of verifying every new node by hand, the constellation provides a service called Join Sevice. It runs on the master node and verifies the new node before it joins the cluster using remote attestation.
 
 Constellation protects workloads within the cluster from infrastructure-based threats. This includes compromised cloud provider admin exploits, etc. Since all cluster nodes, including the master node running the control plane, are trusted, workloads in the cluster can be safely orchestrated. 
-Furthermore, the secrets are provisioned by the cluster owner and managed by k8s. An attacker cannot steal the cluster-managed secrets because the cluster is fully isolated.
+Furthermore, the secrets are provisioned by the cluster owner and managed by Kubernetes. An attacker cannot steal the cluster-managed secrets because the cluster is fully isolated.
  
  
 Both Pama~\cite*{Johnson2023ParmaCC} and Confidential Container~\cite*{confidential_kata} use a dedicated guest kernel, such as Linux, and therefore have larger TCBs than pVM and process-based TEE solutions, such as Scone~\cite*{10.5555/3026877.3026930}. This means that they inherited a larger attack 
-surface. In addition, the security boundary of Pama and Confidential Container is smaller than that of Scone. The reason is that Scone uses the System Call API as the security boundary. In contrast, the security boundary of the other two is the interface between the guest and the VMM, e.g., 
+surface. In addition, the security boundary of Pama, Confidential Container, and pVM-based solutions is smaller than that of Scone. The reason is that Scone uses the System Call API as the security boundary. In contrast, the security boundary of the other three is the interface between the guest and the VMM, e.g., 
 Hypercall. Finally, Confidential Container needs to use a modified Containerd~\cite*{containerd}, which places an additional burden on its environment configuration. 
 
 
