@@ -141,7 +141,7 @@ computations and data~\cite*{7345265}.
 
 Hardware-based~\acrshort{TEE} models can be categorized into two types: virtual machine-based~\acrshort{TEE} and process-based~\acrshort{TEE}~\cite*{10.3389/fcomp.2022.930741}. Examples of virtual machine-based~\acrshort{TEE}s include Intel TDX~\cite*{Intel_tdx_whitepaper} and AMD SEV SNP~\cite*{SEV_SNP_white_book}, whereas Intel SGX~\cite*{INTEL_SGX} is the most famous process-based~\acrshort{TEE}. 
 While Intel SGX has a smaller~\acrshort{TCB}, it requires modifications to an application to split it into trusted and untrusted parts. This can result in a degraded user experience. In contrast, VM-based~\acrshort{TEE}s enable the execution of programs without modification. However, this approach increases the 
-trusted computing base, making it more susceptible to attacks~\cite*{Execution_Environment_landscape}.
+\acrshort{TCB}, making it more susceptible to attacks~\cite*{Execution_Environment_landscape}.
 
 The following two sections provide an overview of VM-based~\acrshort{TEE}. We chose AMD SNP and INTEL TDX as examples because they will likely be widely used. An explanation of process-based~\acrshort{TEE}s is beyond the scope of this thesis. For further details on this topic, please refer to~\cite*{cryptoeprint:2016/086, 10.1145/2487726.2488370}.
 
@@ -233,7 +233,7 @@ the TD owner downloads the certificate chain from either the Platform Certificat
 refer the reader to \cite*{Intel_tdx_whitepaper, 9448036, DBLP:journals/corr/abs-2303-15540}.
 
 \subsection{Comparison of AMD SNP and Intel TDX}
-Figure~\ref{fig:snp_tdx_compare} compares the features of Intel TDX and AMD SNP~\cite*{amd_sev_summarize}. In particular, we chose the most popular and widely used TEE, Intel SGX, 
+Figure~\ref{fig:snp_tdx_compare} compares the features of Intel TDX and AMD SNP~\cite*{amd_sev_summarize}. In particular, we chose the most popular and widely used \acrshort{TEE}, Intel SGX, 
 as a reference.
 
 \begin{figure}[htp]
@@ -270,7 +270,7 @@ As defined in the key broke service attestation protocol, phase 1 (authenticatio
     \begin{enumerate}
         \item  Post /kbs/v0/auth: The KBC sends an HTTP Post whose body is a KBS Request JSON payload to KBS to initiate the attestation protocol. The payload contains The protocol version number supported by KBC, the type of HW-TEE platform where KBC is located.
         \item  Response: The KBS responds with the Challenge payload, which contains an attestation challenge (nonce) for the attester. In the next step, KBC must place it in the evidence sent to the KBS to prevent replay attacks. Furthermore, the KBS also sends a session identifier to the KBC as an HTTP Cookie
-        \item  Post /kbs/v0/auth: The KBC sends an HTTP Post request with a JSON payload called KBS Attestation and a Cookie set to the value received in the previous step. The payload contains the attestation evidence and the KBC’s public key.
+        \item  Post /kbs/v0/auth: The KBC sends an HTTP Post request with a JSON payload called KBS Attestation and a cookie set to the value received in the previous step. The payload contains the attestation evidence and the KBC’s public key.
         \item  Response: Upon successful attestation, the KBS replies to that request with an empty payload and sets the status code to 200. KBC can check the status code to determine if the authentication succeeds. 
     \end{enumerate}
 \end{displayquote}

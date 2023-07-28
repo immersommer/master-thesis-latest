@@ -22,21 +22,21 @@
 
 %\todo{write design}
 
-This chapter will present a shielding layer design to mitigate the pitfalls found in Chapter~\ref{sec:security_analyse}. It consists of the following components：
+This chapter will present a shielding layer design to mitigate the pitfalls found in Chapter~\ref{sec:security_analyse}. The shielding layer consists of the following components：
 
-\textbf{Remote attestation and secret provisioning Infrastructure.} This infrastructure provides a mechanism for securely deploying sensitive user data. Secret management and deployment are offloaded from Kubernetes and Quark Shim to the secret manager. Shield relies on this infrastructure to prove its identity to the secret manager and retrieve secrets securely. This infrastructure addresses vulnerability~\ref{vulnerabilities:1} identified in Chapter~\ref{sec:security_analyse}.
+\textbf{Remote attestation and secret provisioning infrastructure.} This infrastructure provides a mechanism for securely deploying sensitive user data. Secret management and deployment are offloaded from Kubernetes and Quark Shim to the secret manager. Shield relies on this infrastructure to prove its identity to the secret manager and retrieve secrets securely. This infrastructure addresses vulnerability~\ref{vulnerabilities:1} identified in Chapter~\ref{sec:security_analyse}.
 
-\textbf{Enclave Runtime Measurement.} The module measures the data loaded from the host after the enclave has booted, including binaries, shared libraries, Qkernel's configuration file, and the secret manager's public key. The resulting measurements extend different hashes, including the enclave startup hash, the application startup reference hash, the runtime 
+\textbf{Enclave runtime measurement.} The module measures the data loaded from the host after the enclave has booted, including binaries, shared libraries, Qkernel's configuration file, and the secret manager's public key. The resulting measurements extend different hashes, including the enclave startup hash, the application startup reference hash, the runtime 
 hash, and the application restart hash. The enclave utilizes these hashes to perform integrity checks on the loaded data. As a result, weaknesses ~\ref{vulnerabilities:7}, ~\ref{vulnerabilities:8}, ~\ref{vulnerabilities:9}, and ~\ref{vulnerabilities:11} are mitigated.
  
-\textbf{A new pattern for EXEC requests.} This pattern effectively addresses the following pitfalls identified in Chapter~\ref{sec:security_analyse}: issuing unauthorized commands to applications, unrestricted allocation of terminals using kubectl exec -it, and the lack of protection for commands issued by application owners.
+\textbf{A new pattern for EXEC requests.} This pattern effectively addresses the following pitfalls identified in Chapter~\ref{sec:security_analyse}: issuing unauthorized commands to applications (issue~\ref{vulnerabilities:4}) and the lack of protection for commands issued by application owners (issue~\ref{vulnerabilities:6}).
 
 \textbf{A mechanism for protecting guest processes' STDIO.} This mechanism ensures the confidentiality and integrity of the STDIO stream of interactive and non-interactive processes. In this case, application logs, execution results of privileged commands, and terminal data streams belonging to the application owner are protected. As such, weaknesses~\ref{vulnerabilities:2}, ~\ref{vulnerabilities:3}, and~\ref{vulnerabilities:5} are solved.
 
 \textbf{System Call Interception and Qkenrel Log Management.} They propose a user-configurable guest system call interception and guest log protection policy to mitigate vulnerabilities~\ref{vulnerabilities:10} and~\ref{vulnerabilities:12}, respectively.
  
-In the following, we first give an overview of the architecture in Section~\ref{sec:General_Architecture}. Then, we introduce the remote authentication and provisioning infrastructure in Section~\ref{sec:design_Quark_Attestation_and_Provisioning_Infrastructure}. Subsequent Sections~\ref{sec:Enclave_Runtime_Measurement},~\ref{sec:design_EXEC_Requests},
-~\ref{sec:design_STDIO_PROTECTION}, ~\ref{sec:design_STDIO_PROTECTION}, ~\ref{sec:design_Interceptor}, and ~\ref{sec:Qkernel_logger}, we explain the new paradigm for EXEC requests, the 
+In the following, we first give an overview of the architecture in Section~\ref{sec:General_Architecture}. Then, we introduce the remote attestation and provisioning infrastructure in Section~\ref{sec:design_Quark_Attestation_and_Provisioning_Infrastructure}. Subsequent Sections~\ref{sec:Enclave_Runtime_Measurement},~\ref{sec:design_EXEC_Requests},
+~\ref{sec:design_STDIO_PROTECTION}, ~\ref{sec:design_STDIO_PROTECTION}, ~\ref{sec:design_Interceptor}, and ~\ref{sec:Qkernel_logger} explain the new paradigm for EXEC requests, the 
 mechanism for protecting the standard IO of guest processes, the guest system call interceptor, and the guest log management policy, respectively. Finally, we propose modifications to the OCI runtime interface in Section~\ref{sec:Modification_OCI}.
 
 
@@ -48,7 +48,6 @@ mechanism for protecting the standard IO of guest processes, the guest system ca
     \caption[General Architecture]{General Architecture. The green components in the figure are trusted, and the red ones are not.}
     \label{fig:genaral_architechture}
 \end{figure}
-\todo{fix figure typo issue}
 
 As shown in Figure~\ref{fig:genaral_architechture}, a secure virtual machine provides a trusted execution environment that encapsulates the guest, including the Qkernel and an application. This environment is also referred to as an "enclave." Notably, a shielding layer is added to the Qkernel to prevent adversaries from utilizing the Hcall, Qcall, and Ucall interfaces to launch attacks 
 on the enclave. As this shielding layer is part of the Qkernel, its state is protected by the secure virtual machine.
@@ -69,10 +68,11 @@ and then uploads secrets through a secure channel. The secret manager can valida
 
 The Quark attestation and provisioning infrastructure consists of the modules in green in Figure~\ref{fig:Qkernel_attestation_infrastructurc}. It provides the following services for an enclave:
 
-This infrastructure enables the secure deployment of secrets during application startup. Before the application process is launched, the remote attestation and provisioning agent uses the KBS attestation protocol to prove its identity to the secret manager and retrieve secrets. These secrets include shield policy, application startup parameters, environment 
-variables, and files. The TEE hardware generates the attestation report required in the protocol with the help of the Qkernel attestation driver. This report contains the enclave startup hash. This hash includes measurements made by the software measurement manager on data loaded from the host, such as the application binary and the Qkernel configuration file. 
+This infrastructure enables the secure deployment of secrets during application startup. Before the application process is launched, the remote attestation and provisioning agent uses the KBS attestation protocol~\cite*{kbs_Attestation_protocol} to prove its identity to the secret manager and retrieve secrets. These secrets include shield policy, application startup parameters, environment 
+variables, and files. The \acrshort{TEE} hardware generates the attestation report required in the protocol with the help of the Qkernel attestation driver. This report contains the enclave startup hash. This hash includes measurements made by the software measurement manager on data loaded from the host, such as the application binary and the Qkernel configuration file. 
 The secret manager will compare the enclave startup hash with a reference value provided by the enclave owner to ensure that the application and enclave are correctly configured. Once obtained secrets, the shielding layer is initialized according to the policy. The application's secrets are deployed to the application process by the secret injector. 
-For instance, application startup parameters and environment variables are inserted into the stack of the application process. For file-type secrets, the injector keeps them on enclave memory and creates a sub-filesystem using the Qkernel's virtual filesystem interface. This filesystem is mounted in the /secret directory, and applications can access these secrets through this file system. In this way, we offloaded secret management and deployment from Kubernetes.
+For instance, application startup parameters and environment variables are inserted into the stack of the application process. For file-type secrets, the injector keeps them on enclave memory and creates a sub-filesystem using the Qkernel's virtual filesystem interface. This filesystem is mounted in the /secret directory, and applications can access these 
+secrets through this file system. In this way, we offloaded secret management and deployment from Kubernetes~\cite*{k8s}.
 
 Additionally, The infrastructure allows applications to obtain attestation reports at runtime through the guest system call interface. For more information, please refer to Section~\ref{sec:runtime_attesation}.
 
@@ -88,7 +88,7 @@ please refer to Chapter~\ref{sec:implementation}.
 \subsection{Secret Uploading}
 \label{sec:design_Secret_Uploading}
 The process of uploading secrets to the secret manager requires two steps to be taken by the application owner. Firstly, the application owner must validate the secret manager's state using remote attestation. Secondly, a secure channel must be established for secret uploading. This process is illustrated in Figure~\ref{fig:upload_secret}. We assume the secret manager runs in the AMD SEV SNP~\ref{fig:upload_secret}. 
-Initially， the secret manager generates an RSA key pair for the TLS connection and stores the private key in its memory. This key can be regarded as an identifier for the secure channel. To bind the secret manager to the identifier of the secure channel, the hash of the public key is added to the attestation report of the secret manager. Upon receiving the report, 
+Initially， the secret manager generates an RSA key pair for the TLS connection and stores the private key in its memory. This key can be regarded as an identifier for the secure channel. To bind the secret manager to the identifier of the secure channel, the hash of the RSA public key is added to the attestation report of the secret manager. Upon receiving the report, 
 the application owner requests a certificate chain from the AMD KDC~\cite*{snp_kdc}. The certificate chain is then used to verify the signature of the report. Then using the information in the report, the application owner can ensure that the secret manager is genuine and that the hash of the public key used to establish the TLS matches the hash of the public key 
 in the report. By fulfilling these steps, the application owner can determine that the entity on the other side of the secure channel is an expected secret manager. Thus, the channel can safely be leveraged for secrets uploading.
 
@@ -102,7 +102,7 @@ in the report. By fulfilling these steps, the application owner can determine th
     \label{fig:attestation_provisioning}
 \end{figure}
 
-Secure application deployment aims to ensure the confidentiality and integrity of an application's sensitive data and the shielding layer's policy. We propose a new deployment mechanism to achieve this goal, as illustrated in Figure~\ref{fig:attestation_provisioning}.
+Secure application deployment aims to ensure the privacy of the application's secrets and the shielding layer's policy. As such, we propose a new deployment mechanism, as illustrated in Figure~\ref{fig:attestation_provisioning}.
  
 The cluster operator still uses YAML to deploy applications but without including any secrets. Instead, application secrets and the shield layer policy are uploaded to the secret manager. The cluster operator only needs to pass the IP address of the secret manager, secrets'URL, and the application binary's name as the environment variable to the 
 enclave.
@@ -110,18 +110,18 @@ enclave.
 Upon receiving an application creation request, the quark agent creates the application process according to the process specification. Remote attestation and secret provisioning occur after the enclave loads the application binary. This ensures that the secret manager can verify the integrity of the loaded application binary. However, before creating the 
 application process, the enclave may need to load and execute multiple binaries to set up the application's runtime environment. Therefore, the enclave will use the name of the application binary in the YAML file to determine if the application binary is loaded. Once loaded, the quark agent will trigger remote attestation and provisioning agent.
  
-The agent first requests the Qkernel attestation driver to generate an attestation report. Depending on the type of TEE, the driver will generate different attestation reports. Assuming the enclave runs in AMD SNP, the driver will request the SNP firmware to create an SNP report. The agent will then connect to the secret manager using the IP address in YAML and 
-establish a TLS connection. Once the TLS handshake is completed, the agent will complete remote attestation and provisioning according to the KBS attestation protocol. Specifically, in the authentication phase, it uses an attestation report generated by the Qkernel attestation driver to prove its identity to the secret manager. In the second phase, it will use the URLs in 
+The agent first requests the Qkernel attestation driver to generate an attestation report. Depending on the type of \acrshort{TEE}, the driver will generate different attestation reports. Assuming the enclave runs in AMD SNP, the driver will request the SNP firmware to create an SNP report. The agent will then connect to the secret manager using the IP address in YAML and 
+establish a TLS connection. Once the TLS handshake is completed, the agent will complete remote attestation and provisioning according to the KBS attestation protocol~\cite*{kbs_Attestation_protocol}. Specifically, in the authentication phase, it uses the attestation report generated by the Qkernel attestation driver to prove its identity to the secret manager. In the second phase, it will use the URLs in 
 the YAML file to construct HTTP GET requests to retrieve the secrets from the secret manager. We refer the reader to Section~\ref{sec:kbs} for a detailed explanation of the KBS protocol.
 
-The format of the SNP report is shown in Figure~\ref*{fig:attestation_report_format}. The report is protected with the~\acrshort{VCEK} signature and contains SNP firmware's measurements for the VM boot process, tamper-resistant 64-byte user-defined data, host data,~\acrshort{VCEK} signature, and others.
+The format of the SNP report is shown in Figure~\ref*{fig:attestation_report_format}. The report is protected with the~\acrshort{VCEK} signature and contains SNP firmware's measurements for the VM boot process, tamper-resistant 64-byte user-defined data, host data, and others.
 \begin{figure}[!htb]
     \centering
     \includegraphics[height=0.3\textheight]{images/attestation_report_format.png}
     \caption[SNP attestation report]{SNP attestation report.}
     \label{fig:attestation_report_format}
 \end{figure}
-The Secret Manager can verify the report signature using the certificate chain required by AMD KDC~\cite*{snp_kdc}. By checking the measurements of the virtual machine boot process, the secret manager can confirm that the enclave is using the correct Qkernel binary because the Qkernel is loaded into the enclave memory by Qvisor using 
+The secret manager can verify the report's signature using the certificate chain required by AMD KDC~\cite*{snp_kdc}. By checking the measurements of the virtual machine boot process, the secret manager can confirm that the enclave is using the correct Qkernel binary because the Qkernel is loaded into the enclave memory by Qvisor using 
 SNP\_LAUNCH\_UPDATE~\cite*{snp_firmware}
 before VM boot. Notably, the code of the shielding layer is part of the Qkernel binary.
 
@@ -133,9 +133,9 @@ In order to prevent an attacker from hijacking the secret manager's address and 
 The enclave reads the public key into the guest memory and uses it to set up the TLS connection to the secret manager. When an attacker provides the public key of a fake secret manager to the enclave, the TLS handshake fails due to a mismatch between the public key and the certificate of the real secret manager. In other words, the enclave can only establish a 
 connection with the fake secret manager.
 
-\label{eq:1}The KBS attestation protocol~\cite*{kbs_Attestation_protocol} needs improvement. Since all enclaves use a standard Qkernel binary and applications are created from classic images, the attestation evidence cannot uniquely identify an enclave. Instead, the evidence only certifies that the attester is an enclave running in a TEE with the correctly loaded application. 
+\label{eq:1}The KBS attestation protocol~\cite*{kbs_Attestation_protocol} needs improvement. Since all enclaves use a standard Qkernel binary and applications are created from classic images, the attestation evidence cannot uniquely identify an enclave. Instead, the evidence only certifies that the attester is an enclave running in a \acrshort{TEE} with the correctly loaded application. 
 When a secret manager manages the secrets of multiple stakeholders, an enclave belonging to one stakeholder could steal the secrets of another. To address this issue, the application owner should assign a unique ID to each enclave. This ID should be added to the host data field of the attestation report by Qvisor before the enclave starts. This field is immutable after 
-launching the enclave, so the ID is bound to the enclave's attestation evidence. When the secret manager receives an enclave's attestation report, it can use this ID to determine the enclave's identity. In the authentication phase of the KBS attestation protocol, the secret manager should bind not only the authentication result but also the enclave's ID to the Cookie identifier. 
+launching the enclave, so the ID is bound to the enclave's attestation evidence. When the secret manager receives an enclave's attestation report, it can use this ID to determine the enclave's identity. In the authentication phase of the KBS attestation protocol~\cite*{kbs_Attestation_protocol}, the secret manager should bind not only the authentication result but also the enclave's ID to the cookie identifier. 
 This way, the secret manager can map the cookie identifier in the attester's resource request message to its attestation result and the enclave's ID. As such, the secret manager can use the ID and the secret owner's policy to determine whether to grant access to a particular secret to the enclave. The attester's resource request URL should have the following 
 format: <repository>/<type>/<tag>, where <repository> is similar to the concept of container image repository, <type> is used to distinguish between different resource types, and <tag> is used to distinguish different versions of a resource. The secret manager should assign each user a unique repository and let them specify which enclaves with which IDs can access 
 this repository. To this end, we effectively avoid cross-leakage of secrets between different stakeholders.
@@ -146,7 +146,7 @@ Note that some of the above features are not implemented. Section~\ref{subsec:Li
 \label{sec:runtime_attesation}
 
 An application may need to authenticate itself to a  remote end at runtime. Quark attestation and provisioning infrastructure enable applications to obtain attestation reports through the guest system call interface. Depending on the application's needs, one of three report formats can be 
-obtained: an attestation report generated by the TEE hardware and two software attestation reports created by the shielding layer. The latter contains:
+obtained: an attestation report generated by the \acrshort{TEE} hardware and two software attestation reports created by the shielding layer. The latter contains:
 
 \begin{itemize}
     \item Enclave startup hash.
@@ -156,7 +156,7 @@ obtained: an attestation report generated by the TEE hardware and two software a
 \end{itemize}
 
 The application can sign the software report with a key issued by the secret manager or by a key it provided. The secret manager's key is sent to the enclave along with the application's secret during the secure application deployment. Software reports offer additional possibilities 
-for how the application proves its identity to the remote end. In other words, the remote end can verify the report without the assistance of the hardware provider. Upon verification of the report, the remote end can ensure that the application is as expected by using the enclave startup 
+for how the application proves its identity to the remote end. In other words, the remote end can verify the report without the assistance of the CPU vendor. Upon verification of the report, the remote end can ensure that the application is as expected by using the enclave startup 
 hash. Besides, application-defined data in a software report is tamper-proof, similar to user data in SNP reports. As previously discussed, the enclave ID guarantees that the remote end can determine the application's identity, which prevents secret cross-leakage. The previous 
 section has already discussed the major benefits of enclave startup hash. Additionally, it includes the measurement of the secret manager's public key. Therefore, The remote can be sure that the enclave acquired the secrets from the genuine secret manager during application startup and 
 correctly initialized the shielding layer. In other words, if the shielding layer is initialized with a compromised policy acquired from a fake secret manager, it can no longer guarantee that the secrets provisioned by the remote won't be leaked.
@@ -194,7 +194,7 @@ the software measurement manager measures a binary and compares the result with 
     \label{fig:measurement}
 \end{figure}
 
-\textbf{Application restart hash.} The software measurement manager measures the binaries and shared libraries when the application crashes and restarts. The resulting application restart hash will be compared with the application startup reference hash before launching the application process. If the two do not match, the Enclave panics. In this way, the enclave 
+\textbf{Application restart hash.} The software measurement manager measures the binaries and shared libraries when the application crashes and restarts. The resulting application restart hash will be compared with the application startup reference hash before launching the application process. If the two do not match, the enclave panics. In this way, the enclave 
 ensures that the host data loaded at restart is the same as the data from the first application startup. The application startup reference hash is a subset of the enclave's startup hash, checked by the secret manager. Thus comparing the two hashes ensures the integrity of the binaries and shared libraries loaded at application restart. 
 
 Regarding obtaining the reference values for enclave startup hash and runtime hashes, we implemented an enclave mode called Development. When running in this mode, the enclave will print these hashes to the Qkernel log on the host. The enclave owner should run the enclave in a trusted environment to obtain these reference values.
@@ -204,13 +204,13 @@ Regarding obtaining the reference values for enclave startup hash and runtime ha
 \begin{figure}[!htb]
     \centering
     \includegraphics[width=0.8\textwidth]{images/new_pattern_of_exec.png}
-    \caption[New Pattern for EXEC Requests]{New Pattern for EXEC Requests}
+    \caption[New pattern for EXEC requests]{New pattern for EXEC requests}
     \label{fig:new_pattern_of_exec}
 \end{figure}
 
 We propose a new pattern for EXEC requests to address issues ~\ref{vulnerabilities:4} and ~\ref{vulnerabilities:6} identified in the security analysis. As illustrated in Figure~\ref{fig:new_pattern_of_exec}, The design divides EXEC requests into two categories, namely privileged and unprivileged EXEC requests. 
 Privileged EXEC requests are issued by privileged users (i.e., enclave owners), while untrusted entities issue unprivileged requests. An untrusted entity here refers to someone other than the enclave owner. Privileged and non-privileged users send privileged or non-privileged requests to the enclave using securectl or kubectl, respectively. Both requests
-are redirected to the enclave through the Kubernetes. Upon receiving an EXEC request, the Quark agent forwards it to the Exec request checker. According to the enclave policy, the Exec request checker will authenticate and access control the request. The Quark agent will decide whether to create the 
+are redirected to the enclave through the Kubernetes~\cite*{k8s}. Upon receiving an EXEC request, the Quark agent forwards it to the EXEC request checker. According to the enclave policy, the EXEC request checker will authenticate and access control the request. The Quark agent will decide whether to create the 
 EXEC process based on the result returned by the EXEC request checker.
 
 \begin{figure}[!htb] 
@@ -233,9 +233,9 @@ EXEC process based on the result returned by the EXEC request checker.
 \end{figure}
 
 
-The policy used by the exec request checker is in Figure~\ref{fig:exec_policy}. This policy is part of the enclave policy. Each user level possesses an allowlist of commands, "allowed\_cmd," and an allowlist of directories, "allowed\_dir." The command allowlist specifies what commands the user can issue, while the 
-directory allowlist controls which directories a command can access. When an EXEC request is received, the EXEC checker examines all path-like strings in the command argument and verifies if they exist in the directory allowlist. The EXEC checker also checks whether the current working directory of 
-a no-arguments command is a subpath of a directory in the directory allowlist so that the command can only be executed in some specific directories. Notably,  directory allowlist does not apply to terminal allocation commands like /bin/sh, /bin/bash, and sh. This permits users to allocate a terminal 
+The policy used by the EXEC request checker is in Figure~\ref{fig:exec_policy}. Each privilege level possesses an allowlist of commands, "allowed\_cmd," and an allowlist of directories, "allowed\_dir." The command allowlist specifies what commands the user can issue, while the 
+directory allowlist controls which directories a command can access. When an EXEC request is received, the EXEC checker examines all path-like strings in the command argument and verifies if they exist in the directory allowlist. If a command has no arguments, the EXEC checker checks whether the current working directory of 
+the command is a subpath of a directory in the directory allowlist so that the command can only be executed in some specific directories. Notably, directory allowlist does not apply to terminal allocation commands like /bin/sh, /bin/bash, and sh. This permits users to allocate a terminal 
 from any directory. For instance, the policy in Figure~\ref{fig:exec_policy} enables privileged users to issue cat, ls, and /bin/sh commands. The cat and ls commands are restricted to the /var directory and its subdirectories. Therefore, any attempt to execute commands in other directories (e.g., cat / and cat /bin) will be denied. 
 On the other hand, since /bin/sh is included in the command allowlist, privileged users can allocate a terminal. Moreover, if a privilege level's command allowlist is empty, all commands issued by the user with this privilege level will be rejected.
 
@@ -255,12 +255,12 @@ this, the algorithm utilizes the command's current working directory to convert 
     \label{fig:exec_frame}
 \end{figure}
 The frame structure shown in Figure~\ref{fig:new_pattern_of_exec} protects privileged commands and distinguishes them from non-privileged commands. The frame structure encapsulates the string "Privileged," the AES-GCM encrypted payload, the AES-GCM~\cite*{aes_gcm} random number (nonce) used for payload decryption, and the authentication tag. 
-The plaintext payload contains the keyword "Privileged," the session ID, a counter,  the Linux command, and its parameters. K8S and the Open Container Initiative require that commands and their parameters in EXEC requests be passed as a vector of strings. For example, ["cat", "/var/log"]~\cite*{k8s}. As such, 
+The plaintext payload contains the keyword "Privileged," the session ID, a counter,  a Linux command, and its parameters. Kubernetes and the OCI runtime specification require that commands and their parameters in EXEC requests be passed as a vector of strings. For example, ["cat", "/var/log"]~\cite*{k8s}. As such, 
 the encrypted payload, nonce, and tag in the frame structure are encoded in base64, and the frame is passed as a string array to the enclave via the Kubernetes API. Note that the string array is part of the EXEC request process specification called args (See section\ref{subsec:oci_exec}). Upon receiving an EXEC request, 
 the EXEC request checker can determine if the request is privileged by viewing the first element of the arg array. If the element is the keyword Privileged", the request will be classified as privileged.
 
 AES-GCM~\cite*{aes_gcm} ensures the confidentiality, authenticity, and integrity of privileged commands and their arguments. Besides, it is easy to deploy, requiring only a shared key. After a successful remote attestation, a key is shared between the application owner and the enclave. The application owner can 
-use this key to encrypt privileged commands and their parameters. When the enclave receives a privileged request, the exec request checker can use the key to confirm that the request was generated by a privileged user who knows the key (authentication), verify the request's integrity, and decrypt the 
+use this key to encrypt privileged commands and their parameters. When the enclave receives a privileged request, the EXEC request checker can use the key to confirm that the request was generated by a privileged user who knows the key (authentication), verify the request's integrity, and decrypt the 
 request.
 
 
@@ -293,7 +293,7 @@ execute it.
 
 Figure~\ref{fig:session_base_auth} demonstrates how a privileged user gets a session. The privileged user submits a login request using securectl in the login phase. The login request is a privileged EXEC request with the format visualized in Figure~\ref{fig:session_allocation}. Instead of an actual Linux command, the keyword Login and a random number 
 are used as the command and parameter. The random number is used to prevent reply attacks. After the enclave verifies and decrypts the encrypted payload, it checks the command in the payload. If the command is the keyword Login, it assigns a session ID and a unique counter to the privileged user. 
-These two values are stored in the enclave and returned to securectl securely. Specifically, it creates a process when that EXEC request is received. However, the keyword "Login" is not a Linux command. Thus, the enclave replaces the command executed by the exec process with" ls." Once the process 
+These two values are stored in the enclave and returned to securectl securely. Specifically, it creates a process when that EXEC request is received. However, the keyword "Login" is not a Linux command. Thus, the enclave replaces the command executed by the EXEC process with" ls." Once the process 
 completes running ls and writes the result to its STDOUT, the STDIO shield will intercept the data and replaces it with the session ID and counter. Since the login request is privileged, the STDIO shield will encrypt the data before sending it to the user. 
 
 When the keyword "enabale\_policy" is true in the enclave policy, privileged users can use securectl to update the enclave policy. Similar to the session allocation request, the policy is updated by sending a privilege-level command to the enclave. The format of the command can be found in~\ref{fig:policy_frame}. Unlike 
@@ -301,11 +301,11 @@ the session request's payload, it uses the keyword policy-update as the command,
 
 \section{Guest User Space Process STDIO Protection}
 \label{sec:design_STDIO_PROTECTION}
-We propose a guest user-space process STDIO Shield to tackle the identified security issues (~\ref{vulnerabilities:2}, ~\ref{vulnerabilities:3}, ~\ref{vulnerabilities:6}). In the following, We explain how the STDIO Shield protects both non-interactive and interactive processes. It is important to note that privileged processes refer to 
+We propose a guest user-space process STDIO shield to tackle the identified security issues (~\ref{vulnerabilities:2}, ~\ref{vulnerabilities:3}, ~\ref{vulnerabilities:6}). In the following, We explain how the STDIO shield protects both non-interactive and interactive processes. It is important to note that privileged processes refer to 
 both the application process and processes executing privileged EXEC commands. The distinction between interactive and non-interactive processes lies in their STDIO, specifically whether it is of terminal type. 
 
 
-\subsection{Distinguish the STDIO type of the processes}
+\subsection{Distinguish the STDIO type of the Processes}
 \label{sec:design_Distinguish_io}
 
 The guest user space can accommodate various types of processes, including privileged-level non-interactive EXEC processes, privileged-level interactive EXEC processes, session or policy update processes, and various non-privileged-level EXEC processes. The STDIO shield handles the STDIO of these processes differently. For instance, 
@@ -328,7 +328,7 @@ value indicating the success of the update. Like session assignment, the STDIO s
 As shown in Figure~\ref{fig:differenciate_fds}, when the Quark agent creates a process and configures its STDIN, STDOUT, and STDERR file descriptors, corresponding records are created in the inode tracking table. When a process reads or writes its STDIO, the STDIO shield can locate the corresponding inode based on the file descriptor associated 
 with the STDIO. By utilizing the inode id, the shield can retrieve the relevant record from the inode table and secure the data within the STDIO stream based on the shield policy.
 
-\subsection{Non-interactive process STDIO Protection}
+\subsection{Non-interactive Process STDIO Protection}
 \label{sec:design_non_interactive_stdio}
 \begin{figure}[!htb]
     \centering
@@ -337,22 +337,22 @@ with the STDIO. By utilizing the inode id, the shield can retrieve the relevant 
     \label{fig:normal_io_shiled}
 \end{figure}
 
-Protecting the confidentiality and integrity of the data in the STDERR and STDOUT of privileged-level non-interactive processes is critical. To this end, the Normal STDIO shield utilizes a frame structure in Figure~\ref{fig:normal_io_shiled} to cryptographically protect data written to the STDOUT and STDERR of these processes. The structure consists of an 
+Protecting the confidentiality and integrity of the data in the STDERR and STDOUT of privileged-level non-interactive processes is critical. To this end, the STDIO shield utilizes a frame structure in Figure~\ref{fig:normal_io_shiled} to cryptographically protect data written to the STDOUT and STDERR of these processes. The structure consists of an 
 encrypted payload, a nonce, and an authentication tag. AES-GCM uses the nonce and the tag for decryption and authentication. The STDIO shield encrypts the payload using the key provided in the enclave policy. Since only the enclave and the enclave owner know the key, an attacker cannot decrypt the encrypted payload. Additionally, the use of AES-GCM ensures the 
 confidentiality, integrity, and authenticity of the data. The plaintext payload comprises the data written into STDOUT or STDERR by these processes and a number used to prevent reorder or replay attacks. If a privileged user uses securectl to access an application’s logs, this number is utilized to verify whether the log has been reordered or lost. 
 For privileged-level EXEC processes, this number is the counter’s value in the EXEC request. Upon receiving the EXEC result, securectl compares the reference value to the number in the payload to prevent replay attacks.
 
 
-\subsection{Interactive process STDIO Protection}
+\subsection{Interactive Process STDIO Protection}
 \label{subsec:design_terminal}
 
 
 The goal is to ensure the confidentiality and integrity of the data within the STDIN, STDOUT, and STDERR streams of an interactive process. Achieving this requires end-to-end encryption and decryption of the process's STDIO. Specifically, the data written to STDIN is encrypted by the securectl on its side and decrypted within the enclave. Similarly, 
-the STDOUT and STDERR data are encrypted within the enclave and decrypted by the securectl. As discussed in Section~\ref{sec:security_analyse_STDIO}, Quark uses the terminal I/O redirection thread in Quark Shim, and the host TTY drive to facilitate the terminal STDIO handling. Since the data written by securectl to STDIN is encrypted, the terminal I/O redirection thread 
-cannot filter signals.
+the STDOUT and STDERR data are encrypted within the enclave and decrypted by the securectl. As discussed in Section~\ref{sec:security_analyse_STDIO}, Quark uses the terminal I/O redirection thread in Quark Shim, and the host TTY drive to facilitate the terminal STDIO handling. Since the data written by securectl to STDIN is encrypted, the terminal 
+I/O redirection thread cannot filter signals.
 
 For this reason, the terminal I/O redirection thread is merged into the STDIO shield in the enclave. Upon receiving the encrypted data, the STDIO shield reads it from the named pipe representing the process's STDIN, decrypts it, and filters out possible signals. The remaining data is then forwarded to the TTY master for further processing. It is important 
-to note that the data written to the host TTY driver must be encrypted since the enclave does not trust the host. However, this encryption significantly impacts performance and can cause issues with the proper functioning of the TTY driver, leading to a malfunctioning terminal.
+to note that the data written to the host TTY driver must be encrypted since the enclave does not trust the host. However, this encryption significantly impacts performance and causes data written to the host TTY driver not to be processed correctly, leading to a malfunctioning terminal.
 
 \begin{figure}[!htb]
     \centering
@@ -363,14 +363,14 @@ to note that the data written to the host TTY driver must be encrypted since the
 
 To address this problem, as depicted in Figure~\ref{fig:terminal_shiled3}, a TTY driver must be implemented in the enclave that functions similarly to the host kernel TTY driver. This TTY driver will handle character echoes, conversion between line feeds and carriage returns, and buffering data written to the TTY master. For instance, when a guest userspace 
 process writes data to its STDOUT, the write system call handler will redirect the data to the Qkernel TTY driver. The TTY driver processes the data, transmits it to the TTY master, and then alerts the shield to initiate further processing. Following that, the shield encrypts the data extracted from the TTY master and transfers it through the Qcall interface to 
-securectl.  Securectl then decrypts the data before transmitting it to the user terminal. Upon receiving data from the STDIN-named pipe, the STDIO shield decrypts it and forwards the decrypted data to the TTY driver for further processing. When the user presses '\textbackslash r,' the TTY driver transfers its buffered data to the interactive process. It is important to note 
+securectl.  Securectl then decrypts the data before transmitting it to the user terminal. On the other hand, upon receiving data from the STDIN-named pipe, the STDIO shield decrypts it and forwards the decrypted data to the TTY driver for further processing. When the user presses '\textbackslash r,' the TTY driver transfers its buffered data to the interactive process. It is important to note 
 that the STDIO shield applies the same data encryption scheme to both the interactive and non-interactive processes' STDIO.
 
 \subsection{Limitations and Policy for STDIO Shield}
 The design of Section~\ref{subsec:design_terminal} has yet to be implemented due to the complexity of the interactive process shield. Consequently, this poses two issues. Firstly, the logs of the interactive application are in plaintext. Secondly, anyone can attach to the interactive application and execute commands. Therefore, as a temporary mitigation, the data written to the STDOUT 
-and STDERR of the interactive application process is encrypted using the schema outlined in section 4. This ensures that the interactive application's logs are encrypted. Although an attacker could attach to an interactive application and issue commands, they would not gain any valuable information because the results returned by the application are encrypted.
+and STDERR of the interactive application process is encrypted using the schema outlined in Section~\ref{sec:design_non_interactive_stdio}. This ensures that the interactive application's logs are encrypted. Although an attacker could attach to an interactive application and issue commands, they would not gain any valuable information because the results returned by the application are encrypted.
  
-Currently, the STDIO Shield will encrypt the STDIO of userspace processes based on the enclave policy depicted in Figure~\ref{fig:stdio_policy}. If no\_interactive\_process\_stdout\_err\_encryption is true, the STDIO Shield will encrypt the STDOUT and STDERR of all 
+Currently, the STDIO shield will encrypt the STDIO of userspace processes based on the enclave policy depicted in Figure~\ref{fig:stdio_policy}. If no\_interactive\_process\_stdout\_err\_encryption is true, the STDIO shield will encrypt the STDOUT and STDERR of all 
 non-interactive privilege processes. When interactive\_porcess\_stdout\_err\_encryption is true, the STDIO Shield encrypts STDOUT and STDERR for interactive privilege processes.
 
 \begin{figure}[!htb]
@@ -412,7 +412,7 @@ interceptor supports only the action, ScmpActErrno, which entails rejecting syst
 \label{sec:Qkernel_logger}
 A Qkernel log manager is implemented to address issue \ref{vulnerabilities:12}. It can be configured utilizing the enclave policy, exemplified in Figure~\ref{fig:qkernel_Log_config}. The keyword enabled determines whether the manager is enabled. When set to false, the Qkernel log system employs the logging level specified in 
 the Qkernel configuration file. Furthermore, the keyword "allowed\_max\_log\_level" designates the maximum log level Qkernel can print. As discussed in Section~\ref{sec:Qkernel_Log_Misconfiguration}, Qkernel supports five log levels. For instance, when "allowed\_max\_log\_level" is set to INFO, Qkernel is exclusively restricted to printing 
-logs at the INFO and ERROR levels. Additionally, the enclave policy is passed to the enclave during application deployment. Until the enclave obtains the policy, the Qkernel log manager is enabled and employs the log level OFF.
+logs at the INFO and ERROR levels. Additionally, the enclave policy is passed to the enclave during application deployment. Notably, the Qkernel log manager is enabled and employs the log level OFF before the enclave obtains the policy from the secret manager.
 \begin{figure}[!htb]
     \centering
     \includegraphics[width=0.4\textwidth]{images/qkernel_Log_config.png}
@@ -424,18 +424,18 @@ logs at the INFO and ERROR levels. Additionally, the enclave policy is passed to
 \label{sec:Modification_OCI}
 
 \subsection{Extending the container lifecycle to support confidential computing}
-The container lifecycle definition in the OCI RUNTIME specification~\cite*{oci-runtime-spec} lacks support for remote attestation and protection for the application’s STDIO. In this section, we first define container runtime and enclave in the context of confidential computing. Then we will propose modifications to the container 
+The container lifecycle definition in the OCI RUNTIME specification~\cite*{oci-runtime-spec} lacks support for confidential computing. In this section, we first define container runtime and enclave in the context of confidential computing. Then we will propose modifications to the container 
 lifecycle.
 
 
 \subsubsection{Definition of Runtime and Enclave in Confidential Computing}
 
-Currently, the container runtime in the OCI runtime specification~\cite*{oci-runtime-spec} refers to the runtime environment used to create containers. A VM-based container runtime includes the shim process, the hypervisor, and the agents inside the guest used to create and manage containers. 
-For example, in the kata container, these three components correspond to kata-shim, qemu, and kata-agent, respectively. However, in confidential computing, the runtime is divided into two parts: the trusted agent, the untrusted shim process, and the hypervisor. Therefore, we redefine 
+Currently, the container runtime in the OCI runtime specification~\cite*{oci-runtime-spec} refers to the runtime environment used to create containers. A VM-based container runtime includes the shim process, the hypervisor, and the agent inside the guest used to create and manage containers. 
+For example, in the Kata containers~\cite*{Kata-Containers}, these three components correspond to kata-shim, qemu, and kata-agent, respectively. However, in confidential computing, the runtime is divided into two parts: the trusted agent, the untrusted shim process, and the hypervisor. Therefore, we redefine 
 the runtime as untrusted runtime components, including the shim and hypervisor. In addition, we refer to the guest as an enclave containing the agent, guest kernel, etc.
 
 \subsubsection{Modification to Container Lifecycle}
-We make the following changes to the container lifecycle. Note that the bold text in the list is the part we modified; the rest is copied from OCI RUNTIME SPECIFICATION~\cite*{oci-runtime-spec}.
+We make the following changes to the container lifecycle. Note that the bold text in the list is the part we modified; the rest is copied from OCI runtime specification~\cite*{oci-runtime-spec}.
 
 \begin{enumerate}
     \item OCI compliant runtime's create command is invoked with a reference to the location of the bundle and a unique identifier.
@@ -446,7 +446,7 @@ We make the following changes to the container lifecycle. Note that the bold tex
     \item Runtime's start command is invoked with the unique identifier of the container.
     \item The startContainer hooks MUST be invoked by the runtime. If any startContainer hook fails, the runtime MUST generate an error, stop the container, and continue the lifecycle at step 14.
     \item \textbf{The Enclave receives the runtime’s start request and constructs a process for the user-specified program. If this hook fails, the enclave MUST generate an error, stop the container, and continue the lifecycle at step 16}
-    \item \textbf{The enclave Must invoke the application launch measurement hook if the user-specified program’s binary is loaded from the host. If this hook fails, the enclave MUST generate an error, stop the container, and continue the lifecycle at step 16.}
+    \item \textbf{The enclave MUST invoke the application launch measurement hook if the user-specified program’s binary is loaded from the host. If this hook fails, the enclave MUST generate an error, stop the container, and continue the lifecycle at step 16.}
     \item \textbf{The attestation and provisioning hook MUST be invoked within the enclave when the enclave finish loading the program’s binary. If this hook fails, the enclave MUST generate an error, stop the container, and continue the lifecycle at step 16.}
     \item \textbf{The application process enters user space and starts to run.}
     \item \textbf{The enclave MUST invoke the runtime measurement hook when the program process loads binary or shared library from the host. If this hook fails, the enclave MUST generate an error, stop the container, and continue the lifecycle at step 16}
@@ -461,7 +461,7 @@ We make the following changes to the container lifecycle. Note that the bold tex
   
 
   The application launch measurement hook should be called when the enclave loads the application binary from the host. This hook must be executed in the enclave namespace. It measures the binaries loaded from the host before the application process starts. The attestation and provisioning hook will add the measurement result to attestation evidence and then 
-  forward it to the relying party for integrity check. Note that the TEE hardware must measure this hook as part of the enclave container runtime component.
+  forward it to the relying party for integrity check. Note that the \acrshort{TEE} hardware must measure this hook as part of the enclave container runtime component.
  
   The attestation and provisioning hook must be invoked after the enclave loads the application binary but before the application process stack is set. The enclave uses this hook to authenticate itself to the relying party and retrieve the secrets. A reference design can be found in Section~\ref{sec:secure_application_deployment}. Note that this hook must be 
   executed in the enclave namespace. After the attestation and provisioning hook retrieves the secrets, the environment variable and application parameter type secrets should be pushed into the application process's stack. The enclave should store the file type secret in a trusted environment, such as enclave memory. 
@@ -472,14 +472,14 @@ We make the following changes to the container lifecycle. Note that the bold tex
    
   The STDIO protection hook should be invoked when an application or a privileged exec process reads or writes its STDIO. It encrypts the privileged process's STDIN, STDOUT, and STDERR based on policy obtained from relying party. A reference design can be found in Section~\ref{sec:design_STDIO_PROTECTION}.
    
-  The attestation and provisioning hook, runtime measurement hook, and STDIO protection hook may be included as part of the enclave's operating system or loaded from the host after the enclave starts. In the former case, these hooks will be measured by the TEE hardware or bootloader. In the latter case, The application launch measurement hook should measure 
+  The attestation and provisioning hook, runtime measurement hook, and STDIO protection hook may be included as part of the enclave's operating system or loaded from the host after the enclave starts. In the former case, these hooks will be measured by the \acrshort{TEE} hardware or bootloader. In the latter case, The application launch measurement hook should measure 
   these hooks. 
 \subsection{EXEC Operating Guidelines}
 \label{subsec:oci_exec}
-The OCI runtime specification intentionally refrains from standardizing the EXEC operation to provide developers with flexibility~\cite*{exec_semantics}. However, in confidential computing scenarios, the EXEC operation allows attackers to acquire application secrets, thereby compromising confidentiality. As a result, we advocate for the standardization of the 
-EXEC operation in confidential computing scenarios.
+The OCI runtime specification intentionally refrains from standardizing the EXEC operation to provide developers with flexibility~\cite*{exec_semantics}. However, in confidential computing scenarios, the EXEC operation allows attackers to acquire application secrets, thereby compromising confidentiality. As a result, we advocate for the 
+standardization of the EXEC operation.
  
-We utilize the proposal depicted in Figure~\ref{fig:exec_propose} as a foundation for standardization. This proposal was initially submitted to the OCI Runtime spec forum, although it was ultimately not accepted due to the previously outlined reason.
+We utilize the proposal depicted in Figure~\ref{fig:exec_propose} as a foundation for standardization. This proposal was initially submitted to the OCI runtime spec forum, although it was ultimately not accepted due to the previously outlined reason.
  
 \begin{figure}[!htb]
     \centering
@@ -497,7 +497,7 @@ privileged process. The encryption mechanism is explained in Section~\ref{sec:de
   
 
 \section{Summary}
-This chapter presents mechanisms for protecting the application's privacy when untrusted k8s orchestrate it. We demonstrate a secure approach to deploying applications and how to protect 
+This chapter presents mechanisms for protecting the application's privacy when untrusted Kubernetes~\cite*{k8s} orchestrate it. We demonstrate a secure approach to deploying applications and how to protect 
 the confidentiality and integrity of the processes' STDIOs, restrict the commands users can issue to the application, and propose modifications to the OCI interface. With these approaches, applications can be orchestrated securely by untrusted entities. 
 In the next chapter, we describe how we implemented the mechanisms.
 \cleardoublepage

@@ -86,10 +86,10 @@
 % Chapter 7 Discussion
 
 Cloud computing has become increasingly popular since it allows tenants to leverage capacity and cost advantages. As virtualization technology has matured, major vendors have introduced infrastructure as a 
-service (LaaS)~\cite*{8031522}~\cite*{10.1145/2767181}.~\acrshort{LaaS} utilizes a hypervisor to manage 
+service (IaaS)~\cite*{8031522}~\cite*{10.1145/2767181}.~\acrshort{IaaS} utilizes a hypervisor to manage 
 virtual machines and efficiently share host resources among them. This service enables tenants to avoid peak capacity maintenance costs and promptly obtain additional compute capacity. However, VM's management, deployment, and maintenance still rely on traditional methods.
  
-Consequently, the trend in cloud computing has shifted from~\acrshort{LaaS} to CaaS~\cite*{Azure_container}~\cite*{Amazon_container}~\cite*{google_container}, known as Container as a Service. Containers provide a more lightweight solution compared to virtual machines. They contain only the application and its dependencies and support automated deployment and management using a 
+Consequently, the trend in cloud computing has shifted from~\acrshort{IaaS} to CaaS~\cite*{Azure_container}~\cite*{Amazon_container}~\cite*{google_container}, known as Container as a Service. Containers provide a more lightweight solution compared to virtual machines. They contain only the application and its dependencies and support automated deployment and management using a 
 container orchestration platform like Kubernetes~\cite*{k8s}. Unlike virtual machines, each of which has its own operating system, containers share the host operating system, binaries, and libraries~\cite*{container_vs_vm}. As such, containers are much smaller in size than virtual machines while running at a much higher performance~\cite*{Shirinbab2020PerformanceEO}. 
 Nevertheless, because containers rely on software isolation offered by the operating system, they are considered less secure than virtual machines that utilize hardware isolation mechanisms. To combine the advantages of both, the community has proposed Kata containers~\cite*{Kata-Containers}, which 
 runs a group of containers within a virtual machine.
@@ -115,7 +115,7 @@ a container within an enclave. This can result in compromising the container sec
   \label{fig:VM_vs_PVM}
 \end{figure}
  
-Another drawback of VM-based~\acrshort{TEE} is the relatively large Trusted Computing Base (\acrshort{TCB}). Confidential containers~\cite*{confidential_kata}, a variation of the Kata Containers in confidential computing, place a traditional KVM-QEMU VM under the protection of~\acrshort{TEE}. As depicted in Fig.~\ref{fig:VM_vs_PVM}(left), the virtual machine includes the 
+Another drawback of VM-based~\acrshort{TEE} is the relatively large \acrshort{TCB}. Confidential containers~\cite*{confidential_kata}, a variation of the Kata Containers in confidential computing, place a traditional KVM-QEMU VM under the protection of~\acrshort{TEE}. As depicted in Fig.~\ref{fig:VM_vs_PVM}(left), the virtual machine includes the 
 user application software stack (code, libraries, language runtime (e.g., glibc~\cite*{glibc})) as well as a full OS kernel. Consequently, this amplifies the \acrshort{TCB} of the trusted execution environment, resulting in a higher potential for exploitable vulnerabilities. Hence, we consider 
 the leaner approach depicted in Figure~\ref{fig:VM_vs_PVM}(right) as favorable, i.e., a process virtual machine (\acrshort{pVM}) containing only a single application and a minimized kernel. This kernel can leverage the trusted wrapper mechanisms~\cite*{Hoekstra2013UsingII} to protect the integrity and confidentiality of data within the VM and utilize services 
 from the untrusted hypervisor. Using this scheme, we can effectively lower the trusted computing base of a VM and bring better performance to the application~\cite*{quark_performance_report}.
@@ -130,7 +130,7 @@ This thesis is organized as follows:
 
 Chapter~\ref{see:art} \textit{\textbf{State of the Art}} views the work that aims to minimize the VM's TCB, then explains other mechanisms for secure orchestration in the cloud environment. 
 
-Chapter~\ref{sec:state} \textit{\textbf{Background}} first takes a closer look at the architecture of Kubernetes\cite*{k8s} and associates open standards. It then explains the two low-level container runtimes, Kata and Quark. Next, it describes VM-based trusted execution environments, AMD SNP\cite*{SEV_SNP_white_book} and INTEL TDX~\cite*{Intel_tdx_whitepaper}. Additionally, the chapter 
+Chapter~\ref{sec:state} \textit{\textbf{Background}} first takes a closer look at the architecture of Kubernetes\cite*{k8s} and associates open standards. It then explains the two low-level container runtimes, Kata and Quark. Next, it describes VM-based~\acrshort{TEE}, AMD SNP\cite*{SEV_SNP_white_book} and INTEL TDX~\cite*{Intel_tdx_whitepaper}. Additionally, the chapter 
 introduces the KBS-attestation protocol.
 
 Chapter~\ref{sec:security_analyse} \textit{\textbf{Security Analysis}} defines the threat model and does a secure analysis of the OCI runtime interface implemented in the Quark framework.

@@ -33,12 +33,12 @@ context of confidential computing. Therefore, the software components within the
 
 \textbf{Assets.} Our objective is to secure the Kubernetes workload (application) itself, i.e., preserving the integrity of the application binary and its dependencies, maintaining the confidentiality and integrity of the application's data during runtime, and protecting the secrets provided to the application by its owner.
 
-\textbf{External Dependencies.} We assume that the guests, including Qkernel and workloads, operate within a TEE. This prevents malicious hypervisor (Qvisor) or powerful cloud operators from accessing the workload's sensitive 
+\textbf{External Dependencies.} We assume that the guests, including Qkernel and workloads, operate within a \acrshort{TEE}. This prevents malicious hypervisor (Qvisor) or powerful cloud operators from accessing the workload's sensitive 
 data through guest memory and registers. Furthermore, we exclude attacks related to denial of service~\cite*{DOS_ATTACK}, side channels~\cite*{217454}, networks, or file systems.
 
 
 \textbf{Attack Surface.} We focus on attacks occurring on the OCI interface~\cite*{oci-runtime-spec}. As the management of workloads is the cloud provider's responsibility, it must have a means of accessing workloads for orchestration, even if the 
-workloads are running within a TEE. Although the OCI runtime specification offers this possibility, it exposes a new attack surface for an adversary to probe workloads' secrets. Additionally, since the OCI  implementation in the guest interacts with 
+workloads are running within a \acrshort{TEE}. Although the OCI runtime specification offers this possibility, it exposes a new attack surface for an adversary to probe workloads' secrets. Additionally, since the OCI  implementation in the guest interacts with 
 the host through the Hypercall, Qcall, or Ucall interface, we also mention what specific call an adversary use to launch attacks. The workflow of Hypercall, Qcall, or Ucall can be found in Section~\ref{sec:Quark}.
 
 
@@ -189,16 +189,16 @@ the host to read the target file via Hypercall or Ucall interface.
 \subsubsection{Loading compromised Application Binary during Startup}
 \label{sec:app_binary_loading}
 The application binary is stored on the host. During the setup of the application process, the Qkernel loader opens the application binary using Hcall::Openat, reads its ELF header into the Qkernel using the Ucall::read, and then requests the Qkernel virtual memory manager to create a private virtual 
-memory area (VMA) for each loadable segment defined in the ELF file (Figure~\ref{fig2:a}). When the application process runs, accessing an address within the VMA will trigger a page fault, which is handled by the Qkernel page fault handler.
+memory area (\acrshort{VMA}) for each loadable segment defined in the ELF file (Figure~\ref{fig2:a}). When the application process runs, accessing an address within the \acrshort{VMA} will trigger a page fault, which is handled by the Qkernel page fault handler.
  
-The workflow for the page fault handling can be found in Figure~\ref{fig2:b}. Since the VMA of a loadable segment is private, the page fault handler uses hcall::mmap to request Qvisor to map the loadable segment into a guest's physical address. It then allocates a page from the page pool on the Qkernel heap and copies the 
+The workflow for the page fault handling can be found in Figure~\ref{fig2:b}. Since the \acrshort{VMA} of a loadable segment is private, the page fault handler uses hcall::mmap to request Qvisor to map the loadable segment into a guest's physical address. It then allocates a page from the page pool on the Qkernel heap and copies the 
 segment's contents from the guest's physical address to this page. Finally, a page table entry (guest virtual address -> address of the page) is created. After this, the page fault handler hand over the control to the guest user process.
  
 Since the application binary is loaded from the host,  an attacker can induce Qkernel to execute compromised codes. For instance, the loader might request Qvisor to open binary A using Hcall::openat. Nevertheless, instead, Qvisor provides the descriptor of file B. As a result, the loader creates the 
 wrong memory mapping. Consequently, the page fault handler will load the code from file B instead of file A. Furthermore, since the page fault handler uses Hcall::mmap to map the executable into the guest's physical space, an attacker could manipulate the Qvisor to map compromised code. In this case, 
 the page fault handler copies this code to a page, creates a page table entry, and then returns to the application process without an integrity check.  
  
-To this end, the application binary should be loaded to the guest and measured when the Qkernel loader creates the VMAs for it. The measurements should be forwarded to relying party for integrity checking. Further detail can be found in Section~\ref{sec:Enclave_Runtime_Measurement}. 
+To this end, the application binary should be loaded to the guest and measured when the Qkernel loader creates the \acrshort{VMA}s for it. The measurements should be forwarded to relying party for integrity checking. Further detail can be found in Section~\ref{sec:Enclave_Runtime_Measurement}. 
 
 \begin{figure}[htp]
   \centering
@@ -210,12 +210,12 @@ To this end, the application binary should be loaded to the guest and measured w
 
 \subsubsection{Loading compromised Binary at Runtime}
 Dynamic libraries are stored on the host and loaded at application runtime by the interpreter. When the application is a dynamically linked executable, the interpreter's code is executed upon launching the application process. As depicted in Figure~\ref{fig:load_shared_libarart}, the interpreter uses the open, read, and mmap 
-system calls to create private memory mappings (VMAs) for the loadable segments in a shared library. Accessing an address within the VMAs triggers page faults. The page fault handler handles the fault like how it handles page faults when accessing the VMA of the application binary.
+system calls to create private memory mappings (\acrshort{VMA}s) for the loadable segments in a shared library. Accessing an address within the \acrshort{VMA}s triggers page faults. The page fault handler handles the fault like how it handles page faults when accessing the \acrshort{VMA} of the application binary.
 Since the process of how the Qkernel creates memory mapping and later loads code to the guest for shared libraries and application binary are very similar, the issues encountered in the previous section also apply here. 
  
 Executing a command at runtime will cause the Qkernel to load the command binary. The binary loading mechanism has already been discussed in section~\ref{sec:app_binary_loading}. Therefore, a malicious user can inject malicious code into the Qkernel. 
  
-Regarding the mitigation, Qkernel should measure the binaries and shared libraries after its VMA is created and checks its correctness using the reference hashes in the policy file obtained from the relying party. Further detail can be found in Section~\ref{sec:Enclave_Runtime_Measurement}. 
+Regarding the mitigation, Qkernel should measure the binaries and shared libraries after its \acrshort{VMA} is created and checks its correctness using the reference hashes in the policy file obtained from the relying party. Further detail can be found in Section~\ref{sec:Enclave_Runtime_Measurement}. 
 
 
 \subsubsection{Lack of Management of Application Restart}
