@@ -162,8 +162,6 @@ section has already discussed the major benefits of enclave startup hash. Additi
 correctly initialized the shielding layer. In other words, if the shielding layer is initialized with a compromised policy acquired from a fake secret manager, it can no longer guarantee that the secrets provisioned by the remote won't be leaked.
 
 
-
-
 \section{Enclave Runtime Measurement}
 \label{sec:Enclave_Runtime_Measurement}
 \begin{figure}[!htb]
@@ -172,7 +170,6 @@ correctly initialized the shielding layer. In other words, if the shielding laye
     \caption[Enclave runtime measurement]{Enclave runtime measurement}
     \label{fig:soft_ware_manager_meausrment}
 \end{figure}
-\todo{fix typo in figure recreating creating}
 
 Enclave runtime measurements are crucial due to the security analysis findings discussed in Chapter~\ref{sec:security_analyse}. However, the AMD SEV SVP does not support enclave runtime measurements~\cite*{snp_firmware}, and the INTEL TDX only allocates four registers for this purpose~\cite*{Intel_tdx_whitepaper}. Consequently, we provide a software measurement 
 manager in the shielding layer to measure the data loaded from the host while the enclave is running. As shown in Figure~\ref{fig:soft_ware_manager_meausrment}., The software measurement manager provides the following important hashes:

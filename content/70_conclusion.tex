@@ -20,16 +20,16 @@
 
 % \todo{write conclusion}
 
-This thesis aims to enable untrustworthy cloud providers to orchestrate applications within enclaves while ensuring the security and privacy of sensitive data. In particular, to minimize the TCB of the enclave, we have selected pVM as a starting point.
+This thesis aims to enable untrustworthy cloud providers to orchestrate applications within enclaves while ensuring the confidentiality and integrity of applications' data. In particular, to minimize the \acrshort{TCB} of the enclave, we have selected \acrshort{pVM} as a starting point.
  
 Chapter~\ref{sec:security_analyse} analyzes the security risks of the OCI runtime interface. To address these concerns, the thesis introduces the OCI runtime specification shield and proposes modifications to the OCI runtime interface in Chapter~\ref{sec:design}. The shield is implemented within the enclave and enforces a policy provided by 
 the application owner on the OCI interface. Figure~\ref{fig:generic_policy} illustrates an example of such a policy. The shield allows the enclave owner to remotely verify the state of the enclave and securely deploy secrets. While the enclave is operational, the shield can authenticate and do access control on EXEC requests, 
 encrypts STDIO for the processes running in the enclave, restricts guest system calls, and manages enclave logs. Additionally, a secure client for the enclave owners is implemented, enabling them to issue privilege commands and update the enclave policy.
  
-The qualitative analysis in Section~\ref{sec:eva_qualitativ} proves that our implementation can effectively mitigate the issue found in security analysis. However, the quantitative analysis in Section~\ref{sec:eva_Quantitative} reveals performance degradation due to our implementation. This is evident in longer application startup time, 
-decreased application throughput, an increased TCB size, etc. Nevertheless, Quark's TCB is only one-sixteenth the size of Kata Containers\cite*{Kata-Containers}, highlighting the superiority of the pVM architecture.
+The qualitative analysis in Section~\ref{sec:eva_qualitativ} proves that our implementation can effectively mitigate the issue found in security analysis. On the other hand, the quantitative analysis in Section~\ref{sec:eva_Quantitative} reveals performance degradation due to our implementation. This is evident in longer application startup time, 
+decreased application throughput, an increased \acrshort{TCB} size, etc. Nevertheless, Quark's  \acrshort{TCB} is only one-sixteenth the size of Kata Containers\cite*{Kata-Containers}, highlighting the superiority of the \acrshort{pVM} architecture.
  
-Further work is required before the solution can be officially deployed. For example, support for running Quark on encrypted VMs and enhancing the remote attestation infrastructure are necessary. The following section provides a detailed discussion of these aspects.
+Further work is required before our solution can be deployed. For example, support for running Quark on encrypted VMs (e.g., Intel TDX~\cite*{Intel_tdx_whitepaper}) and enhancing the remote attestation infrastructure are necessary. The following section provides a detailed discussion of these aspects.
 
 
 \section{Furture Work}
@@ -58,7 +58,7 @@ Enclave lack authentication to network requests and cryptographic protection for
 application listening on the target port and acquire the application's confidential data or service. A possible solution is implementing a guest network shield that leverages TLS to authorize incoming network requests and provides cryptographic protection for incoming and outgoing data. However, this thesis does not cover this 
 type of vulnerability, and readers are encouraged to refer to~\cite*{network_shiled}.
 
-Currently, enclaves are restricted to running a single container, i.e., the application container. Attempting to load additional containers into the enclave will cause the software measurement manager to panic since the application restart hash does not match the application startup reference hash. 
+Currently, an enclave is restricted to running a single container, i.e., the application container. Attempting to load additional containers into the enclave will cause the software measurement manager to panic since the application restart hash does not match the application startup reference hash. 
 This prevents the service mesh from working properly since it requires the sidecar container to be run in the enclave. As such,  future releases will involve an extension of the software measurement manager. The enclave owner can specify the loadable containers and their reference hashes in the 
 enclave policy. This will allow enclaves to load additional containers. During the loading process, the software measurer will use the container's reference hash to ensure that the loaded container binaries are correct.
 
