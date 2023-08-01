@@ -115,7 +115,7 @@ a container within an enclave. This can result in compromising the container sec
   \label{fig:VM_vs_PVM}
 \end{figure}
  
-Another drawback of VM-based~\acrshort{TEE} is the relatively large \acrshort{TCB}. Confidential containers~\cite*{confidential_kata}, a variation of the Kata Containers in confidential computing, place a traditional KVM-QEMU VM under the protection of~\acrshort{TEE}. As depicted in Fig.~\ref{fig:VM_vs_PVM}(left), the virtual machine includes the 
+Besides, running a VM in \acrshort{TEE}  may result in a relatively large \acrshort{TCB}. Confidential containers~\cite*{confidential_kata}, a variation of the Kata containers in confidential computing, place a traditional KVM-QEMU VM under the protection of~\acrshort{TEE}. As depicted in Fig.~\ref{fig:VM_vs_PVM}(left), the virtual machine includes the 
 user application software stack (code, libraries, language runtime (e.g., glibc~\cite*{glibc})) as well as a full OS kernel. Consequently, this amplifies the \acrshort{TCB} of the trusted execution environment, resulting in a higher potential for exploitable vulnerabilities. Hence, we consider 
 the leaner approach depicted in Figure~\ref{fig:VM_vs_PVM}(right) as favorable, i.e., a process virtual machine (\acrshort{pVM}) containing only a single application and a minimized kernel. This kernel can leverage the trusted wrapper mechanisms~\cite*{Hoekstra2013UsingII} to protect the integrity and confidentiality of data within the VM and utilize services 
 from the untrusted hypervisor. Using this scheme, we can effectively lower the trusted computing base of a VM and bring better performance to the application~\cite*{quark_performance_report}.
