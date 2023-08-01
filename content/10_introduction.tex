@@ -85,9 +85,9 @@
 % Chapter 6 Evaluation
 % Chapter 7 Discussion
 
-Cloud computing has become increasingly popular since it allows tenants to leverage capacity and cost advantages. As virtualization technology has matured, major vendors have introduced infrastructure as a 
-service (IaaS)~\cite*{8031522}~\cite*{10.1145/2767181}.~\acrshort{IaaS} utilizes a hypervisor to manage 
-virtual machines and efficiently share host resources among them. This service enables tenants to avoid peak capacity maintenance costs and promptly obtain additional compute capacity. However, VM's management, deployment, and maintenance still rely on traditional methods.
+
+Cloud computing has become increasingly popular since it allows businesses and users to deploy workloads in a rapid and scalable manner. As virtualization technology has matured, major cloud providers have introduced infrastructure as a 
+service (IaaS)~\cite*{8031522}~\cite*{10.1145/2767181}.~\acrshort{IaaS} enables tenants to rent VMs from cloud providers to avoid peak capacity maintenance costs and promptly obtain additional compute capacity. However, VM's management, deployment, and maintenance still rely on traditional methods.
  
 Consequently, the trend in cloud computing has shifted from~\acrshort{IaaS} to CaaS~\cite*{Azure_container}~\cite*{Amazon_container}~\cite*{google_container}, known as Container as a Service. Containers provide a more lightweight solution compared to virtual machines. They contain only the application and its dependencies and support automated deployment and management using a 
 container orchestration platform like Kubernetes~\cite*{k8s}. Unlike virtual machines, each of which has its own operating system, containers share the host operating system, binaries, and libraries~\cite*{container_vs_vm}. As such, containers are much smaller in size than virtual machines while running at a much higher performance~\cite*{Shirinbab2020PerformanceEO}. 
@@ -98,14 +98,14 @@ While Kata containers provide strong isolation at the hypervisor level for group
 container deployment and management. A malicious supervisor or hypervisor can access a container's secrets within a VM by inspecting the VM's memory or registers. Therefore, data privacy concerns have hindered cloud computing adoption in industries such as healthcare and finance~\cite*{data_privacy}~\cite*{eu_data_Privacy}.
  
 Confidential computing proposes a mechanism that utilizes dedicated hardware to safeguard code and data on externally controlled systems. By executing the code and data within a Trusted Execution Environment (TEE) facilitated by this hardware, the code and data remain secure, even if the host system is compromised. Some examples of VM-based \acrshort{TEE}s include 
-AMD SEV-SNP~\cite*{SEV_SNP_white_book}, Intel TDX~\cite*{Intel_tdx_whitepaper}, and ARM CCA~\cite*{280904}. The virtual machines running within these \acrshort{TEE}s are sometimes referred to as enclaves. The enclave's registers and memory are 
+AMD SEV-SNP~\cite*{SEV_SNP_white_book}, Intel TDX~\cite*{Intel_tdx_whitepaper}, and ARM CCA~\cite*{280904}. The virtual machines running within these \acrshort{TEE}s are sometimes referred to as confidential virtual machines (CVMs). The \acrshort{CVM}'s registers and memory are 
 cryptographically protected, preventing access from the host operating system and hypervisor.
  
  
  
-Unfortunately, these \acrshort{TEE}s are not designed to manipulate and manage containers securely. In Kubernetes~\cite*{k8s}, the responsibility for deploying and managing containers is assigned to the container runtime~\cite*{containerd}~\cite*{cri-o} on the host. It pulls the image from the image registry, launches the enclave, and coordinates the 
-execution of containers in the enclave using the OCI runtime interface~\cite*{oci-runtime-spec}. Although the interface provides a way for Kubernetes to orchestrate enclaves and containers, it opens up a new attack surface. Exploiting this interface, an attacker can inject malicious code or send unauthorized commands to 
-a container within an enclave. This can result in compromising the container secrets.
+Unfortunately, these \acrshort{TEE}s are not designed to manipulate and manage containers securely. In Kubernetes~\cite*{k8s}, the responsibility for deploying and managing containers is assigned to the container runtime~\cite*{containerd}~\cite*{cri-o} on the host. It pulls the image from the image registry, launches the \acrshort{CVM}, and coordinates the 
+execution of containers in the \acrshort{CVM} using the OCI runtime interface~\cite*{oci-runtime-spec}. Although the interface provides a way for Kubernetes to orchestrate \acrshort{CVM}s and containers, it opens up a new attack surface. Exploiting this interface, an attacker can inject malicious code or send unauthorized commands to 
+a container within an \acrshort{CVM}. This can result in compromising the container secrets.
  
  
 \begin{figure}[!htb]
@@ -115,14 +115,13 @@ a container within an enclave. This can result in compromising the container sec
   \label{fig:VM_vs_PVM}
 \end{figure}
  
-Besides, running a VM in \acrshort{TEE}  may result in a relatively large \acrshort{TCB}. Confidential containers~\cite*{confidential_kata}, a variation of the Kata containers in confidential computing, place a traditional KVM-QEMU VM under the protection of~\acrshort{TEE}. As depicted in Fig.~\ref{fig:VM_vs_PVM}(left), the virtual machine includes the 
-user application software stack (code, libraries, language runtime (e.g., glibc~\cite*{glibc})) as well as a full OS kernel. Consequently, this amplifies the \acrshort{TCB} of the trusted execution environment, resulting in a higher potential for exploitable vulnerabilities. Hence, we consider 
-the leaner approach depicted in Figure~\ref{fig:VM_vs_PVM}(right) as favorable, i.e., a process virtual machine (\acrshort{pVM}) containing only a single application and a minimized kernel. This kernel can leverage the trusted wrapper mechanisms~\cite*{Hoekstra2013UsingII} to protect the integrity and confidentiality of data within the VM and utilize services 
+Besides, running a VM with a full OS stack in \acrshort{TEE}  will result in a large \acrshort{TCB}. Confidential containers~\cite*{confidential_kata}, a variation of the Kata containers~\cite*{Kata-Containers} in confidential computing, place a traditional KVM-QEMU VM under the protection of~\acrshort{TEE}. As depicted in Fig.~\ref{fig:VM_vs_PVM}(left), the virtual machine includes the 
+user application software stack (code, libraries, language runtime (e.g., glibc~\cite*{glibc})) as well as a full OS kernel. Consequently, this amplifies the \acrshort{TCB} of the trusted execution environment, resulting in a higher potential for exploitable vulnerabilities. Hence, the leaner approach depicted in Figure~\ref{fig:VM_vs_PVM}(right) is considered as favorable, i.e., a process virtual machine (\acrshort{pVM}) containing only a single application and a minimized kernel. This kernel can leverage the trusted wrapper mechanisms~\cite*{Hoekstra2013UsingII} to protect the integrity and confidentiality of data within the VM and utilize services 
 from the untrusted hypervisor. Using this scheme, we can effectively lower the trusted computing base of a VM and bring better performance to the application~\cite*{quark_performance_report}.
  
 
 In order to cope with the shortcomings above, this thesis adopts Quark~\cite*{quark}, a \acrshort{pVM}-based container framework, as a foundation for investigating secure orchestration in cloud environments. By analyzing the implementation of the OCI runtime interface in Quark, we build a shielding layer within the 
-enclave (\acrshort{pVM}). It enforces an enclave owner-provided policy on the OCI runtime interface. This policy ensures the confidentiality and integrity of the enclave's data and code while enabling untrusted Kubernetes to manage, deploy, and manipulate the application within the enclave as before.
+\acrshort{CVM} (\acrshort{pVM}). It enforces an \acrshort{CVM} owner-provided policy on the OCI runtime interface. This shield ensures the confidentiality and integrity of the data and code within the \acrshort{CVM} while enabling untrusted Kubernetes to manage, deploy, and manipulate the application within the \acrshort{CVM} as before.
  
 This thesis is organized as follows:
 

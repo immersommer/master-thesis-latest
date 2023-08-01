@@ -134,7 +134,7 @@ queue (Figure~\ref{fig:hypercall_qcall_ucall}c (5), (6)).
 
 \section{Trusted Execution Environment}
 
-The hardware-assisted Trusted Execution Environment (~\acrshort{TEE}) establishes tamper-proof computing environments, often referred to as enclaves, that ensure the confidentiality and integrity of data. It safeguards security-sensitive applications against co-located attackers through verifiable boot mechanisms, 
+The hardware-assisted Trusted Execution Environment (~\acrshort{TEE}) establishes tamper-proof computing environments that ensure the confidentiality and integrity of data. It safeguards security-sensitive applications against co-located attackers through verifiable boot mechanisms, 
 CPU and memory isolation, trusted IO, and secure storage~\cite*{Hardware-supported-TEE}. This security guarantee relays on hardware. Consequently, compromising software layers, including the operating system and hypervisor, does not diminish the~\acrshort{TEE}'s capacity to protect sensitive 
 computations and data~\cite*{7345265}.
 
@@ -152,13 +152,13 @@ AMD SEV SNP~\cite*{SEV_SNP_white_book} is AMD's latest virtual machine-based~\ac
 encrypted memory.
 
 
-SNP utilizes encryption to protect the memory of a virtual machine. When a service running in an enclave (VM) accesses memory, the AES-128 encryption engine embedded in the memory controller transparently encrypts or decrypts the memory using a memory encryption key.  This key is unique for each 
-enclave and securely stored in the AMD secure processor (~\acrshort{AMD SP}) to prevent unauthorized access. Consequently, untrusted entities can only read the ciphertext on the enclave memory. To enable memory page sharing between enclaves or between enclaves and the hypervisor, SEV SNP introduces a new 
-control bit known as the "C-bit" in the page table. This allows enclaves to determine which pages should be encrypted.
+SNP utilizes encryption to protect the memory of a virtual machine. When a service running in an \acrshort{CVM} accesses memory, the AES-128 encryption engine embedded in the memory controller transparently encrypts or decrypts the memory using a memory encryption key.  This key is unique for each 
+VM and securely stored in the AMD secure processor (~\acrshort{AMD SP}) to prevent unauthorized access. Consequently, untrusted entities can only read the ciphertext on the VM memory. To enable memory page sharing between \acrshort{CVM}s or between \acrshort{CVM}s and the hypervisor, SEV SNP introduces a new 
+control bit known as the "C-bit" in the page table. This allows \acrshort{CVM}s to determine which pages should be encrypted.
 
 
-SNP introduces the Reverse Map Table (RMP) to protect the integrity of enclave memory. The RMP ensures that each physical page is exclusively owned by a single entity. In this case, only the designated owner of a page has permission to modify its contents. Any change in ownership 
-will result in SNP erasing the contents of that page. To this end, untrusted entities can only read the encrypted enclave memory without the ability to make any modifications to it.
+SNP introduces the Reverse Map Table (RMP) to protect the integrity of VM memory. The RMP ensures that each physical page is exclusively owned by a single entity. In this case, only the designated owner of a page has permission to modify its contents. Any change in ownership 
+will result in SNP erasing the contents of that page. To this end, untrusted entities can only read the encrypted VM memory without the ability to make any modifications to it.
 
 \begin{figure}[htp]
   \centering
@@ -180,11 +180,11 @@ will result in SNP erasing the contents of that page. To this end, untrusted ent
      \label{fig:amd_snp_atteation}
 \end{figure}
 
-SEV SNP also supports remote attestation, which allows the enclave owner to verify the authenticity of the VM. Unlike its predecessor, SNP enables enclaves to communicate with the~\acrshort{AMD SP} during runtime and request it to generate an attestation report. The communication between the enclave and~\acrshort{AMD SP} 
-is facilitated by the SNP guest messages protocol~\cite*{snp_firmware, amd_sev_summarize}. The workflow for remote attestation is shown in Figure~\ref{fig:amd_attestation_workflow}. The enclave first utilizes the SNP guest messages protocol to request a report from the~\acrshort{AMD SP}. The report is digitally signed using the Versioned Chip Endorsement Key (VCEK) and 
-contains details such as the~\acrshort{AMD SP}'s measurement of the VM boot process, the~\acrshort{AMD SP} firmware version, and custom data. The~\acrshort{VCEK} is unique to each AMD platform because it is derived from platform-specific secrets and TCB versions. Once the enclave owner receives the report,  they can utilize the CHIP\_ID and TSB fields 
-in the report to retrieve a certificate chain for the~\acrshort{VCEK} (Figure~\ref{fig:amd_snp_certificate_chain}) from the AMD Key Distribution Center~\cite*{amd_sev_summarize}. The certificate chain can be used to verify the signature of the report. Subsequently, by examining the remaining fields of the report, the enclave owner can determine whether the 
-enclave is genuine.
+SEV SNP also supports remote attestation, which allows the \acrshort{CVM} owner to verify the authenticity of the VM. Unlike its predecessor, SNP enables \acrshort{CVM}s to communicate with the~\acrshort{AMD SP} during runtime and request it to generate an attestation report. The communication between the \acrshort{CVM} and~\acrshort{AMD SP} 
+is facilitated by the SNP guest messages protocol~\cite*{snp_firmware, amd_sev_summarize}. The workflow for remote attestation is shown in Figure~\ref{fig:amd_attestation_workflow}. The \acrshort{CVM} first utilizes the SNP guest messages protocol to request a report from the~\acrshort{AMD SP}. The report is digitally signed using the Versioned Chip Endorsement Key (VCEK) and 
+contains details such as the~\acrshort{AMD SP}'s measurement of the VM boot process, the~\acrshort{AMD SP} firmware version, and custom data. The~\acrshort{VCEK} is unique to each AMD platform because it is derived from platform-specific secrets and TCB versions. Once the \acrshort{CVM} owner receives the report,  they can utilize the CHIP\_ID and TSB fields 
+in the report to retrieve a certificate chain for the~\acrshort{VCEK} (Figure~\ref{fig:amd_snp_certificate_chain}) from the AMD Key Distribution Center~\cite*{amd_sev_summarize}. The certificate chain can be used to verify the signature of the report. Subsequently, by examining the remaining fields of the report, the \acrshort{CVM} owner can determine whether the 
+\acrshort{CVM} is genuine.
 
 \subsection{Intel TDX}
 \label{subsec:tdx}
@@ -196,7 +196,7 @@ Intel TDX~\cite*{Intel_tdx_whitepaper} is a virtual machine-based~\acrshort{TEE}
   \caption[TDX architecture]{TDX architecture}
   \label{fig:td_arch}
 \end{figure}
-Intel TDX introduces a new CPU mode called Secure Arbitration Mode (SEAM). As shown in Figure~\ref{fig:td_arch}, the TDX module and all enclaves (TDs) run in this mode. It provides an isolated execution environment for TDs so that privileged software (e.g., hypervisor) running in other modes cannot access 
+Intel TDX introduces a new CPU mode called Secure Arbitration Mode (SEAM). As shown in Figure~\ref{fig:td_arch}, the TDX module and all \acrshort{CVM}s (TDs) run in this mode. It provides an isolated execution environment for TDs so that privileged software (e.g., hypervisor) running in other modes cannot access 
 the state and memory of the TDs. The TDX module manages the TDs and offers an interface for the hypervisor to send instructions to the TDs. The instructions include VMLAUNCH for initiating a TD, VMRESUME for restarting the TD, etc. The TDX module can verify these instructions against a security 
 policy to ensure the TDs are correctly operated.
 \begin{figure}[htp]
@@ -249,7 +249,7 @@ as a reference.
 \section{KBS Attestation Protocol}
 \label{sec:kbs}
 
-\acrshort{KBS} Attestation Protocol~\cite*{kbs_Attestation_protocol} is designed to establish trust between the Key Broker Client (\acrshort{KBC}) and the Key Broker Service (\acrshort{KBS}) and provide secrecy to the \acrshort{KBC}.  The \acrshort{KBC} is often referred to as an enclave, and the \acrshort{KBS} serves as the secret manager. In this protocol, the \acrshort{KBC} first utilizes the 
+\acrshort{KBS} Attestation Protocol~\cite*{kbs_Attestation_protocol} is designed to establish trust between the Key Broker Client (\acrshort{KBC}) and the Key Broker Service (\acrshort{KBS}) and provide secrecy to the \acrshort{KBC}.  The \acrshort{KBC} is often referred to as an \acrshort{CVM}, and the \acrshort{KBS} serves as the secret manager. In this protocol, the \acrshort{KBC} first utilizes the 
 Request-Challenge-Attestation-Response (RCAR) method to authenticate to the \acrshort{KBS}. Then, the HTTP GET request is employed to obtain the secrets from the \acrshort{KBS}. Besides, the protocol employs TLS\cite*{tls_record_size} to prevent malicious attackers from hijacking the \acrshort{KBS} address,  impersonating the \acrshort{KBS},  and injecting harmful 
 data into the \acrshort{KBC}. Specifically, the protocol requires that the \acrshort{KBS}'s public key be effectively distributed to the \acrshort{KBC} so that the \acrshort{KBC} can authenticate the \acrshort{KBS} during the TLS handshake.
 

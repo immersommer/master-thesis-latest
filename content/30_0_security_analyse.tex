@@ -249,7 +249,7 @@ Qkernel through the DebugLevel keyword in the configuration file shown in Figure
 
 A malicious administrator may set the DebugLevel keyword to Trace and then analyze the Qkernel logs to obtain sensitive information. This problem can be solved by measuring the guest kernel arguments. However, both Qvisor and Qkernel are configured using this file. Specifically, Qvisor reads this configuration file after startup and passes a copy to the Qkernel when 
 launching the guest. In confidential computing, Qkernel and Qvisor belong to the application owner and the cloud provider, respectively. They have different interests and do not trust each other. For example, to resolve errors quickly, the cloud provider requires the log level in Qvisor to be set to TRACE, while the application owner 
-requires the log level in Qkernel to be OFF to protect the confidentiality of the enclave. In the current architecture, Quark cannot satisfy both requirements. To this end, the Qkernel logging system configuration should be offloaded from the global configuration 
+requires the log level in Qkernel to be OFF to protect the confidentiality of the \acrshort{CVM}. In the current architecture, Quark cannot satisfy both requirements. To this end, the Qkernel logging system configuration should be offloaded from the global configuration 
 file. The detail can be found in section~\ref{sec:Qkernel_logger}.
 
 
