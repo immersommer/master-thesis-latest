@@ -120,8 +120,8 @@ user application software stack (code, libraries, language runtime (e.g., glibc~
 from the untrusted hypervisor. Using this scheme, we can effectively lower the trusted computing base of a VM and bring better performance to the application~\cite*{quark_performance_report}.
  
 
-In order to cope with the shortcomings above, this thesis adopts Quark~\cite*{quark}, a \acrshort{pVM}-based container framework, as a foundation for investigating secure orchestration in cloud environments. By analyzing the implementation of the OCI runtime interface in Quark, we build a shielding layer within the 
-\acrshort{CVM} (\acrshort{pVM}). It enforces an \acrshort{CVM} owner-provided policy on the OCI runtime interface. This shield ensures the confidentiality and integrity of the data and code within the \acrshort{CVM} while enabling untrusted Kubernetes to manage, deploy, and manipulate the application within the \acrshort{CVM} as before.
+In order to cope with the shortcomings above, this thesis adopts Quark~\cite*{quark}, a \acrshort{pVM}-based container framework, as a foundation for investigating secure orchestration in cloud environments. By analyzing the implementation of the OCI runtime interface in Quark, we build a 
+shielding layer within the \acrshort{CVM}. It enforces an \acrshort{CVM} owner-provided policy on the OCI runtime interface. This shield ensures the confidentiality and integrity of the data and code within the \acrshort{CVM} while enabling untrusted Kubernetes to manage, deploy, and manipulate the application within the \acrshort{CVM} as before.
  
 This thesis is organized as follows:
 
