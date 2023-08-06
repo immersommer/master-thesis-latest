@@ -61,6 +61,8 @@ DOC_IMG_JPG  = images/constellation_join_2.png
 
 
 # evaluation images for secureity analyse
+DOC_IMG_JPG  = images/security_analysis.png
+
 DOC_IMG_JPG  = images/generic_policy.PNG
 
 
@@ -179,7 +181,7 @@ DOC_IMG_JPG  = images/termianl_workflow.png
 DOC_IMG_JPG  = images/page_fault_handling.png
 DOC_IMG_JPG  = images/load_shared_libarart.png
 DOC_IMG_JPG  = images/loader_flow.png
-DOC_IMG_JPG  = images/quark_config.PNG
+# DOC_IMG_JPG  = images/quark_config.PNG
 DOC_IMG_JPG  = images/seesion_is_old.PNG
 
 # design

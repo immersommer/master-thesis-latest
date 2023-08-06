@@ -202,6 +202,7 @@ pub trait FileOperations: Sync + Send + Waitable + SockOperations + SpliceOperat
 \end{lstlisting}
 
 \subsection{Attestation Driver}
+\label{subsec:impl_Attestation_driver}
 The attestation driver facilitates communication with the AMD SNP to acquire attestation reports. While Qkernel currently does not support running on \acrshort{TEE}, we aim to implement the driver based on the SNP  guest messages protocol~\cite*{snp_firmware} in a simulation environment. Once Qkernel supports 
 AMD SNP, the driver can operate directly with the SNP firmware. 
 

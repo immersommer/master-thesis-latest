@@ -169,7 +169,7 @@ Constellation protects workloads within the cluster from infrastructure-based th
 Furthermore, the secrets are provisioned by the cluster owner and managed by Kubernetes. An attacker cannot steal the cluster-managed secrets because the cluster is fully isolated.
  
  
-Among the three mentioned solutions, Constellation~\cite*{Constellation} has the largest \acrshort{TCB} since it put the entire cluster under the protection of \acrshort{CVM}s。 Consequently, it also inherits a larger attack surface. Additionally, Both Pama~\cite*{Johnson2023ParmaCC} and confidential container~\cite*{confidential_kata} use a dedicated 
+Among the three mentioned solutions, Constellation~\cite*{Constellation} has the largest \acrshort{TCB} since it put the entire cluster under the protection of \acrshort{CVM}s。 Consequently, it also inherits a larger attack surface. Additionally, both Pama~\cite*{Johnson2023ParmaCC} and confidential container~\cite*{confidential_kata} use a dedicated 
 guest kernel (e.g., Linux) and therefore have larger \acrshort{TCB}s than pVM and process-based TEE solutions, such as Scone~\cite*{10.5555/3026877.3026930}. Nevertheless, Pod-level solutions (e.g., Pama and confidential container) have a smaller security boundary compared to Scone due to Scone's utilization of the system 
 call API as its security boundary. In contrast, Pod-level solutions use the VM-ABI as the secure boundary, e.g., Hypercall. Finally, the confidential container necessitates using a modified Containerd~\cite*{containerd}, thereby imposing an additional burden on the configuration of its environment.
 

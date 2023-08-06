@@ -37,8 +37,8 @@ comprehension of subsequent chapters.
 
 \section{Kubernetes and runtime communication interface}
 \label{sec:k8s}
-Kubernetes~\cite*{k8s} is a portable and scalable open-source platform for managing and orchestrating containerized workloads. It comprises at least one master node and multiple worker nodes. The master node assumes global decision-making, scheduling, detection, and managing cluster events. As shown in Figure~\ref{fig:k8s}, 
-the master node hosts an API server that provides users with an interface to manage and control the cluster. Users can submit requests to create or update  Kubernetes objects like pods. A pod represents the smallest deployment unit in Kubernetes, which may encompass multiple containers sharing network 
+Kubernetes~\cite*{k8s} is a portable and scalable open-source platform for managing and orchestrating containerized workloads. It comprises at least one master node and multiple worker nodes. The master node assumes global decision-making, scheduling, and managing cluster events. As shown in Figure~\ref{fig:k8s}, 
+the master node hosts an API server that provides users with an interface to manage and control the cluster. Users can submit requests to create or update Kubernetes objects like pods. A pod represents the smallest deployment unit in Kubernetes, which may contain multiple containers sharing network 
 and storage resources. Moreover, each worker node runs a Kubelet, a daemon responsible for processing requests from the master node and executing services on the node. When handling container creation and image management requests, Kubelet invokes a high-level container runtime like 
 Containerd~\cite*{containerd} or CRI-O~\cite*{cri-o}.These high-level runtimes take charge of managing the container lifecycle and images while delegating pod creation and 
 deletion to lower-level OCI-compliant runtimes such as Kata~\cite*{Kata-Containers}, Quark~\cite*{quark}, RunC~\cite*{runc}, etc.
@@ -89,7 +89,7 @@ Kata containers utilize a highly customized Linux guest kernel that strips off u
 \section{Quark containers}
 \label{sec:Quark}
 Quark containers~\cite*{quark} is an OCI-compliant container runtime written in the Rust language. It shares a similar architecture with the Kata container, ensuring an equivalent level of container isolation. 
-The difference is that the Qaurk uses an application kernel (also known as the forward kernel) as a guest OS. It implements some system calls and forwards others to the host. Compared to the Kata containers, its guest kernel is smaller since it reuse many services the host provides, eliminating unnecessary code.
+The difference is that Quark uses an application kernel (also known as the forward kernel) as a guest OS. It implements some system calls and forwards others to the host. Compared to the Kata containers, its guest kernel is smaller since it reuse many services the host provides, eliminating unnecessary code.
 Consequently, Quark has a smaller memory footprint and faster startup time~\cite*{quark_performance_report}. Moreover, Quark has developed the Ucall and Qcall interfaces to facilitate communication with the host. This approach efficiently avoids expensive VM exits when 
 forwarding system calls to the host.
 
@@ -134,16 +134,15 @@ queue (Figure~\ref{fig:hypercall_qcall_ucall}c (5), (6)).
 
 \section{Trusted Execution Environment}
 
-The hardware-assisted Trusted Execution Environment (~\acrshort{TEE}) establishes tamper-proof computing environments that ensure the confidentiality and integrity of data. It safeguards security-sensitive applications against co-located attackers through verifiable boot mechanisms, 
-CPU and memory isolation, trusted IO, and secure storage~\cite*{Hardware-supported-TEE}. This security guarantee relays on hardware. Consequently, compromising software layers, including the operating system and hypervisor, does not diminish the~\acrshort{TEE}'s capacity to protect sensitive 
-computations and data~\cite*{7345265}.
+The hardware-based Trusted Execution Environment (~\acrshort{TEE}) establishes tamper-proof computing environments that ensure the confidentiality and integrity of data. It safeguards applications' private sensitive code and data against co-located attackers through verifiable boot mechanisms, 
+CPU and memory isolation, trusted IO, and secure storage~\cite*{Hardware-supported-TEE}. This security guarantee relays on hardware. Consequently, compromising privacy software (e.g., operating system and hypervisor) does not diminish the~\acrshort{TEE}'s capacity to protect security-sensitive appliances ~\cite*{7345265}.
 
 
-Hardware-based~\acrshort{TEE} models can be categorized into two types: virtual machine-based~\acrshort{TEE} and process-based~\acrshort{TEE}~\cite*{10.3389/fcomp.2022.930741}. Examples of virtual machine-based~\acrshort{TEE}s include Intel TDX~\cite*{Intel_tdx_whitepaper} and AMD SEV-SNP~\cite*{SEV_SNP_white_book}, whereas Intel SGX~\cite*{INTEL_SGX} is the most famous process-based~\acrshort{TEE}. 
-While Intel SGX has a smaller~\acrshort{TCB}, it requires modifications to an application to split it into trusted and untrusted parts. This can result in a degraded user experience. In contrast, VM-based~\acrshort{TEE}s enable the execution of programs without modification. However, this approach increases the 
+Hardware-based~\acrshort{TEE} models can be categorized into two types: virtual machine-based~\acrshort{TEE} and process-based~\acrshort{TEE}~\cite*{10.3389/fcomp.2022.930741}. Examples of virtual machine-based~\acrshort{TEE}s include Intel TDX~\cite*{Intel_tdx_whitepaper} and AMD SEV-SNP~\cite*{SEV_SNP_white_book}, whereas 
+Intel SGX~\cite*{INTEL_SGX} is the most famous process-based~\acrshort{TEE}. While Intel SGX has a smaller~\acrshort{TCB}, splitting an application into trusted and untrusted parts results in a degraded user experience. In contrast, VM-based~\acrshort{TEE}s enable the execution of programs without modification. However, this approach increases the 
 \acrshort{TCB}, making it more susceptible to attacks~\cite*{Execution_Environment_landscape}.
 
-The following two sections provide an overview of VM-based~\acrshort{TEE}. We chose AMD SEV-SNP and INTEL TDX as examples because they will likely be widely used. An explanation of process-based~\acrshort{TEE}s is beyond the scope of this thesis. For further details on this topic, please refer to~\cite*{cryptoeprint:2016/086, 10.1145/2487726.2488370}.
+The following two sections provide an overview of VM-based~\acrshort{TEE}. We chose AMD SEV-SNP and Intel TDX as examples because they will likely be widely used. An explanation of process-based~\acrshort{TEE}s is beyond the scope of this thesis. For further details on this topic, please refer to~\cite*{cryptoeprint:2016/086, 10.1145/2487726.2488370}.
 
 
 \subsection{AMD SEV-SNP}
@@ -152,9 +151,9 @@ AMD SEV-SNP~\cite*{SEV_SNP_white_book} is AMD's latest virtual machine-based~\ac
 encrypted memory.
 
 
-AMD SEV-SNP utilizes encryption to protect the memory of a virtual machine. When a service running in an \acrshort{CVM} accesses memory, the AES-128 encryption engine embedded in the memory controller transparently encrypts or decrypts the memory using a memory encryption key.  This key is unique for each 
-VM and securely stored in the AMD secure processor (~\acrshort{AMD SP}) to prevent unauthorized access. Consequently, untrusted entities can only read the ciphertext on the VM memory. To enable memory page sharing between \acrshort{CVM}s or between \acrshort{CVM}s and the hypervisor, SEV-SNP introduces a new 
-control bit known as the "C-bit" in the page table. This allows \acrshort{CVM}s to determine which pages should be encrypted.
+AMD SEV-SNP utilizes encryption to protect the memory of a virtual machine. When a service running in an \acrshort{CVM} accesses memory, the AES-128 encryption engine transparently encrypts or decrypts the memory using a memory encryption key.  This key is unique for each 
+VM and securely stored in the AMD secure processor (~\acrshort{AMD SP}) to prevent unauthorized access. Consequently, untrusted entities can only read the ciphertext on the VM memory. To enable memory page sharing between \acrshort{CVM}s, or between \acrshort{CVM}s and the hypervisor, SEV-SNP introduces a new 
+control bit known as the "C-bit" in the page table entry. This allows \acrshort{CVM}s to determine which pages should be encrypted.
 
 
 SEV-SNP introduces the Reverse Map Table (RMP) to protect the integrity of VM memory. The RMP ensures that each physical page is exclusively owned by a single entity. In this case, only the designated owner of a page has permission to modify its contents. Any change in ownership 
@@ -180,10 +179,10 @@ will result in SEV-SNP erasing the contents of that page. To this end, untrusted
      \label{fig:amd_snp_atteation}
 \end{figure}
 
-SEV SEV-SNP also supports remote attestation, which allows the \acrshort{CVM} owner to verify the authenticity of the VM. Unlike its predecessor, SEV-SNP enables \acrshort{CVM}s to communicate with the~\acrshort{AMD SP} during runtime and request it to generate an attestation report. The communication between the \acrshort{CVM} and~\acrshort{AMD SP} 
-is facilitated by the SEV-SNP guest messages protocol~\cite*{snp_firmware, amd_sev_summarize}. The workflow for remote attestation is shown in Figure~\ref{fig:amd_attestation_workflow}. The \acrshort{CVM} first utilizes the SEV-SNP guest messages protocol to request a report from the~\acrshort{AMD SP}. The report is digitally signed using the Versioned Chip Endorsement Key (VCEK) and 
-contains details such as the~\acrshort{AMD SP}'s measurement of the VM boot process, the~\acrshort{AMD SP} firmware version, and custom data. The~\acrshort{VCEK} is unique to each AMD platform because it is derived from platform-specific secrets and TCB versions. Once the \acrshort{CVM} owner receives the report,  they can utilize the CHIP\_ID and TSB fields 
-in the report to retrieve a certificate chain for the~\acrshort{VCEK} (Figure~\ref{fig:amd_snp_certificate_chain}) from the AMD Key Distribution Center~\cite*{amd_sev_summarize}. The certificate chain can be used to verify the signature of the report. Subsequently, by examining the remaining fields of the report, the \acrshort{CVM} owner can determine whether the 
+SEV-SNP also supports remote attestation, which allows the \acrshort{CVM} owner to verify the authenticity of the VM. Unlike its predecessor, SEV-SNP enables \acrshort{CVM}s to communicate with the~\acrshort{AMD SP} during runtime and request it to generate an attestation report. The communication between the \acrshort{CVM} and~\acrshort{AMD SP} 
+is facilitated by the SEV-SNP guest messages protocol~\cite*{snp_firmware, amd_sev_summarize}. A brief description of the protocol can also be found in Section~\ref{subsec:impl_Attestation_driver}.  The workflow for remote attestation is shown in Figure~\ref{fig:amd_attestation_workflow}. The \acrshort{CVM} first utilizes the SEV-SNP guest messages protocol to request a report from the~\acrshort{AMD SP}. 
+The report is signed using the Versioned Chip Endorsement Key (VCEK) and contains details such as the~\acrshort{AMD SP}'s measurement of the VM boot process, the~\acrshort{AMD SP} firmware version, and custom data. The~\acrshort{VCEK} is unique to each AMD platform because it is derived from platform-specific secrets and TCB versions. Once the \acrshort{CVM} owner receives the report,  they can utilize the CHIP\_ID and TSB fields 
+in the report to retrieve a certificate chain (Figure~\ref{fig:amd_snp_certificate_chain}) from the AMD Key Distribution Center~\cite*{amd_sev_summarize}. The certificate chain can be used to verify the signature of the report. Subsequently, by examining the remaining fields of the report, the \acrshort{CVM} owner can determine whether the 
 \acrshort{CVM} is genuine.
 
 \subsection{Intel TDX}
@@ -197,7 +196,7 @@ Intel TDX~\cite*{Intel_tdx_whitepaper} is a virtual machine-based~\acrshort{TEE}
   \label{fig:td_arch}
 \end{figure}
 Intel TDX introduces a new CPU mode called Secure Arbitration Mode (SEAM). As shown in Figure~\ref{fig:td_arch}, the TDX module and all \acrshort{CVM}s (TDs) run in this mode. It provides an isolated execution environment for TDs so that privileged software (e.g., hypervisor) running in other modes cannot access 
-the state and memory of the TDs. The TDX module manages the TDs and offers an interface for the hypervisor to send instructions to the TDs. The instructions include VMLAUNCH for initiating a TD, VMRESUME for restarting the TD, etc. The TDX module can verify these instructions against a security 
+the TDs' register and memory. The TDX module manages the TDs and offers an interface for the hypervisor to send instructions to the TDs. The instructions include VMLAUNCH-VMX for starting a TD, VMRESUME for restarting the TD, etc. The TDX module can verify these instructions against a security 
 policy to ensure the TDs are correctly operated.
 \begin{figure}[htp]
   \centering
@@ -220,26 +219,27 @@ policy to ensure the TDs are correctly operated.
 \end{figure}
 TDX also supports shared memory to facilitate communication between TDs or TD and untrusted entities like hypervisors. Like the SEV-SNP, each TD divides its memory into private and shared. External entities can access TD's shared memory in plaintext. This mechanism is implemented by introducing a 
 new bit called the "shared bit" into the TD's page table entry and two EPTs, namely Secure EPT and Shared EPT. TD uses the shared bit to determine whether the Guest's Physical Address (GPA) corresponds to shared memory. The secure EPT and shared EPT are responsible for converting private/shared 
-GPAs to physical addresses. Note that only the private pages belonging to the secure EPT are encrypted by MKTME~\cite*{Intel_tdx_whitepaper}. Additionally, the Intel-TDX module hosts a data structure known as the Physical-Address-Metadata Table, which enforces page ownership. As a result, a page cannot be simultaneously 
+GPAs to physical addresses. Note that only the private pages belonging to the secure EPT are encrypted by MKTME~\cite*{Intel_tdx_whitepaper}. Additionally, the Intel-TDX module hosts a data structure known as the Physical-Address-Metadata Table~\cite*{Intel_tdx_whitepaper}, which enforces page ownership. As a result, a page cannot be simultaneously 
 mapped into the private memory of two TDs.
 
 
-TDX leverages the Intel SGX attestation infrastructure for remote authentication~\cite*{Intel_tdx_whitepaper}, as shown in Figure~\ref{fig:tdx_attestation_flow}.
-The workflow begins with the TD requesting the TDX Module to generate a local report using SEAMOPS [SEAMREPORT]. This report includes the TD's measurements, the SVN of the TDX-TCB element, custom data, etc. The integrity of this report is ensured by the CPU's HMAC key.
-After generating the local report, the TD sends it to the quoting enclave,  which resides on the same platform. The quoting enclave first employs the EVERIFYREPORT command to request the CPU to verify the report's MAC. Then, it utilizes its attestation key to generate a signature based on the 
-report data. The report data and the signature form a quote. Notably, the attestation key of the quoting enclave is certified by the platform certification enclave (PCE) using the provisioning certification key (PCK), which is itself certified by Intel.
-Consequently, the signature of the quote forms a chain of signatures, as illustrated in Figure~\ref{fig:tdx_certi_chain}. The certificate chain can be used to verify the authenticity of this report off the platform. Subsequently, the TD transmits the quote to the TD owner. To verify the digital signature of the quote, 
-the TD owner downloads the certificate chain from either the platform certificate signing service (PCCS) or intel provisioning certification service (PCS). Finally, by examining the report's contents, the TD owner can determine whether the TD is genuine.  For a detailed explanation of the Intel TDX remote attestation, we 
+TDX leverages the Intel SGX attestation infrastructure for remote attestation~\cite*{Intel_tdx_whitepaper}, as shown in Figure~\ref{fig:tdx_attestation_flow}.
+The workflow begins with the TD requesting the TDX Module to generate a local report using the instruction SEAMOPS [SEAMREPORT]. This report includes the TD's measurements, the SVNs of the elements in TDX-TCB, TD-provided data, etc~\cite*{Intel_tdx_whitepaper}. The integrity of this report is ensured by the CPU's HMAC key.
+After generating the local report, the TD sends it to the quoting enclave,  which resides on the same platform. The quoting enclave first employs the EVERIFYREPORT2 instruction to request the CPU to verify the report's MAC. Then, it utilizes its attestation key to generate a signature based on the 
+report content. The report content and the signature form a quote. Notably, the attestation key of the quoting enclave is certified by the platform certification enclave (PCE) using the provisioning certification key (PCK), which is itself certified by Intel.
+Consequently, the signature of the quote forms a chain of signatures, as illustrated in Figure~\ref{fig:tdx_certi_chain}. The certificate chain can be used to verify the authenticity of this report off the platform. Subsequently, the TD transmits the quote to the TD owner. The over can verify the quote's signature by downloading the certificates from  
+either the platform certificate signing service (PCCS) or intel provisioning certification service (PCS)~\cite*{DBLP:journals/corr/abs-2303-15540}.
+Finally, by examining the report's contents, the TD owner can determine whether the TD is genuine.  For a detailed explanation of the Intel TDX remote attestation, we 
 refer the reader to \cite*{Intel_tdx_whitepaper, 9448036, DBLP:journals/corr/abs-2303-15540}.
 
 \subsection{Comparison of AMD SEV-SNP and Intel TDX}
-Figure~\ref{fig:snp_tdx_compare} compares the features of Intel TDX and AMD SEV-SNP~\cite*{amd_sev_summarize}. In particular, we chose the most popular and widely used \acrshort{TEE}, Intel SGX, 
+Figure~\ref{fig:snp_tdx_compare} compares the features of Intel TDX and AMD SEV-SNP~\cite*{amd_sev_summarize}. In particular, we chose the most popular and widely used \acrshort{TEE}, Intel SGX~\cite*{INTEL_SGX}, 
 as a reference.
 
 \begin{figure}[htp]
   \centering
   \includegraphics[width=1\textwidth]{images/snp_tdx_compare.png}
-  \caption[Comparison of AMD SEV-SNP and Intel TDX]{Comparison of AMD SEV-SNP and Intel TDX}
+  \caption[Comparison of AMD SEV-SNP and Intel TDX]{Comparison of AMD SEV-SNP and Intel TDX~\cite*{amd_sev_summarize}}
   \label{fig:snp_tdx_compare}
 \end{figure}
 
@@ -265,7 +265,7 @@ Request-Challenge-Attestation-Response (RCAR) method to authenticate to the \acr
 data into the \acrshort{KBC}. Specifically, the protocol requires that the \acrshort{KBS}'s public key be effectively distributed to the \acrshort{KBC} so that the \acrshort{KBC} can authenticate the \acrshort{KBS} during the TLS handshake.
 
 The protocol is divided into two phases. The first phase is the authentication phase, where the \acrshort{KBS} authenticates the \acrshort{KBC} using the \acrshort{KBC}'s attestation report. The second phase is the resource request phase, in which the \acrshort{KBS} allows the \acrshort{KBC} to retrieve a secret managed using the HTTP GET.  
-The secret transmitted from the \acrshort{KBS} to the \acrshort{KBC} is encrypted using the \acrshort{KBC}'s public key. The public key is sent to the \acrshort{KBS} with the \acrshort{KBC}'s attestation report during the first phase. Because the hash of the public key is included in the \acrshort{KBC}'s authentication report, the \acrshort{KBS} can confirm that the public key is from the \acrshort{KBC} and ensure that only the \acrshort{KBC} can decrypt the encrypted secret. Additionally, the \acrshort{KBS} assigns an HTTP cookie to the \acrshort{KBC} during the authentication phase. This cookie associates the authentication result obtained in the first phase with the corresponding \acrshort{KBC}. During the resource 
+The secret transmitted from the \acrshort{KBS} to the \acrshort{KBC} is encrypted using the \acrshort{KBC}'s public key. The public key is sent to the \acrshort{KBS} with the \acrshort{KBC}'s attestation report during the first phase. Because the hash of the public key is included in the \acrshort{KBC}'s attestation report, the \acrshort{KBS} can confirm that the public key is from the \acrshort{KBC} and ensure that only the \acrshort{KBC} can decrypt the encrypted secret. Additionally, the \acrshort{KBS} assigns an HTTP cookie to the \acrshort{KBC} during the authentication phase. This cookie associates the authentication result obtained in the first phase with the corresponding \acrshort{KBC}. During the resource 
 request phase, \acrshort{KBS} uses this cookie to find the \acrshort{KBC}'s authentication result and considers it along with the policy to determine if a secret should be provided to the \acrshort{KBC}. The following two diagrams detail how \acrshort{KBS} and \acrshort{KBC} work in phases 1 and 2:
 
 
