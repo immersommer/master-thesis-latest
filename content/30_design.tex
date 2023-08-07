@@ -21,23 +21,33 @@
 %\ldots design \ldots
 
 %\todo{write design}
+This chapter will present a shielding layer design to mitigate the vulnerabilities found in security analysis over OCI runtime interface (refer to Section~\ref{sec:security_analyse_oci_summary}). The shielding layer consists of the remote attestation and provisioning infrastructure, CVM runtime measurement manager, the EXEC request checker, 
+guest process STDIO protector, system call interceptor, and guest log manager. The remote attestation and provisioning infrastructure offers a secure mechanism for managing and deploying secrets. This mechanism can be employed to mitigate vulnerabilities~\ref{vulnerability:1}, and~\ref{vulnerabilities:9}. The CVM runtime measurement manager measures the data 
+loaded by the host, such as application binary and shared libraries. These measurements will be used by the shield to conduct integrity checks. Thus, vulnerabilities~\ref{vulnerabilities:6} and~\ref{vulnerabilities:10}  will be solved. The EXEC request checker will authenticate and do access control over the EXEC 
+requests, thereby mitigating vulnerability~\ref{vulnerabilities:4}. Additionally, to address vulnerability~\ref{vulnerabilities:2}, the shield will cryptographically protect the STDIO streams of the guest processes (guest process STDIO protector). Lastly, the system call interceptor and guest log manager propose 
+a user-configurable guest system call interception and guest log protection policy,  effectively mitigating vulnerabilities~\ref{vulnerabilities:7} and~\ref{vulnerabilities:11}.
 
-This chapter will present a shielding layer design to mitigate the pitfalls found in Chapter~\ref{sec:security_analyse}. The shielding layer consists of the following components：
+Below, Section~\ref{sec:General_Architecture} provides an overview of the architecture. Then, Section~\ref{sec:design_Quark_Attestation_and_Provisioning_Infrastructure} introduces the remote attestation and provisioning infrastructure. Subsequent Sections~\ref{sec:Enclave_Runtime_Measurement},~\ref{sec:design_EXEC_Requests},
+~\ref{sec:design_STDIO_PROTECTION}, ~\ref{sec:design_STDIO_PROTECTION}, ~\ref{sec:design_Interceptor}, and ~\ref{sec:Qkernel_logger} detail the new paradigm for EXEC requests, the mechanism to protect the standard IO of guest processes, the guest system call interceptor, and the guest log manager, respectively. 
+Finally, Section~\ref{sec:Modification_OCI} highlights the suggested modifications to the OCI runtime interface.
 
-\textbf{Remote attestation and secret provisioning infrastructure.} This infrastructure provides a mechanism for securely deploying sensitive user data. Secret management and deployment are offloaded from Kubernetes and Quark Shim to the secret manager. Shield relies on this infrastructure to prove its identity to the secret manager and retrieve secrets securely. This infrastructure addresses vulnerability~\ref{vulnerabilities:1} identified in Chapter~\ref{sec:security_analyse}.
 
-\textbf{Enclave runtime measurement.} The module measures the data loaded from the host after the enclave has booted, including binaries, shared libraries, Qkernel's configuration file, and the secret manager's public key. The resulting measurements extend different hashes, including the enclave startup hash, the application startup reference hash, the runtime 
-hash, and the application restart hash. The enclave utilizes these hashes to perform integrity checks on the loaded data. As a result, weaknesses ~\ref{vulnerabilities:7}, ~\ref{vulnerabilities:8}, ~\ref{vulnerabilities:9}, and ~\ref{vulnerabilities:11} are mitigated.
+
+
+
+% This chapter will present a shielding layer design to mitigate the pitfalls found in Chapter~\ref{sec:security_analyse}. The shielding layer consists of the following components：
+
+% \textbf{Remote attestation and secret provisioning infrastructure.} This infrastructure provides a mechanism for securely deploying sensitive user data. Secret management and deployment are offloaded from Kubernetes and Quark Shim to the secret manager. Shield relies on this infrastructure to prove its identity to the secret manager and retrieve secrets securely. This infrastructure addresses vulnerability~\ref{vulnerabilities:1} identified in Chapter~\ref{sec:security_analyse}.
+
+% \textbf{Enclave runtime measurement.} The module measures the data loaded from the host after the enclave has booted, including binaries, shared libraries, Qkernel's configuration file, and the secret manager's public key. The resulting measurements extend different hashes, including the enclave startup hash, the application startup reference hash, the runtime 
+% hash, and the application restart hash. The enclave utilizes these hashes to perform integrity checks on the loaded data. As a result, weaknesses ~\ref{vulnerabilities:7}, ~\ref{vulnerabilities:8}, ~\ref{vulnerabilities:9}, and ~\ref{vulnerabilities:11} are mitigated.
  
-\textbf{A new pattern for EXEC requests.} This pattern effectively addresses the following pitfalls identified in Chapter~\ref{sec:security_analyse}: issuing unauthorized commands to applications (issue~\ref{vulnerabilities:4}) and the lack of protection for commands issued by application owners (issue~\ref{vulnerabilities:6}).
+% \textbf{A new pattern for EXEC requests.} This pattern effectively addresses the following pitfalls identified in Chapter~\ref{sec:security_analyse}: issuing unauthorized commands to applications (issue~\ref{vulnerabilities:4}) and the lack of protection for commands issued by application owners (issue~\ref{vulnerabilities:6}).
 
-\textbf{A mechanism for protecting guest processes' STDIO.} This mechanism ensures the confidentiality and integrity of the STDIO stream of interactive and non-interactive processes. In this case, application logs, execution results of privileged commands, and terminal data streams belonging to the application owner are protected. As such, weaknesses~\ref{vulnerabilities:2}, ~\ref{vulnerabilities:3}, and~\ref{vulnerabilities:5} are solved.
+% \textbf{A mechanism for protecting guest processes' STDIO.} This mechanism ensures the confidentiality and integrity of the STDIO stream of interactive and non-interactive processes. In this case, application logs, execution results of privileged commands, and terminal data streams belonging to the application owner are protected. As such, weaknesses~\ref{vulnerabilities:2}, ~\ref{vulnerabilities:3}, and~\ref{vulnerabilities:5} are solved.
 
-\textbf{System Call Interception and Qkenrel Log Management.} They propose a user-configurable guest system call interception and guest log protection policy to mitigate vulnerabilities~\ref{vulnerabilities:10} and~\ref{vulnerabilities:12}, respectively.
+% \textbf{System Call Interception and Qkenrel Log Management.} They propose a user-configurable guest system call interception and guest log protection policy to mitigate vulnerabilities~\ref{vulnerabilities:10} and~\ref{vulnerabilities:12}, respectively.
  
-In the following, we first give an overview of the architecture in Section~\ref{sec:General_Architecture}. Then, we introduce the remote attestation and provisioning infrastructure in Section~\ref{sec:design_Quark_Attestation_and_Provisioning_Infrastructure}. Subsequent Sections~\ref{sec:Enclave_Runtime_Measurement},~\ref{sec:design_EXEC_Requests},
-~\ref{sec:design_STDIO_PROTECTION}, ~\ref{sec:design_STDIO_PROTECTION}, ~\ref{sec:design_Interceptor}, and ~\ref{sec:Qkernel_logger} explain the new paradigm for EXEC requests, the 
-mechanism for protecting the standard IO of guest processes, the guest system call interceptor, and the guest log management policy, respectively. Finally, we propose modifications to the OCI runtime interface in Section~\ref{sec:Modification_OCI}.
 
 
 \section{General Architecture}
@@ -49,12 +59,12 @@ mechanism for protecting the standard IO of guest processes, the guest system ca
     \label{fig:genaral_architechture}
 \end{figure}
 
-As shown in Figure~\ref{fig:genaral_architechture}, a secure virtual machine provides a trusted execution environment that encapsulates the guest, including the Qkernel and an application. This environment is also referred to as an "enclave." Notably, a shielding layer is added to the Qkernel to prevent adversaries from utilizing the Hcall, Qcall, and Ucall interfaces to launch attacks 
-on the enclave. As this shielding layer is part of the Qkernel, its state is protected by the secure virtual machine.
+The overall architecture is depicted in Figure~\ref{fig:genaral_architechture}. It consists of the secret manager, securectl, and a \acrshort{CVM} that runs Qkernel and an application. Notably, a shielding layer is incorporated into the Qkernel to prevent adversaries from exploiting the Hcall, Qcall, and Ucall interfaces to launch attacks on the CVM. As this shielding 
+layer is part of the Qkernel, its state is protected by the \acrshort{CVM}. The secret manager manages secrets and operates within a hardware-based TEE on the cloud. securectl operates in the local environment of the application owner. It offers an interface for the application owner to interact with the application and control the shield. Moreover, the application 
+owner can utilize securectl to attest the secret manager and then upload the secrets through a secure channel. The secret manager can validate the application startup process against the policy uploaded by the application owner and send the secrets securely to the \acrshort{CVM}. Subsequently, the shield takes charge of secret deployment and ensures the confidentiality 
+and integrity of the secrets while \acrshort{CVM} runs.
 
-We also introduce securectl for enclave owners. This tool runs in the enclave owner's local environment and provides an interface to interact with the application and control the shielding layer. The secret manager manages secrets and runs in a confidential VM on the cloud. The enclave owner can authenticate the secret manager using remote attestation 
-and then uploads secrets through a secure channel. The secret manager can validate the application startup process against a policy uploaded by the enclave owner and securely sends secrets to the enclave. The shielding layer is responsible for secret deployment and ensures that secrets are not disclosed while the enclave runs.
-
+\todo{use ilastic for securectl}
 
 \section{Quark Attestation and Provisioning Infrastructure}
 \label{sec:design_Quark_Attestation_and_Provisioning_Infrastructure}
@@ -66,18 +76,25 @@ and then uploads secrets through a secure channel. The secret manager can valida
     \label{fig:Qkernel_attestation_infrastructurc}
 \end{figure}
 
-The Quark attestation and provisioning infrastructure consists of the modules in green in Figure~\ref{fig:Qkernel_attestation_infrastructurc}. It provides the following services for an enclave:
 
-This infrastructure enables the secure deployment of secrets during application startup. Before the application process is launched, the remote attestation and provisioning agent uses the KBS attestation protocol~\cite*{kbs_Attestation_protocol} to prove its identity to the secret manager and retrieve secrets. These secrets include shield policy, application startup parameters, environment 
-variables, and files. The \acrshort{TEE} hardware generates the attestation report required in the protocol with the help of the Qkernel attestation driver. This report contains the enclave startup hash. This hash includes measurements made by the software measurement manager on data loaded from the host, such as the application binary and the Qkernel configuration file. 
-The secret manager will compare the enclave startup hash with a reference value provided by the enclave owner to ensure that the application and enclave are correctly configured. Once obtained secrets, the shielding layer is initialized according to the policy. The application's secrets are deployed to the application process by the secret injector. 
-For instance, application startup parameters and environment variables are inserted into the stack of the application process. For file-type secrets, the injector keeps them on enclave memory and creates a sub-filesystem using the Qkernel's virtual filesystem interface. This filesystem is mounted in the /secret directory, and applications can access these 
-secrets through this file system. In this way, we offloaded secret management and deployment from Kubernetes~\cite*{k8s}.
+Figure~\ref{fig:Qkernel_attestation_infrastructurc} shows the Quark attestation and provisioning infrastructure. It comprises the secret manager, attestation and provisioning agent, secret injector, attestation report system call handler, Qkernel attestation driver, and software measurement manager. It provides the following services:
 
-Additionally, The infrastructure allows applications to obtain attestation reports at runtime through the guest system call interface. For more information, please refer to Section~\ref{sec:runtime_attesation}.
 
-This section is divided into three parts. Subsection~\ref{sec:design_Secret_Uploading} provides an overview of securely uploading secrets to the secret manager. Subsequently, in Sections~\ref{sec:secure_application_deployment} and~\ref{sec:runtime_attesation}, we discuss the secure deployment of secrets and how applications can request attestation reports at runtime. For specific implementations of each module, 
-please refer to Chapter~\ref{sec:implementation}.
+This infrastructure enables the secure deployment of secrets during application startup. Before the application process is launched, the remote attestation and provisioning agent uses the KBS attestation protocol~\cite*{kbs_Attestation_protocol} to prove its identity to the secret manager and retrieve secrets, which includes shield policy and application 
+secrets (e.g., startup parameters, environment variables, and files). The TEE hardware generates the attestation report required in the protocol with the help of the Qkernel attestation driver. This report contains the shield startup hash. This hash includes measurements made by the software measurement manager on data loaded from the host, such as 
+the application binary and the Qkernel configuration file. The secret manager will compare the shield startup hash with a reference value provided by the application owner to ensure that the application and CVM are correctly configured. Once the shield obtains secrets, it utilizes the shield policy to initialize itself. The application’s secrets are 
+deployed to the application process by the secret injector. For instance, application startup parameters and environment variables are inserted into the stack of the application process. For file-type secrets, the injector keeps them in virtual machine memory and creates a sub-filesystem using the Qkernel’s virtual filesystem interface. This filesystem is 
+mounted in the \textbf{/secret} directory, and applications can access these secrets through this file system. In this way, the secret management and deployment are offloaded from Kubernetes~\cite*{k8s} and Quark shim.
+
+
+Additionally, the infrastructure allows applications to obtain attestation reports at runtime through the guest system call interface. Note that the system call for getting a report is processed by the attestation report system call handler. For more information, please refer to Section~\ref{sec:runtime_attesation}.
+
+In the following, the secret upload workflow is first explained. Then, the mechanism for the application’s secure deployment and runtime attestation are discussed. For specific implementations of each module, please refer to Section~\ref{sec:impl_attestation_infr}.
+
+
+
+\subsection{Secret Uploading}
+\label{sec:design_Secret_Uploading}
 \begin{figure}[!htb]
     \centering
     \includegraphics[height=0.4\textheight]{images/upload_secret.png}
@@ -85,11 +102,9 @@ please refer to Chapter~\ref{sec:implementation}.
     \label{fig:upload_secret}
 \end{figure}
 
-\subsection{Secret Uploading}
-\label{sec:design_Secret_Uploading}
-The process of uploading secrets to the secret manager requires two steps to be taken by the application owner. Firstly, the application owner must validate the secret manager's state using remote attestation. Secondly, a secure channel must be established for secret uploading. This process is illustrated in Figure~\ref{fig:upload_secret}. We assume the secret manager runs in the AMD SEV SNP~\ref{fig:upload_secret}. 
-Initially， the secret manager generates an RSA key pair for the TLS connection and stores the private key in its memory. This key can be regarded as an identifier for the secure channel. To bind the secret manager to the identifier of the secure channel, the hash of the RSA public key is added to the attestation report of the secret manager. Upon receiving the report, 
-the application owner requests a certificate chain from the AMD KDC~\cite*{snp_kdc}. The certificate chain is then used to verify the signature of the report. Then using the information in the report, the application owner can ensure that the secret manager is genuine and that the hash of the public key used to establish the TLS matches the hash of the public key 
+The process of uploading secrets to the secret manager requires two steps to be taken by the application owner. Firstly, the application owner must validate the secret manager's state using remote attestation. Secondly, a secure channel must be established for secret uploading. This process is illustrated in Figure~\ref{fig:upload_secret}. 
+Note that the thesis assumes the secret manager runs in the AMD SEV-SNP~\ref{fig:upload_secret}. Initially, the secret manager generates an RSA key pair for the TLS~\cite*{tls_record_size} connection and stores the private key in its memory. This key can be regarded as an identifier for the secure channel. To bind the secret manager to the identifier of the secure channel, the hash of the RSA public key is added to the attestation report of the secret manager. 
+Upon receiving the report, the application owner requests a certificate chain from the AMD KDC~\cite*{snp_kdc}. The certificate chain is then used to verify the signature of the report. Then using the information in the report, the application owner can ensure that the secret manager is genuine and that the hash of the public key used to establish the TLS matches the hash of the public key 
 in the report. By fulfilling these steps, the application owner can determine that the entity on the other side of the secure channel is an expected secret manager. Thus, the channel can safely be leveraged for secrets uploading.
 
 
@@ -98,76 +113,81 @@ in the report. By fulfilling these steps, the application owner can determine th
 \begin{figure}[!htb]
     \centering
     \includegraphics[height=0.5\textheight]{images/attestation_provisioning.png}
-    \caption[Secure Application Deployment Workflow]{Secure Application Deployment. The green components are running in the enclave. The cluster operator is not trusted. The secret manager is responsible for managing the secrets, attesting enclaves, and provisioning the secrets.}
+    \caption[Secure Application Deployment Workflow]{Secure Application Deployment. The green components are running in the \acrshort{CVM}. The cluster operator is not trusted. The secret manager is responsible for managing the secrets, attesting enclaves, and provisioning the secrets.}
     \label{fig:attestation_provisioning}
 \end{figure}
+Secure application deployment aims to ensure the confidentiality and integrity of the application’s secrets and the shield’s policy. As such, a new secret deployment mechanism is proposed in Figure~\ref{fig:attestation_provisioning}.
 
-Secure application deployment aims to ensure the privacy of the application's secrets and the shielding layer's policy. As such, we propose a new deployment mechanism, as illustrated in Figure~\ref{fig:attestation_provisioning}.
- 
-The cluster operator still uses YAML to deploy applications but without including any secrets. Instead, application secrets and the shield layer policy are uploaded to the secret manager. The cluster operator only needs to pass the IP address of the secret manager, secrets'URL, and the application binary's name as the environment variable to the 
-enclave.
+The cluster operator still uses a YAML configuration file to deploy applications but without including any secrets. Instead, application secrets and the shield policy are uploaded to the secret manager. The cluster operator only needs to pass the IP address of the secret manager, secrets’ URLs, and the application binary’s name as the environment variable 
+to the \acrshort{CVM}. 
 
-Upon receiving an application creation request, the quark agent creates the application process according to the process specification. Remote attestation and secret provisioning occur after the enclave loads the application binary. This ensures that the secret manager can verify the integrity of the loaded application binary. However, before creating the 
-application process, the enclave may need to load and execute multiple binaries to set up the application's runtime environment. Therefore, the enclave will use the name of the application binary in the YAML file to determine if the application binary is loaded. Once loaded, the quark agent will trigger remote attestation and provisioning agent.
- 
-The agent first requests the Qkernel attestation driver to generate an attestation report. Depending on the type of \acrshort{TEE}, the driver will generate different attestation reports. Assuming the enclave runs in AMD SNP, the driver will request the SNP firmware to create an SNP report. The agent will then connect to the secret manager using the IP address in YAML and 
-establish a TLS connection. Once the TLS handshake is completed, the agent will complete remote attestation and provisioning according to the KBS attestation protocol~\cite*{kbs_Attestation_protocol}. Specifically, in the authentication phase, it uses the attestation report generated by the Qkernel attestation driver to prove its identity to the secret manager. In the second phase, it will use the URLs in 
-the YAML file to construct HTTP GET requests to retrieve the secrets from the secret manager. We refer the reader to Section~\ref{sec:kbs} for a detailed explanation of the KBS protocol.
+Upon receiving an application creation request, the quark agent located in the \acrshort{CVM} creates the application process according to the process configuration. Remote attestation and secret provisioning occur after the CVM loads the application binary. This ensures that the secret manager can verify the integrity of the loaded application binary. 
+However, before creating the application process, the \acrshort{CVM} may need to load and execute multiple binaries to set up the application’s runtime environment. Therefore, the \acrshort{CVM} will use the name of the application binary in the YAML file to determine if the application binary is loaded. Once loaded, the quark agent will trigger remote attestation 
+and provisioning agent.
 
-The format of the SNP report is shown in Figure~\ref*{fig:attestation_report_format}. The report is protected with the~\acrshort{VCEK} signature and contains SNP firmware's measurements for the VM boot process, tamper-resistant 64-byte user-defined data, host data, and others.
+The agent first requests the Qkernel attestation driver to generate an attestation report. Depending on the type of TEE, the driver will generate different attestation reports. Assuming the CVM runs in AMD SEV-SNP~\cite*{SEV_SNP_white_book}, the driver will request the SEV-SNP firmware to create a SEV-SNP report. The agent will then connect to the secret manager 
+using the IP address in the YAML file and establish a TLS connection. Once the TLS handshake is completed, the agent will complete remote attestation and provisioning according to the KBS attestation protocol~\cite*{kbs_Attestation_protocol}. Specifically, in the authentication phase, it uses the attestation report generated by the Qkernel attestation driver to 
+prove its identity to the secret manager. In the second phase, it will use the URLs in the YAML file to construct HTTP GET requests to retrieve the secrets from the secret manager. For a detailed explanation of the KBS protocol, please refer to Section~\ref{sec:kbs}.
+
+The format of the SEV-SNP report is shown in Figure~\ref*{fig:attestation_report_format}. The report is protected with the~\acrshort{VCEK} signature and contains SEV-SNP firmware's measurements for the VM boot process, tamper-resistant 64-byte user-defined data, host data, and others. 
+
+
 \begin{figure}[!htb]
     \centering
     \includegraphics[height=0.3\textheight]{images/attestation_report_format.png}
-    \caption[SNP attestation report]{SNP attestation report.}
+    \caption[SEV-SNP attestation report]{SEV-SNP attestation report~\cite*{snp_firmware}}
     \label{fig:attestation_report_format}
 \end{figure}
-The secret manager can verify the report's signature using the certificate chain required by AMD KDC~\cite*{snp_kdc}. By checking the measurements of the virtual machine boot process, the secret manager can confirm that the enclave is using the correct Qkernel binary because the Qkernel is loaded into the enclave memory by Qvisor using 
-SNP\_LAUNCH\_UPDATE~\cite*{snp_firmware}
-before VM boot. Notably, the code of the shielding layer is part of the Qkernel binary.
 
-The user-defined data in the report is a hash of the enclave startup hash and metadata required by the KBS protocol~\cite*{kbs_Attestation_protocol}. These metadata include a RAS public key representing the identity of the enclave and an attestation challenge assigned by the secret manager. An explanation of these metadata can be found in Section~\ref{sec:kbs}. 
-The software manager creates the enclave startup hash and incorporates all the sensitive data that the enclave loads from the host after the enclave starts. This includes Qkernel command line arguments, binaries, shared libraries, and the public key of the secret manager. By comparing the enclave startup hash to a reference hash provided by the enclave owner, the secret manager can ensure that 
-the enclave is configured correctly and that only legitimate binaries are loaded. The secret manager's public key is used for application runtime attestation discussed in Section~\ref{sec:runtime_attesation}.
+The secret manager can verify the report's signature using the certificate chain required by AMD KDC~\cite*{snp_kdc}. By checking the measurements of the virtual machine boot process, the secret manager can confirm that the CVM is using the correct Qkernel binary because the Qkernel is loaded into the CMV memory by Qvisor using 
+\todo{new font for the defination} SNP\_LAUNCH\_UPDATE~\cite*{snp_firmware} before VM boot. Notably, the code of the shielding layer is part of the Qkernel binary.
 
-In order to prevent an attacker from hijacking the secret manager's address and impersonating the secret manager, the KBS attestation protocol~\cite*{kbs_Attestation_protocol} requires that the enclave use the secret manager's public key to authenticate the secret manager during the TLS handshake. Currently, we utilize Kubernetes to mount the public key as a file on the application's rootfs. 
-The enclave reads the public key into the guest memory and uses it to set up the TLS connection to the secret manager. When an attacker provides the public key of a fake secret manager to the enclave, the TLS handshake fails due to a mismatch between the public key and the certificate of the real secret manager. In other words, the enclave can only establish a 
-connection with the fake secret manager.
+The user-defined data in the report is a hash of the shield startup hash and metadata required by the KBS protocol~\cite*{kbs_Attestation_protocol}. These metadata include a RAS public key representing the identity of the \acrshort{CVM} and an attestation challenge assigned by the secret manager. An explanation of these metadata can be found in Section~\ref{sec:kbs}. The software measurement 
+manager creates the shield startup hash and incorporates all the sensitive data that the \acrshort{CVM} loads from the host after the \acrshort{CVM} starts. This includes Qkernel command line argument (i.e., Qkernel configuration file~\cite*{quark_conf_file}), binaries, shared libraries, and the public key of the secret manager. By comparing the shield startup hash
+to a reference hash provided by the application owner, the secret manager can ensure that the \acrshort{CVM} is configured correctly and that only legitimate binaries are loaded. The secret manager's public key is used for application runtime attestation discussed in Section~\ref{sec:runtime_attesation}.
 
-\label{eq:1}The KBS attestation protocol~\cite*{kbs_Attestation_protocol} needs improvement. Since all enclaves use a standard Qkernel binary and applications are created from classic images, the attestation evidence cannot uniquely identify an enclave. Instead, the evidence only certifies that the attester is an enclave running in a \acrshort{TEE} with the correctly loaded application. 
-When a secret manager manages the secrets of multiple stakeholders, an enclave belonging to one stakeholder could steal the secrets of another. To address this issue, the application owner should assign a unique ID to each enclave. This ID should be added to the host data field of the attestation report by Qvisor before the enclave starts. This field is immutable after 
-launching the enclave, so the ID is bound to the enclave's attestation evidence. When the secret manager receives an enclave's attestation report, it can use this ID to determine the enclave's identity. In the authentication phase of the KBS attestation protocol~\cite*{kbs_Attestation_protocol}, the secret manager should bind not only the authentication result but also the enclave's ID to the cookie identifier. 
-This way, the secret manager can map the cookie identifier in the attester's resource request message to its attestation result and the enclave's ID. As such, the secret manager can use the ID and the secret owner's policy to determine whether to grant access to a particular secret to the enclave. The attester's resource request URL should have the following 
-format: <repository>/<type>/<tag>, where <repository> is similar to the concept of container image repository, <type> is used to distinguish between different resource types, and <tag> is used to distinguish different versions of a resource. The secret manager should assign each user a unique repository and let them specify which enclaves with which IDs can access 
-this repository. To this end, we effectively avoid cross-leakage of secrets between different stakeholders.
+In order to prevent an attacker from hijacking the secret manager's address and impersonating the secret manager, the KBS attestation protocol~\cite*{kbs_Attestation_protocol} requires that the CVM uses the secret manager's public key to authenticate the secret manager during the TLS handshake. Currently, Kubernetes~\cite*{k8s} mounts the public key as a file on 
+the application's rootfs. The \acrshort{CVM} reads the public key into the guest memory and uses it to set up the TLS connection to the secret manager. When an attacker provides the public key of a fake secret manager to the \acrshort{CVM}, the TLS handshake fails due to a mismatch between the public key and the certificate of the real secret manager. In other words, the 
+\acrshort{CVM} can only establish a connection with the fake secret manager.
+
+
+
+\label{eq:1}The KBS attestation protocol~\cite*{kbs_Attestation_protocol} needs improvement. Since all \acrshort{CVM} uses a standard Qkernel binary and applications are created from classic images, the attestation evidence cannot uniquely identify an enclave. Instead, the evidence only certifies that the attester is an enclave running in a TEE with the correctly 
+loaded guest kernel and application. When a secret manager manages the secrets of multiple stakeholders, a \acrshort{CVM} belonging to one stakeholder could steal the secrets of another. To address this issue, the application owner should assign a unique ID to each CVM. This ID should be added to the host data field of the attestation report by Qvisor before 
+the \acrshort{CVM} starts. This field is immutable after launching the \acrshort{CVM}, so the ID is bound to the \acrshort{CVM}'s attestation evidence. When the secret manager receives a \acrshort{CVM}'s attestation report, it can use this ID to determine the \acrshort{CVM}'s identity. In the authentication phase of the KBS attestation 
+protocol~\cite*{kbs_Attestation_protocol}, the secret manager should bind not only the authentication result but also the \acrshort{CVM}'s ID to the cookie identifier. This way, the secret manager can map the cookie identifier in the attester's resource request message to its attestation result and the \acrshort{CVM}'s ID. As such, the secret manager can use the 
+ID and the secret owner's policy to determine whether to grant access to a particular secret to the \acrshort{CVM}. The attester's resource request URL should have the following format: \emph{<repository>/<type>/<tag>}, where \emph{<repository>} is similar to the concept of container image repository,\emph{<type>} is used to distinguish between different resource 
+types, and \emph{<tag>} is used to distinguish different versions of a resource. The secret manager should assign each user a unique repository and let them specify which \acrshort{CVM} with which IDs can access this repository. To this end, the cross-leakage of secrets between different stakeholders can be effectively avoided. 
+
 
 Note that some of the above features are not implemented. Section~\ref{subsec:Limitations} summarizes the limitations of secure application deployment.
 
 \subsection{Application Runtime Attestation Service}
 \label{sec:runtime_attesation}
 
-An application may need to authenticate itself to a  remote end at runtime. Quark attestation and provisioning infrastructure enable applications to obtain attestation reports through the guest system call interface. Depending on the application's needs, one of three report formats can be 
+An application may need to attest itself to a remote party at runtime. Quark attestation and provisioning infrastructure enable applications to obtain attestation reports through the guest system call interface. Depending on the application's needs, one of three report formats can be 
 obtained: an attestation report generated by the \acrshort{TEE} hardware and two software attestation reports created by the shielding layer. The latter contains:
 
 \begin{itemize}
-    \item Enclave startup hash.
-    \item Enclave ID.
+    \item Shield startup hash.
+    \item \acrshort{CVM} ID.
     \item Signature.
     \item Sixty-four bytes of application-specified data.
 \end{itemize}
 
-The application can sign the software report with a key issued by the secret manager or by a key it provided. The secret manager's key is sent to the enclave along with the application's secret during the secure application deployment. Software reports offer additional possibilities 
-for how the application proves its identity to the remote end. In other words, the remote end can verify the report without the assistance of the CPU vendor. Upon verification of the report, the remote end can ensure that the application is as expected by using the enclave startup 
-hash. Besides, application-defined data in a software report is tamper-proof, similar to user data in SNP reports. As previously discussed, the enclave ID guarantees that the remote end can determine the application's identity, which prevents secret cross-leakage. The previous 
-section has already discussed the major benefits of enclave startup hash. Additionally, it includes the measurement of the secret manager's public key. Therefore, The remote can be sure that the enclave acquired the secrets from the genuine secret manager during application startup and 
-correctly initialized the shielding layer. In other words, if the shielding layer is initialized with a compromised policy acquired from a fake secret manager, it can no longer guarantee that the secrets provisioned by the remote won't be leaked.
+The application can sign the software report with a key issued by the secret manager or by a key it provided. The secret manager's key is sent to the \acrshort{CVM} along with the application's secret during the secure application deployment. Software reports offer additional possibilities 
+for how the application proves its identity to the remote party. In other words, the remote party can verify the report without the assistance of the CPU vendor. Upon verification of the report, the remote party can ensure that the application is as expected by using the shield startup 
+hash. Besides, application-defined data in a software report is tamper-proof, similar to user data in SEV-SNP reports. As previously discussed, the \acrshort{CVM} ID guarantees that the remote party can determine the application's identity, which prevents secret cross-leakage. Section~\ref{sec:secure_application_deployment} has already discussed the major 
+benefits of shield startup hash. Additionally, it includes the measurement of the secret manager's public key. Therefore, the remote party can be sure that the \acrshort{CVM} acquired the secrets from the genuine secret manager during application startup and 
+correctly initialized the shielding layer. In other words, if the shielding layer is initialized with a compromised policy acquired from a fake secret manager, it can no longer guarantee that the secrets provisioned by the remote party won't be leaked.
 
 
-\section{Enclave Runtime Measurement}
+\section{\acrshort{CVM} Runtime Measurement}
 \label{sec:Enclave_Runtime_Measurement}
 \begin{figure}[!htb]
     \centering
     \includegraphics[width=1\textwidth]{images/soft_ware_manager_meausrment.png}
-    \caption[Enclave runtime measurement]{Enclave runtime measurement}
+    \caption[\acrshort{CVM} runtime measurement]{\acrshort{CVM} runtime measurement}
     \label{fig:soft_ware_manager_meausrment}
 \end{figure}
 

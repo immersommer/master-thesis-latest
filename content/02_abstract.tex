@@ -21,7 +21,7 @@ TEE-protected applications and issue arbitrary commands to them. This interface 
 
 Consequently, this thesis aims to analyze the OCI runtime interface and propose a solution for safeguarding containers from attacks from the above interface. The policy ensures the confidentiality and integrity of a container's data and code in the TEE while enabling untrusted Kubernetes\cite*{k8s} to deploy and manipulate containers as 
 before. In particular, we choose the Quark framework~\cite*{quark}, a container runtime based on the process VM (\acrshort{pVM}) architecture, as a starting point for investigating container secure orchestration. In comparison, Quark offers a smaller Trusted Computing Base (\acrshort{TCB}) and substantial performance 
-benefits over the traditional virtual machine-based Kata containers~\cite*{quark_performance_report}. Evaluation results demonstrate that our implementation successfully achieves the design goal, albeit resulting in a 1.48-fold increase in the \acrshort{TCB}. Inevitably, due to the interception and 
+benefits over the traditional virtual machine-based Kata containers~\cite*{quark_performance_report}. Evaluation results demonstrate that our implementation successfully achieves the design goal, albeit resulting in a 1.48-fold increase in the \acrshort{TCB} (i.g., guest binary size). Inevitably, due to the interception and 
 checking of commands from the OCI runtime interface, our implementation imposes overheads on applications.  For example, the startup time for Redis~\cite*{redis} has increased by 2.2 times, while the throughput has decreased by 22\%.
 %%% Local Variables:
 %%% TeX-master: "diplom"
