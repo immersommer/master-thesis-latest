@@ -293,6 +293,7 @@ application owner to specify the permissible system calls for the application wh
 
 
 \subsection{VM Configuration}
+\label{sec:VM_Misconfiguration}
 
 As described in Section~\ref{sec:security_analyse_oci_vm}, the correct VM configuration involves loading the correct guest kernel binary and the startup parameters, as well as configuring the guest logging system properly. In the case of Quark, the Qkernel is the binary that Qvisor loads into the guest's memory during the VM setup process. However, 
 since the untrusted Qvisor can load a compromised Qkernel binary, the application secrets can be leaked during runtime. Moreover, Qvisor passes several startup parameters to Qkernel, including the number of VCPUs, the file descriptor of the socket on which Quark-agent is listening, and Qkernel's configuration file~\cite*{quark_conf_file}. This configuration file 
