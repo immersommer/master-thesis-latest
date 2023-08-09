@@ -22,10 +22,10 @@
 
 %\todo{write design}
 This chapter will present a shielding layer design to mitigate the vulnerabilities found in security analysis over OCI runtime interface (refer to Section~\ref{sec:security_analyse_oci_summary}). The shielding layer consists of the remote attestation and provisioning infrastructure, CVM runtime measurement manager, the EXEC request checker, 
-guest process STDIO protector, system call interceptor, and guest log manager. The remote attestation and provisioning infrastructure offers a secure mechanism for managing and deploying secrets. This mechanism can be employed to mitigate vulnerabilities~\ref{vulnerability:1}, and~\ref{vulnerabilities:9}. The CVM runtime measurement manager measures the data 
-loaded by the host, such as application binary and shared libraries. These measurements will be used by the shield to conduct integrity checks. Thus, vulnerabilities~\ref{vulnerabilities:6} and~\ref{vulnerabilities:10}  will be solved. The EXEC request checker will authenticate and do access control over the EXEC 
-requests, thereby mitigating vulnerability~\ref{vulnerabilities:4}. Additionally, to address vulnerability~\ref{vulnerabilities:2}, the shield will cryptographically protect the STDIO streams of the guest processes (guest process STDIO protector). Lastly, the system call interceptor and guest log manager propose 
-a user-configurable guest system call interception and guest log protection policy,  effectively mitigating vulnerabilities~\ref{vulnerabilities:7} and~\ref{vulnerabilities:11}.
+guest process STDIO protector, system call interceptor, and guest log manager. The remote attestation and provisioning infrastructure offers a secure mechanism for managing and deploying secrets. This mechanism can be employed to mitigate vulnerabilities~\ref{vulnerability:1}, and~\ref{vulnerabilities:6} (a). The CVM runtime measurement manager measures the data 
+loaded by the host, such as application binary and shared libraries. These measurements will be used by the shield to conduct integrity checks. Thus, vulnerabilities~\ref{vulnerabilities:4} (b) and~\ref{vulnerabilities:6} (b)  will be solved. The EXEC request checker will authenticate and do access control over the EXEC 
+requests, thereby mitigating vulnerability~\ref{vulnerabilities:3}. Additionally, to address vulnerability~\ref{vulnerabilities:2}, the shield will cryptographically protect the STDIO streams of the guest processes (guest process STDIO protector). Lastly, the system call interceptor and guest log manager propose 
+a user-configurable guest system call interception and guest log protection policy,  effectively mitigating vulnerabilities~\ref{vulnerabilities:5} and~\ref{vulnerabilities:6} (c).
 
 Below, Section~\ref{sec:General_Architecture} provides an overview of the architecture. Then, Section~\ref{sec:design_Quark_Attestation_and_Provisioning_Infrastructure} introduces the remote attestation and provisioning infrastructure. Subsequent Sections~\ref{sec:Enclave_Runtime_Measurement},~\ref{sec:design_EXEC_Requests},
 ~\ref{sec:design_STDIO_PROTECTION}, ~\ref{sec:design_STDIO_PROTECTION}, ~\ref{sec:design_Interceptor}, and ~\ref{sec:Qkernel_logger} detail the new paradigm for EXEC requests, the mechanism to protect the standard IO of guest processes, the guest system call interceptor, and the guest log manager, respectively. 
@@ -216,7 +216,7 @@ In this case, the software measurement manager will print the shield startup has
 \end{figure}
 
 
-A new pattern for EXEC requests is proposed to address issue~\ref{vulnerabilities:4} identified in the security analysis. As illustrated in Figure~\ref{fig:new_pattern_of_exec}, The design divides EXEC requests into two categories, namely privileged and unprivileged EXEC requests. 
+A new pattern for EXEC requests is proposed to address issue~\ref{vulnerabilities:3} identified in the security analysis. As illustrated in Figure~\ref{fig:new_pattern_of_exec}, The design divides EXEC requests into two categories, namely privileged and unprivileged EXEC requests. 
 Privileged EXEC requests are issued by privileged users (i.e., application owners), while untrusted entities issue unprivileged requests. An untrusted entity here refers to someone other than the application owner. Privileged and non-privileged users send privileged or non-privileged requests to the \acrshort{CVM} using \emph{securectl} or \emph{kubectl}, 
 respectively. Both requests are redirected to the \acrshort{CVM} through the Kubernetes~\cite*{k8s}. Upon receiving an EXEC request, the Quark agent forwards it to the EXEC request checker. According to the shield policy, the EXEC request checker will authenticate and access control the request. The Quark agent will decide whether to create the 
 EXEC process based on the result returned by the EXEC request checker.
@@ -446,7 +446,7 @@ untrusted entities (e.g., Quark shim) cannot tamper with the configuration of th
 
 \section{Qkernel Log Manager}
 \label{sec:Qkernel_logger}
-A Qkernel log manager is implemented to address issue \ref{vulnerabilities:11}. It can be configured utilizing the shield policy, exemplified in Listing~\ref{lst:shiled_policy_log}. The keyword \emph{enable} determines whether the manager is enabled. When set to false, the Qkernel log system employs the logging level specified in 
+A Qkernel log manager is implemented to address issue \ref{vulnerabilities:6} (c). It can be configured utilizing the shield policy, exemplified in Listing~\ref{lst:shiled_policy_log}. The keyword \emph{enable} determines whether the manager is enabled. When set to false, the Qkernel log system employs the logging level specified in 
 the Qkernel configuration file~\cite*{quark_conf_file}. Furthermore, the keyword \emph{allowed\_max\_log\_level} designates the maximum log level Qkernel can print. As discussed in Section~\ref{sec:VM_Misconfiguration}, Qkernel supports five log levels. For instance, when \emph{allowed\_max\_log\_level} is set to INFO\todo{new font}, Qkernel is exclusively 
 restricted to printing logs at the INFO\todo{new font}, and ERROR\todo{new font} levels. Notably, the Qkernel log manager is enabled and employs the log level OFF\todo{new font} before the \acrshort{CVM} obtains the policy from the secret manager.
 

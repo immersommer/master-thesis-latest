@@ -114,22 +114,21 @@ This section analyzes vulnerabilities in the OCI interface for confidential comp
       %     \item\label{vulnerabilities:2} Interactive processes STDIN, STDOUT, and STDERR lack cryptographic protection.
       %     \item\label{vulnerabilities:3} Non-interactive processes STDOUT and STDERR lack cryptographic protection.
       % \end{enumerate}
-  \item\label{vulnerabilities:4}Lack authentication and access control over EXEC request
-      % \begin{enumerate}
-      %   \item\label{vulnerabilities:4} Anyone can issue commands to an application.
-      %   \item\label{vulnerabilities:5} Commands issued by the application owner may contain confidential data but are not protected in transit.
-      % \end{enumerate}
-  \item Container root file system and volume
+  \item\label{vulnerabilities:3}EXEC operation:
       \begin{enumerate}
-        \item\label{vulnerabilities:5} Data written by the application to the root file system and volumes are accessible by untrusted entities on the host (out of the scope).
-        \item\label{vulnerabilities:6} Binaries and shared libraries are vulnerable to tampering.
-        % \item\label{vulnerabilities:8} Shared library files are vulnerable to tampering.
-        % \item\label{vulnerabilities:9} Binary files loaded by the application during runtime are vulnerable to tampering.
+        \item Lack of authentication and access control over EXEC requests.
+        \item The integrity and confidentiality of commands are compromised.
+      % and access control  Commands issued by the application owner may contain confidential data but are not protected in transit.
       \end{enumerate}
-  \item\label{vulnerabilities:7} The system call interception mechanism provided by Seccomp does not apply to confidential computing.
-  \item\label{vulnerabilities:8} Lacking a mechanism to ensure that the container runtime environment is configured correctly. For VM containers, this means:
+  \item{vulnerabilities:4} Container root file system and volume
       \begin{enumerate}
-        \item\label{vulnerabilities:9} Ensure that the correct guest kernel is loaded.
+        \item Data written by the application to the root file system and volumes are accessible by untrusted entities on the host (out of the scope).
+        \item Binaries and shared libraries are vulnerable to tampering.
+      \end{enumerate}
+  \item\label{vulnerabilities:5} The system call interception mechanism provided by Seccomp does not apply to confidential computing.
+  \item\label{vulnerabilities:6} Lacking a mechanism to ensure that the container runtime environment is configured correctly. For VM containers, this means:
+      \begin{enumerate}
+        \item Ensure that the correct guest kernel is loaded.
         \item\label{vulnerabilities:10} Ensure that the guest kernel startup parameters are correct.
         \item\label{vulnerabilities:11} Ensure that the guest kernel logging system is configured properly.
       \end{enumerate}
@@ -308,55 +307,11 @@ Qkernel when launching the guest. In confidential computing, Qkernel and Qvisor 
 log level in Qkernel to be OFF to protect the confidentiality of the CVM. In the current architecture, Quark cannot satisfy both requirements. To this end, the Qkernel logging system configuration should be offloaded from the global configuration file. The detail can be found in section~\ref{sec:Qkernel_logger}..
 
 
-
-
-% \begin{figure}[htp]
-%   \centering
-%   \includegraphics[width=0.3\textwidth]{images/quark_config.PNG}
-%   \caption[Configuration file for Qkernel, Qvisor, and Quark Shim]{Configuration file for Qkernel, Qvisor, and Quark Shim. The file is installed as a global configuration file for Quark in the /etc/quark/ directory. When Quark Shim or Qvisor starts, it reads this file and completes the relevant configuration}
-%   \label{fig:quark_config}
-% \end{figure}
-
-% Qkernel is a binary loaded into the guest memory during Qvisor setting up the guest. To properly configure the Qkernel, Qvisor also passes several command-line arguments to the Qkernel, including the number of VCPUs, the socket file descriptor that the Quark-agent listens to, and a configuration 
-% file shown in Figure~\ref{fig:quark_config}. This configuration file specifies the runtime behavior of the Qkernel, such as whether to enable the Ucall interface, whether to enable RDMA, etc. A wrong configuration file can disclose the secrets stored in Qkernel. For example, turning on RDMA would allow an untrusted 
-% party direct access to the Qkernel’s memory. For this reason, the Qkernel should measure the configuration file and send it to the relying party for integrity checking. For more details, please refer to section~\ref{sec:Enclave_Runtime_Measurement}.
-
-% \subsection{Qkernel Log Misconfiguration}
-% \label{sec:Qkernel_Log_Misconfiguration}
-% Qkernel uses Hcall::HYPERCALL\_PRINT to store its logs under the host directory /var/log/quark. The Qkernel logging system supports five logging levels: OFF, Error, Info, Debug, and Trace. Here OFF is the minor level, i.e., the least detailed, and Trace is the highest level, i.e., the most detailed log. The user can configure the highest level of logging for 
-% Qkernel through the DebugLevel keyword in the configuration file shown in Figure~\ref{fig:quark_config}. For example, when the DebugLevel is Info, Qkernel only prints logs in level Error and Info. 
-
-% A malicious administrator may set the DebugLevel keyword to Trace and then analyze the Qkernel logs to obtain sensitive information. This problem can be solved by measuring the guest kernel arguments. However, both Qvisor and Qkernel are configured using this file. Specifically, Qvisor reads this configuration file after startup and passes a copy to the Qkernel when 
-% launching the guest. In confidential computing, Qkernel and Qvisor belong to the application owner and the cloud provider, respectively. They have different interests and do not trust each other. For example, to resolve errors quickly, the cloud provider requires the log level in Qvisor to be set to TRACE, while the application owner 
-% requires the log level in Qkernel to be OFF to protect the confidentiality of the \acrshort{CVM}. In the current architecture, Quark cannot satisfy both requirements. To this end, the Qkernel logging system configuration should be offloaded from the global configuration 
-% file. The detail can be found in section~\ref{sec:Qkernel_logger}.
-
-
-
-
 \section{Summary}
 \label{sec:security_summarize}
 
 This chapter first defines the threat model. Then, it analyzes the problems of the OCI runtime interface in confidential computing. A summary of the vulnerabilities found in the OCI runtime interface is listed in Section~\ref{sec:security_analyse_oci_summary}. Section~\ref{sec:security_analyse_quark_analysis} does a security analysis further on the Quark 
 based on these vulnerabilities.
  
-% \begin{enumerate}
-%   \item \label{vulnerabilities:1} Application secrets are managed and deployed by untrusted Kubernetes and Quark Shim.
-%   \item \label{vulnerabilities:2} Lack of cryptographic protection for interactive processes STDIN, STDOUT, and STDERR.
-%   \item \label{vulnerabilities:3} Lack of cryptographic protection for non-interactive processes STDOUT and STDERR.
-%   \item \label{vulnerabilities:4} Anyone can issue commands to an application.
-%   \item \label{vulnerabilities:5} Any user can attach to an application.
-%   \item \label{vulnerabilities:6} The commands issued by the application owner may contain confidential data but are unprotected during transmission.
-%   \item \label{vulnerabilities:7} Loading compromised application binary during startup.
-%   \item \label{vulnerabilities:8} Loading compromised binary/shared library at runtime.
-%   \item \label{vulnerabilities:9}  Lack of management over application restart.
-%   \item \label{vulnerabilities:10} No restriction to the available system calls for applications.
-%   \item \label{vulnerabilities:11} No control over guest kernel arguments.
-%   \item \label{vulnerabilities:12} Guest kernel log misconfiguration.
-
-% \end{enumerate}
-
-% For this reason, we should offload the configuration of the logging system from the qkernel configuration file and allow the application owner to specify the maximum logging level for the specified client kernel logging system in the protection 
-% policy.
 \cleardoublepage
 

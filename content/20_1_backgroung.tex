@@ -279,9 +279,9 @@ request phase, \acrshort{KBS} uses this cookie to find the \acrshort{KBC}'s auth
 As defined in the key broke service attestation protocol, phase 1 (authentication phase) has four steps: 
 \begin{displayquote}
     \begin{enumerate}
-        \item  Post /kbs/v0/auth: The KBC sends an HTTP Post whose body is a KBS Request JSON payload to KBS to initiate the attestation protocol. The payload contains The protocol version number supported by KBC, the type of HW-TEE platform where KBC is located.
+        \item  \texttt{Post /kbs/v0/auth}: The KBC sends an HTTP Post whose body is a KBS Request JSON payload to KBS to initiate the attestation protocol. The payload contains The protocol version number supported by KBC, the type of HW-TEE platform where KBC is located.
         \item  Response: The KBS responds with the Challenge payload, which contains an attestation challenge (nonce) for the attester. In the next step, KBC must place it in the evidence sent to the KBS to prevent replay attacks. Furthermore, the KBS also sends a session identifier to the KBC as an HTTP Cookie
-        \item  Post /kbs/v0/auth: The KBC sends an HTTP Post request with a JSON payload called KBS Attestation and a cookie set to the value received in the previous step. The payload contains the attestation evidence and the KBC’s public key.
+        \item  \texttt{Post /kbs/v0/auth}: The KBC sends an HTTP Post request with a JSON payload called KBS Attestation and a cookie set to the value received in the previous step. The payload contains the attestation evidence and the KBC’s public key.
         \item  Response: Upon successful attestation, the KBS replies to that request with an empty payload and sets the status code to 200. KBC can check the status code to determine if the authentication succeeds. 
     \end{enumerate}
 \end{displayquote}

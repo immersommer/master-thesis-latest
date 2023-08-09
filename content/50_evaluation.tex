@@ -9,45 +9,58 @@
 % vorzunehmen. Es wird empfohlen zunächst die eigenen Erwartungen
 % bezüglich der Ergebnisse zu erläutern und anschließend eventuell
 % festgestellte Abweichungen zu erklären.
-In previous chapters, we analyzed the security issues of the vanilla quark and proposed the design and implementation of the shielding layer as a countermeasure. In this chapter, we evaluate the security and performance of our implementation from both 
-qualitative and quantitative perspectives. Note that in the following we refer to our implementation as confidential Quark.
+The previous chapters have analyzed the security issues associated with the OCI runtime interface in confidential computing, and have proposed the design and implementation of a shielding layer as a countermeasure. Therefore, this chapter assesses the security and performance of the implementation 
+from both qualitative and quantitative viewpoints. A brief introduction to qualitative and quantitative analyses can be found in Section~\ref{sec:eva_qualitativ} and~\ref{sec:eva_overwiwe_Quantitative}.
+Note that the implementation is referred to as confidential Quark in the subsequent discussions.
+
 
 \section{Qualitative Analysis}
 \label{sec:eva_qualitativ}
-This section evaluates the proposed mitigations for the vulnerabilities summarized in Section~\ref{sec:security_summarize}.
+The qualitative analysis employs a microbenchmark to evaluate the effectiveness of the system implemented in Chapter~\ref{sec:implementation} in mitigating vulnerabilities of the OCI runtime interface listed in Section~\ref{sec:security_analyse_oci_summary}. The setup of the 
+microbenchmark is described in Subsection~\ref{sec:eva_qualitativ_setup}. Next, Subsection~\ref{sec:eva_qualitativ_secure_depl} demonstrates the secure deployment process for an application. Subsection~\ref{sec:eva_qualitativ_secure_exec} further assesses how the shield performs authentication and access control on EXEC requests.
+Subsection~\ref{sec:eva_qualitativ_secure_stdio} then illustrates the shield can cryptographically protect the process STDIO. Finally, Subsections~\ref{sec:eva_qualitativ_secure_log},~\ref{sec:eva_qualitativ_secure_syscall}, and~\ref{sec:eva_qualitativ_runtime_meausre}
+highlight the shield's ability to manage VM logs, restrict available system calls to the application, and ensure the integrity of executables loaded from the host while \acrshort{CVM} runs, respectively. A summary of the qualitative analysis can be found in Subsection~\ref{sec:eva_qualitativ_summary}.
+
 
 \subsection{Common Setup}
+\label{sec:eva_qualitativ_setup}
+
+This section outlines the configuration for the analysis. First, the environment of confidential and vanilla Quark is set following the guidelines provided in the Quark demo repository~\cite*{Qaurk_Demo_for_qualitativ}. The policy used by the confidential Quark is shown in Figure~\ref{fig:generic_policy}. 
+The policy specifies that the shield is in \texttt{Production} mode. Privileged users can allocate terminals and issue \texttt{cat} and \texttt{ls} commands, while non-privileged level users can only issue \texttt{ls} commands. Privileged-level commands can be executed in the directory 
+\texttt{/var} and its subdirectories, while non-privileged-level commands can only access the directory \texttt{/var/log} and its subdirectories. In addition, the Qlog manager is turned on. Since \emph{allowed\_max\_log\_level} is set to \texttt{OFF}, the Qkernel of the confidential Qaurk does 
+not print any logs. Finally, the guest system call interceptor is activated and runs in \texttt{ContextBase} mode. The system call allowlist contains all system calls (0-451), some of which are not included in the figure due to space limitations.
 
 
-\begin{figure}[!htb] 
-    \begin{subfigure}[b]{0.45\linewidth}
-      \centering
-      \includegraphics[width=0.9\linewidth]{images/generic_policy.PNG} 
-      \caption{Enclave policy} 
-      \label{fig:generic_policy} 
-      \vspace{4ex}
-    \end{subfigure}%% 
-    \begin{subfigure}[b]{0.45\linewidth}
-      \centering
-      \includegraphics[width=0.9\linewidth]{images/analysis_workload.png} 
-      \caption{Program used for the qualitative analysis} 
-      \label{fig:analysis_workload} 
-      \vspace{4ex}
-    \end{subfigure} 
-    \caption{Artifacts for demo in the qualitative analysis}
-    \label{fig4} 
+\begin{figure}[!htb]
+  \centering
+  \includegraphics[height=0.3\textheight]{images/generic_policy.PNG}
+  \caption[Shield policy for confidential Quark]{Shield policy for confidential Quark}
+  \label{fig:generic_policy}
 \end{figure}
 
 
+% \begin{figure}[!htb] 
+%   \begin{subfigure}[b]{0.45\linewidth}
+%     \centering
+%     \includegraphics[width=0.9\linewidth]{images/generic_policy.PNG} 
+%     \caption{Enclave policy} 
+%     \label{fig:generic_policy} 
+%     \vspace{4ex}
+%   \end{subfigure}%% 
+%   \begin{subfigure}[b]{0.45\linewidth}
+%     \centering
+%     \includegraphics[width=0.9\linewidth]{images/analysis_workload.png} 
+%     \caption{Program used for the qualitative analysis} 
+%     \label{fig:analysis_workload} 
+%     \vspace{4ex}
+%   \end{subfigure} 
+%   \caption{Artifacts for demo in the qualitative analysis}
+%   \label{fig4} 
+% \end{figure}
 
-
-This section outlines the configuration for the analysis. First, we set up the confidential Quark and vanilla Quark environments following the guidelines provided in the Quark demo repository~\cite*{Qaurk_Demo_for_qualitativ}. The policy used by confidential Quark is shown in Figure~\ref{fig:generic_policy}. The policy specifies that the enclave is in production mode. 
-Privileged users can allocate terminals and issue cat and ls commands, while non-privileged level users can only issue ls commands. Privileged-level commands can be executed in the directory /var and its subdirectories, while non-privileged-level commands can only access the directory /var/log and its subdirectories. In addition, the Qlog manager is turned on. 
-Since allowed\_max\_log\_level is set to OFF, Qkernel does not print any logs. Finally, the guest system call interceptor is activated and runs in ContextBase mode. The system call allowlist contains all system calls (0-451), some of which are not included in the figure due to space limitations.
-
-
-Figure~\ref{fig:generic_policy} shows the example program used for the quantitative analysis. The program first print the environment variable and application parameter type secrets. It then accesses the secret "root-ca.pem" under directory /secret. The application-related secrets are shown in Figure~\ref{fig5}. We use 
-script~\cite*{secret_uploading_script} to deploy these secrets and the enclave policy to the secret manager. Note that the application is already containerized. The artifacts for the demo in the qualitative analysis and the YAML files for deploying the demo can be found in commit~\cite*{artifacts_quarlitative}.
+The analysis uses a simple program~\cite*{qualitativ_programs} to demonstrate the functionality of confidential Quark. The program first prints the application's environment variable and startup parameter type secrets. Then it reads the first few lines of the file type 
+secret \textbf{/secret/root-ca.pem} and prints the result. The application-related secrets are shown in Figure~\ref{fig5}. The script~\cite*{secret_uploading_script} is utilized to deploy these secrets and the shield policy to the secret manager. Note that the program is already 
+containerized. The artifacts for the demo in the qualitative analysis and the YAML files for deploying the demo can be found in commit~\cite*{artifacts_quarlitative}.
 
 \begin{figure}[!htb] 
     \begin{subfigure}[b]{0.45\linewidth}
@@ -69,157 +82,153 @@ script~\cite*{secret_uploading_script} to deploy these secrets and the enclave p
 \end{figure}
 
 
-\subsection{Application secure Deployment}
+\subsection{Secure Application Deployment}
+\label{sec:eva_qualitativ_secure_depl}
 \begin{figure}[!htb]
     \centering
     \includegraphics[height=0.3\textheight]{images/cquark_deploy_yaml.jpg}
-    \caption[YAML for deploying an application in confidential Quark]{YAML for deploying an application in confidential Quark}
+    \caption[YAML configuration file for deploying an application in confidential Quark]{YAML configuration file for deploying an application in confidential Quark}
     \label{fig:cquark_deploy_yaml}
 \end{figure}
 
-Confidential Quark deploys the application using YAML, as shown in Figure~\ref{fig:cquark_deploy_yaml}. The new application deployment scheme and YAML are explained in Section~\ref{sec:secure_application_deployment}. Figure~\ref{fig:cquark_deployment} outlines the steps and outcomes of the application deployment process in the confidential Quark environment.
+Confidential Quark deploys the application using the YAML configuration file shown in Figure~\ref{fig:cquark_deploy_yaml}. The new application deployment scheme and the YAML configuration file are explained in Section~\ref{sec:secure_application_deployment}. 
+Figure~\ref{fig:analysis_Secure_Application_Deployment} (b) outlines the steps and outcomes of the application deployment process in the confidential Quark environment.
 
-Figure~\ref{fig:cquark_kbs_start} shows that the enclave successfully attests its identity to the secret manager during remote attestation and provisioning. Currently, the secret manager operates in native mode, verifying the consistency between the enclave start hash and the reference hash specified in the 
-enclave owner's policy (app\_launch\_ref\_measurement). The enclave's startup hash includes the measurement for application binaries, Qkernel configuration files, etc. (refer to Section~\ref{sec:Enclave_Runtime_Measurement}). As depicted in Figure~\ref{fig:cquark_deployment_result}, the enclave successfully retrieves the secret from the secret manager and prints them. It's worth 
-noting that the directory named "secret" remains invisible from the host (as seen in Figure~\ref{fig:cquark_deployment_result_file_secret_mount_location}), as file type secrets and the filesystem mounted under the /secret directory are within the enclave。 Therefore, security issues~\ref{vulnerabilities:1},~\ref{vulnerabilities:7}, and~\ref{vulnerabilities:11} 
-have been effectively resolved.
+Figure~\ref{fig:analysis_Secure_Application_Deployment} (a) shows that the \acrshort{CVM} successfully attests its identity to the secret manager during the remote attestation and provisioning. Currently, the secret manager operates in \texttt{native} mode, verifying the consistency 
+between the shield startup hash and the reference hash \emph{shield\_startup\_ref\_measurement} specified in the shield policy (Figure~\ref{fig:generic_policy}). The shield startup hash includes the measurement for binaries and shared libraries loaded during application setup, 
+Qkernel configuration files, etc. (refer to Section~\ref{sec:Enclave_Runtime_Measurement}). As depicted in Figure~\ref{fig:analysis_Secure_Application_Deployment} (b), the \acrshort{CVM} successfully retrieves the secret from the secret manager and prints them. 
+It's worth noting that the directory \texttt{/secret} remains invisible from the host (as seen in Figure~\ref{fig:analysis_Secure_Application_Deployment} (c)), as file type secrets and the filesystem mounted under the \texttt{/secret} directory are within the \acrshort{CVM}. 
+Therefore, the security issue~\ref{vulnerability:1} of OCI runtime interface~\cite*{oci-runtime-spec} summarized in Section~\ref{sec:security_analyse_oci_summary} has been effectively resolved.
 
 
 \begin{figure}[!htb]
-    \subfloat[Secret manager succesfully autheticate enclave's state during remote attestation\label{fig:cquark_kbs_start}]{%
+    \subfloat[Secret manager succesfully autheticates \acrshort{CVM}'s state during remote attestation\label{fig:cquark_kbs_start}]{%
     \includegraphics[clip,width=\columnwidth]{images/cquark_kbs_start.PNG}%
   }
 
-    \subfloat[Application deployment process in confidential quark\label{fig:cquark_deployment_result}]{%
+    \subfloat[Application deployment process\label{fig:cquark_deployment_result}]{%
       \includegraphics[clip,width=\columnwidth]{images/cquark_deployment_result.PNG}%
     }
     
-    \subfloat[File type secrets are invisible on the host\label{fig:cquark_deployment_result_file_secret_mount_location}]{%
+    \subfloat[File type secrets under directory \textbf{/secret} are invisible on the host\label{fig:cquark_deployment_result_file_secret_mount_location}]{%
       \includegraphics[clip,width=\columnwidth]{images/cquark_deployment_result_file_secret_mount_location.png}%
     }
     
-    \caption[The result for application secure deployment in confidential Quark]{The result for application secure deployment in confidential Quark.\label{fig:cquark_deployment}}
+    \caption[The result for secure application deployment in confidential Quark]{The result for secure application deployment in confidential Quark.\label{fig:cquark_deployment}}
+    \label{fig:analysis_Secure_Application_Deployment}
 \end{figure}
-
-
-
 
 
 \subsection{Authentication and Access Control for EXEC Requests}
+\label{sec:eva_qualitativ_secure_exec}
+Section~\ref*{sec:design_EXEC_Requests} proposes a novel schema for handling EXEC requests. As depicted in Figure~\ref{fig:cquark_cmd_exec} (a), both privileged and unprivileged users are prohibited from executing the \texttt{ls /} command within the \acrshort{CVM} due to the shield policy's restriction on 
+running commands in the root directory. 
+\begin{figure}[!b]
 
-
-% \begin{figure}[H]
-
-%     \subfloat[Accessing application log using securectl in confidential quark\label{fig:cquark_log_from_secure_ctl}]{%
-%       \includegraphics[clip,width=\columnwidth]{images/cquark_log_from_secure_ctl.png}%
-%     }
-    
-%     \subfloat[Accessing application log using kubectl in confidential quark\label{fig:cquark_log_from_kubectl}]{%
-%       \includegraphics[clip,width=\columnwidth]{images/cquark_log_from_kubectl.png}%
-%     }
-    
-%     \caption[Accessing application log through kubectl and securectl in confidential quark]{Accessing application log through kubectl and securectl in confidential quark. Figures 1 and 2 show that privileged users in cquark, i.e., 
-%     application owners, have normal access to the application logs, while non\-privileged users using kubectl logs only obtain encrypted garbled code.}
-% \end{figure}
-\begin{figure}[!htb]
-
-    \subfloat[The enclave rejects the privileged and non-privileged command ”ls /“"\label{fig:ls_exec}]{%
-    \includegraphics[clip,width=\columnwidth]{images/ls_exec.png}%
-    }
-
-    \subfloat[Issuing unprivileged command "ls /var/log"\label{fig:ls_allow_unprivileged}]{%
-    \includegraphics[clip,width=\columnwidth]{images/ls_allow_unprivileged.png}%
-    }
-
-    \subfloat[Issuing privileged command "ls /var/"\label{fig:ls_allow_previleged}]{%
-      \includegraphics[clip,width=\columnwidth]{images/ls_allow_previleged.png}%
-    }
-    
-    \subfloat[Issuing privileged command "cat" \label{fig:cat_pri}]{%
-      \includegraphics[clip,width=\columnwidth]{images/cat_pri.png}%
-    }
-
-    \subfloat[Issuing privileged command "cat" \label{fig:cat_unpri}]{%
-    \includegraphics[clip,width=\columnwidth]{images/cat_unpri.png}%
+  \subfloat[The shield rejects the privileged and non-privileged command \texttt{ls /}\label{fig:ls_exec}]{%
+  \includegraphics[clip,width=\columnwidth]{images/ls_exec.png}%
   }
 
-  \subfloat[Attempting to allocate a terminal through both securectl and kubectl\label{fig:cquark_terminal}]{%
-  \includegraphics[clip,width=\columnwidth]{images/cquark_terminal.png}%
+  \subfloat[Issuing unprivileged command \texttt{ls /var/log}\label{fig:ls_allow_unprivileged}]{%
+  \includegraphics[clip,width=\columnwidth]{images/ls_allow_unprivileged.png}%
   }
 
-  \subfloat[The privileged request is denied as the session is old\label{fig:seesion_is_old}]{%
-  \includegraphics[clip,width=\columnwidth]{images/seesion_is_old.PNG}%
+  \subfloat[Issuing privileged command \texttt{ls /var/}\label{fig:ls_allow_previleged}]{%
+    \includegraphics[clip,width=\columnwidth]{images/ls_allow_previleged.png}%
+  }
+  
+  \subfloat[Issuing privileged command \texttt{cat} ]{%
+  \label{fig:cat_pri}
+    \includegraphics[clip,width=\columnwidth]{images/cat_pri.png}%
+  }
+
+  \subfloat[Issuing unprivileged command \texttt{cat}]{%
+  \label{fig:cat_unpri}
+  \includegraphics[clip,width=\columnwidth]{images/cat_unpri.png}%
 }
-    
-    \caption[The result of issuing  commands to enclave]{The result of issuing  commands to enclave\label{fig:exec}}
+
+\subfloat[Attempting to allocate a terminal through both \emph{securectl} and \emph{kubectl}\label{fig:cquark_terminal}]{%
+\includegraphics[clip,width=\columnwidth]{images/cquark_terminal.png}%
+}
+
+\subfloat[The privileged request is denied as the session is old\label{fig:seesion_is_old}]{%
+\includegraphics[clip,width=\columnwidth]{images/seesion_is_old.PNG}%
+}
+  
+  \caption[The result of issuing commands to the application in confidential Quark]{The result of issuing  commands to the application in confidential Quark\label{fig:exec}}
+  \label{fig:cquark_cmd_exec}
+
 \end{figure}
+Figure~\ref{fig:cquark_cmd_exec} (b) and~\ref{fig:cquark_cmd_exec} (c) illustrates that unprivileged and privileged users can issue the \texttt{ls /var/log} and \texttt{ls /var}  commands to the application, respectively. 
+This allowance stems from the shield policy's command and directory allowlist, which includes these specific commands and their corresponding arguments. Conversely, since the command whitelist for non-privileged users excludes the \texttt{cat} command, unprivileged users are incapable of issuing the \texttt{cat} command to 
+access the log file \texttt{/var/log/fontconfig.log} (figure~\ref{fig:cquark_cmd_exec} (e)). Furthermore, as Figure~\ref{fig:cquark_cmd_exec} (f) shows, privileged users can spawn a terminal, while unprivileged users cannot. 
+This is as expected since the unprivileged user's command allowlist does not include any terminal allocation instructions. Besides, \emph{securectl} saves the session id and counter as a file locally and uses this file to build the frame structure for privileged commands. Compared to Figure~\ref{fig:cquark_cmd_exec} (c), the same 
+privilege command is denied in Figure~\ref{fig:cquark_cmd_exec} (g) as the session id in the file is modified to a number that the shield does not know. This shows that the shield can prevent reply attacks from EXEC requests. 
 
 
-In Section~\ref*{sec:design_EXEC_Requests}, we propose a novel schema for handling EXEC requests. As depicted in Figure~\ref{fig:ls_exec}, both privileged and unprivileged users are prohibited from executing the "ls /" command within the enclave due to the enclave policy's restriction on running commands in the root directory. 
-Figure~\ref{fig:ls_allow_unprivileged} and~\ref{fig:ls_allow_previleged} illustrate that privileged and unprivileged users can issue the "ls /var" and "ls /var/log" commands to the enclave, respectively. This allowance stems from the enclave policy's command and directory allowlist， which 
-includes these specific commands and their corresponding arguments. Conversely, since the command whitelist for non-privileged users excludes the "cat" command, unprivileged users are incapable of issuing the "cat" command to access the log file "/var/log/fontconfig.log."(figure~\ref{fig:cat_unpri}) 
-Furthermore, as Figure~\ref{fig:cquark_terminal} shows, privileged users can spawn a terminal, while unprivileged users cannot. 
-This is as expected since the unprivileged user's command allowlist does not include any terminal allocation instructions. 
-Besides, securectl saves the session id and counter as a file locally. Securectl uses this file to build the frame structure for privileged commands. Compared to Figure~\ref{fig:ls_allow_previleged}, the same privilege command is denied in Figure~\ref{fig:seesion_is_old} as we modified the session 
-id in the file. This shows that the enclave can prevent reply attacks from EXEC.
 
 
+In addition, the \emph{securectl} is modified to print the command and the command execution result. As shown in Figure~\ref{fig:cquark_priviled_cmd_result_protection}, both the EXEC command and its execution result are cryptographically protected. The protection mechanisms for the command 
+and the execution result are discussed in Sections~\ref{sec:design_prptect_privileged_request} and~\ref{sec:design_STDIO_PROTECTION}, respectively.
 \begin{figure}[!htb]
-    \centering
-    \includegraphics[width=1\textwidth]{images/cquark_priviled_cmd_result_protection.PNG}
-    \caption[Process for securectl to handle privileged level commands]{Process for securectl to handle privileged level commands.}
-    \label{fig:cquark_priviled_cmd_result_protection}
+  \centering
+  \includegraphics[width=1\textwidth]{images/cquark_priviled_cmd_result_protection.PNG}
+  \caption[Process for \emph{securectl} to handle privileged level commands]{Process for \emph{securectl} to handle privileged level commands.}
+  \label{fig:cquark_priviled_cmd_result_protection}
 \end{figure}
 
-
-In addition, we modified securectl to print the command it issues, and the execution result returned from the enclave. As shown in Figure~\ref{fig:cquark_priviled_cmd_result_protection}, both the EXEC command and its execution result are cryptographically protected. The protection mechanisms for the command and the execution result are 
-discussed in Sections~\ref{sec:design_prptect_privileged_request} and~\ref{sec:design_STDIO_PROTECTION}, respectively.
-
-
-This section shows that we can effectively address vulnerability~\ref{vulnerabilities:4} and ~\ref{vulnerabilities:6} identified in the security analysis.
+The above examples demonstrate that the vulnerability~\ref{vulnerabilities:3} of the OCI runtime interface~\cite*{oci-runtime-spec} summarized in Section~\ref{sec:security_analyse_oci_summary} can be effectively addressed.
 
 
 
 \subsection{Guest User Space Process's STDIO Protection}
-The application shown in Figure~\ref{fig:analysis_workload} is non-interactive. Since the no\_interactive\_process\_stdout\_err\_encryption option in the policy is true, the enclave will encrypt STDOUT and STDERR for privilege-level processes. Thus, only privileged users, namely the application owners, can view the logs using securectl (as shown in Figure~\ref{fig:cquark_log_from_secure_ctl}). On the other hand, non-privileged users who use the command 
-"kubectl log" can only access the logs in ciphertext (as depicted in Figure~\ref{fig:cquark_log_from_kubectl}). Furthermore, Figure~\ref{fig:cquark_priviled_cmd_result_protection} showcases that the execution results of privilege-level commands are also encrypted.
+\label{sec:eva_qualitativ_secure_stdio}
+The program~\cite*{qualitativ_programs} used in qualitative analysis is non-interactive. Since the option \emph{no\_interactive\_process\_stdout\_err\_encryption} in the policy is true, the shield will encrypt STDOUT and STDERR for privilege-level processes. Thus, only privileged users, 
+namely the application owners, can view the logs using \emph{securectl} (as shown in Figure~\ref{fig:qualitativ_non_interactive_process_stdio} (a)). On the other hand, non-privileged users who use the command \emph{kubectl log} can only access the logs in ciphertext (Figure~\ref{fig:qualitativ_non_interactive_process_stdio} (b)).
+Furthermore, Figure~\ref{fig:cquark_priviled_cmd_result_protection} showcases that the execution results of privilege-level commands are also encrypted.
 
 \begin{figure}[!htb]
 
-    \subfloat[Accessing application log using securectl\label{fig:cquark_log_from_secure_ctl}]{%
-      \includegraphics[clip,width=\columnwidth]{images/cquark_log_from_secure_ctl.png}%
-    }
-    
-    \subfloat[Accessing application log using kubectl\label{fig:cquark_log_from_kubectl}]{%
-      \includegraphics[clip,width=\columnwidth]{images/cquark_log_from_kubectl.png}%
-    }
-    
-    \caption[Accessing non-interactive application log through kubectl and securectl]{Accessing non-interactive application log through kubectl and securectl}
-\end{figure}
-
-In the case of interactive applications, we use the busybox as an example. The corresponding YAML file for deployment can be found in commit~\cite*{artifacts_busybox}. Currently, the enclave lacks support for a terminal shielding layer. Nevertheless, we set the interactive\_porcess\_stdout\_err\_encryption option in the policy to true. 
-This way, the enclave encrypts the STDOUT and STDERR outputs for the interactive application process. Figure~\ref{fig:attach_failed} illustrates the scenario where a non-privileged user can connect a terminal to the application. However, the terminal functionality is limited as the enclave only returns ciphertexts. 
-Furthermore, the logs generated by the interactive application are also encrypted (Figure~\ref{fig:interactive_log}). These examples showcase that STDIO shield can successfully mitigate vulnerabilities~\ref{vulnerabilities:5}, and~\ref{vulnerabilities:3}.
-
-
-\begin{figure}[!htb]
-
-    \subfloat[Attaching to application using kubectl -it attach\label{fig:attach_failed}]{%
-    \includegraphics[clip,width=\columnwidth]{images/attach_failed.png}%
+  \subfloat[Accessing application log using \emph{securectl}\label{fig:cquark_log_from_secure_ctl}]{%
+    \includegraphics[clip,width=\columnwidth]{images/cquark_log_from_secure_ctl.png}%
   }
-
-  \subfloat[Accessing application log using kubectl\label{fig:interactive_log}]{%
-  \includegraphics[clip,width=\columnwidth]{images/interactive_log.png}%
-}
   
-    \caption[Accessing logs and attaching to an interactive application ]{Accessing logs and attaching to an interactive application }
+  \subfloat[Accessing application log using \emph{kubectl}\label{fig:cquark_log_from_kubectl}]{%
+    \includegraphics[clip,width=\columnwidth]{images/cquark_log_from_kubectl.png}%
+  }
+  
+  \caption[Accessing non-interactive application log through kubectl and securectl]{Accessing non-interactive application log through kubectl and securectl}
+  \label{fig:qualitativ_non_interactive_process_stdio}
 \end{figure}
 
+
+
+In the case of interactive applications, the busybox is used as an example. The corresponding YAML file for deployment can be found in commit~\cite*{artifacts_busybox}. Since protecting the terminal's STDIO is out of the scope,  the STDIO shield 
+only encrypt the STDOUT and STDERR outputs for the interactive application process in the same way that it encrypts the STDOUT and STDERR outputs of the non-interactive process.
+\begin{figure}[!htb]
+
+  \subfloat[Attaching to application using \emph{kubectl -it attach}\label{fig:attach_failed}]{%
+  \includegraphics[clip,width=\columnwidth]{images/attach_failed.png}%
+}
+
+\subfloat[Accessing application log using \emph{kubectl}\label{fig:interactive_log}]{%
+\includegraphics[clip,width=\columnwidth]{images/interactive_log.png}%
+}
+
+  \caption[Accessing logs and attaching to an interactive application ]{Accessing logs and attaching to an interactive application}
+  \label{fig:qualitativ_interactive_process_stdio}
+\end{figure}
+The demo set \emph{interactive\_porcess\_stdout\_err\_encryption} option in the policy to true. Therefore, as shown in Figure~\ref{fig:qualitativ_interactive_process_stdio} (a),  a non-privileged user can attach a terminal to the application. However, the terminal functionality is limited as the application only returns 
+ciphertexts. Furthermore, the logs generated by the application are also encrypted (Figure~\ref{fig:qualitativ_interactive_process_stdio} (b)). 
+
+
+These examples showcase that STDIO shield can protect the STDOUT and STDERR of processes running in CVM, thereby partially mitigating vulnerability~\ref{vulnerabilities:2} of the OCI runtime interface~\cite*{oci-runtime-spec} summarized in Section~\ref{sec:security_analyse_oci_summary}. 
+The protection for the STDIO of interactive processes (i.e., terminal) is left for future implementation.
 
 
 \subsection{Qkernel Log Management}
-
-In vanilla Quark, the logs generated by Qvsivor and Qkernel are kept in the same file, namely "/var/log/quark/quark.log". In order to differentiate the logs, we prefix the logs generated by Qkernel with the keyword "Qkernel" (refer to Figure~\ref{fig:vanilla_qkernel_Log}).
+\label{sec:eva_qualitativ_secure_log}
+In vanilla Quark, the logs generated by Qvsivor and Qkernel are kept in the same file, namely \texttt{/var/log/quark/quark.log}. In order to differentiate the logs,  the logs generated by Qkernel are prefixed with the keyword \texttt{Qkernel} (Figure~\ref{fig:quark_qkernel_log} (a)).
 \begin{figure}[!htb]
 
     \subfloat[Vanilla Quark\label{fig:vanilla_qkernel_Log}]{%
@@ -231,13 +240,14 @@ In vanilla Quark, the logs generated by Qvsivor and Qkernel are kept in the same
 }
   
     \caption[Accessing guest kernel log in confidential and vanilla Quark]{Accessing guest kernel log in confidential and vanilla Quark}
+    \label{fig:quark_qkernel_log}
 \end{figure}
 
 
-In confidential Quark, we set the Qlog manager's max log level to OFF. Therefore, the guest kernel logging system does not print logs to the host (Figure~\ref{fig:cquark_qkernel_log}).
+In confidential Quark, the Qlog manager's max log level is set to \texttt{OFF}. Therefore, the guest kernel logging system does not print logs to the host (Figure~\ref{fig:quark_qkernel_log} (b)).
 
 \subsection{Qkernel Guest System Call Interception}
-
+\label{sec:eva_qualitativ_secure_syscall}
 \begin{figure}[!htb]
     \centering
     \includegraphics[width=1\textwidth]{images/application_failed_to_start_due_to_syscall_interceptor.png}
@@ -246,18 +256,15 @@ In confidential Quark, we set the Qlog manager's max log level to OFF. Therefore
 \end{figure}
 
 
-Figure ~\ref{fig:application_failed_to_start_due_to_syscall_interceptor} presents a demo of the guest interceptor. By removing the read system call ID from the system call allowlist in the enclave policy shown in Figure~\ref{fig:generic_policy}, 
+Figure ~\ref{fig:application_failed_to_start_due_to_syscall_interceptor} presents a demo of the guest interceptor. By removing the read system call ID from the system call allowlist in the shield policy shown in Figure~\ref{fig:generic_policy}, 
 the application process failed to start. The failure occurred because it lacked permission to execute the read system call for loading dynamic libraries.
 
 \subsection{Application Runtime Measurements}
+\label{sec:eva_qualitativ_runtime_meausre}
+According to the discussion in Section~\ref{sec:Enclave_Runtime_Measurement}, the shield measures the binaries (e.g., shared libraries, command binaries) loaded from the host at application runtime and compares the resulting hashes with the reference hashes in the shield policy.  
 
-
-
-
-According to the discussion in Section~\ref{sec:Enclave_Runtime_Measurement}, the enclave measures the binaries loaded from the host at application runtime and compares the resulting hashes with the reference hashes in the enclave policy. Binary refers to shared libraries and executables. 
-
-Figure~\ref{fig:cquark_runtime_runtime_lib_measurement_demo} shows a measurement demo of the runtime library. Regarding the setup, we intentionally reset the reference hash of the library "/lib/x86\_64-linux-gnu/libgcc\_s.so.1" in the enclave policy to empty and configure the maximum logging level of the Qlog manager to Info. Next, 
-we deploy the policy to the secret manager and use the demo application in Figure~\ref{fig:analysis_workload}. The Qkernel logs in Figure~\ref{fig:cquark_runtime_runtime_lib_measurement_demo} show that the enclave encountered a crash due to a discrepancy between the measurements of the loaded library and the corresponding reference hash stored in the policy.
+Figure~\ref{fig:cquark_runtime_runtime_lib_measurement_demo} shows a measurement demo of the shared library. Regarding the setup, the reference hash of the library \texttt{/lib/x86\_64-linux-gnu/libgcc\_s.so.1} in the shield policy is intentionally set to empty and the maximum logging level of the Qlog manager is configured to \texttt{Info}. Next, 
+the modified policy is deployed to the secret manager. The Qkernel logs in Figure~\ref{fig:cquark_runtime_runtime_lib_measurement_demo} show that the \acrshort{CVM} encountered a crash due to a discrepancy between the measurements of the loaded library and the corresponding reference hash stored in the policy.
 
 
 \begin{figure}[!htb]
@@ -268,10 +275,9 @@ we deploy the policy to the secret manager and use the demo application in Figur
 \end{figure}
 
 
-
-
-To demonstrate measuring the executable loaded during application runtime, we intentionally configured the enclave policy to set the reference hash for the "ls" binary to empty and the Qlog manager's max log level to Info. Then, we submit the new policy to the secret manager,  
-redeploy the application, and issue the command "ls /var/log" to the enclave. Figure~\ref{fig:cquark_runtime_runtime_binary_measurement_demo}  shows that the command failed to get a response. By analyzing the Qkernel logs, we confirmed that the reason for the Qkernel crash was a mismatch between the reference hash of the ls binary and its actual hash.
+To demonstrate measuring the executable loaded during application runtime, the shield policy is modified to set the reference hash for the \texttt{ls} binary to empty and the Qlog manager's max log level to \texttt{Info}. Then, the \emph{kubectl} is used to 
+issue the command \texttt{ls /var/log} to the application. Figure~\ref{fig:cquark_runtime_runtime_binary_measurement_demo} shows that the command failed to get a response. As can be seen from the Qkernel logs, the reason for the Qkernel crash is a mismatch between the 
+reference hash of the \texttt{ls} binary and its actual hash.
 
 
 \begin{figure}[!htb]
@@ -283,36 +289,38 @@ redeploy the application, and issue the command "ls /var/log" to the enclave. Fi
 
 
 
-The above two examples highlight the ability of an enclave to refuse execution when an adversary tries to trick the enclave into loading harmful code during application runtime.
-
-\subsection{Missing administration to application restartup}
 
 
-As discussed in Section~\ref{sec:Enclave_Runtime_Measurement}, the enclave will measure the loaded binaries and shared libraries during the application rebuild process to extend the application restart hash. The enclave can ensure the rebuild process is correct by comparing the 
-application startup reference hash to the restart hash.
+% \subsection{Missing administration to application restartup}
+
+
+As discussed in Section~\ref{sec:Enclave_Runtime_Measurement}, the shield will measure the binaries and shared libraries during the application rebuild process and comparing the resulting measurement known as application restart hash with the application startup reference hash. Figure~\ref{fig:cquark_application_restart_demo} (a)
+exemplifies this process.
 \begin{figure}[!htb]
-
     \subfloat[Application restart workflow\label{fig:app_restart_eva}]{%
     \includegraphics[clip,width=\columnwidth]{images/app_restart_eva.png}%
   }
 
   \subfloat[Qkernel log\label{fig:app_restart_result}]{%
   \includegraphics[clip,width=\columnwidth]{images/app_restart_result.png}%
-}
+  }
   
-    \caption[Demo for  administration to application restartup]{Demo for  administration to application restartup}
+    \caption[Demo for  administration to application restart]{Demo for administration to application restart}
+    \label{fig:cquark_application_restart_demo}
 \end{figure}
 
+In this example, the Qlog manager’s max log level is configured to \texttt{Info} and the keywords \texttt{stdin: true} and \texttt{tty: true} are added to the container spec of the YAML file used to deploy the 
+application (Figure~\ref{fig:cquark_deployment}). These keywords keep the application’s stdin open and notify Kubernetes\cite*{k8s} that it should be regarded as a terminal. As shown in Figure~\ref{fig:app_restart_eva}, the application is first created using the modified YAML file. Once the application starts, \emph{kubectl attach -it} is used to 
+attach to the application process and send \texttt{ctrl c} to the CVM. The \texttt{ctrl c} will cause the terminal IO redirection thread sends \texttt{SIGINT} to terminate the application, as discussed in section~\ref{sec:security_analyse_STDIO}. The output of the second \emph{kubectl get} command confirmed that the application had successfully restarted. 
+As can be seen from the Qkernel logs shown in Figure~\ref{fig:cquark_application_restart_demo} (b), the shield measured binaries and shared libraries loaded from the host during the application restart. The shield compared the resulting measurements with the application startup reference hash to determine that the binaries and shared libraries loaded during 
+the two startups were consistent.
 
 
-The application restarting process is exemplified in Figure~\ref{fig:app_restart_eva}. In this example, we configure the Qlog manager’s max log level to ’Info’ in the enclave policy and add the keywords ’stdin: true’ and ’tty: true’ to the container spec of the YAML file used to deploy the 
-application (Figure~\ref{fig:cquark_deployment}). These keywords keep the application’s stdin open and notify Kubernetes that it should be regarded as a terminal. As shown in Figure~\ref{fig:app_restart_eva}, we first create the application in the demo using the modified YAML file. Once the application starts, we use ’kubectl attach -it’ to 
-attach to the application process and send ’ctrl c’ to the enclave. The ctrl c will cause the terminal IO redirection thread sends SIGINT to terminate the application, as discussed in section~\ref{sec:security_analyse_STDIO}. The output of the second ’kubectl get’ command confirmed that the application had successfully restarted. 
-
-After analyzing the Qkernel log shown in Figure~\ref{fig:app_restart_result}, we found that Qkernel measured binaries and shared libraries loaded from the host during the application restart. The enclave compared the resulting measurements with the application startup reference hash to determine that the binaries and shared libraries loaded during the two startups were 
-consistent.
+The above three examples highlighted the ability of the shield to refuse execution when an adversary tries to trick the \acrshort{CVM} into loading harmful code during application runtime and restart. 
 
 
+\subsection{summary}
+\label{sec:eva_qualitativ_summary}
 
 % \begin{table}[H]
 %     \tiny
@@ -408,6 +416,7 @@ consistent.
 In this section, we evaluate the performance of our implementation in terms of both latency and throughput.
 
 \subsection{Overview of Quantitative Analysis}
+\label{sec:eva_overwiwe_Quantitative}
 
 Our Benchmarking includes micro and macro-benchmarking. Microbenchmarks are performed to understand the latency overhead introduced by individual components in the shielding layer, while macro benchmarks aim to evaluate the performance loss of running real-world applications in confidential Quark. 
 The section is structured around the following subsections.
