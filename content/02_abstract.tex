@@ -14,15 +14,17 @@
 
 Container technologies, such as Docker~\cite*{docker} and Kubernetes~\cite*{k8s}, have gained significant popularity in recent years due to the microservices trend. This technology allows tenants to quickly deploy and automate the management of applications in cloud environments. However, privacy concerns 
 have hindered the popularity of cloud services in industries such as finance or healthcare~\cite*{data_privacy}~\cite*{eu_data_Privacy}. Even though novel container runtimes (e.g., kata container~\cite*{Kata-Containers}) increase the isolation level of containers dramatically by using hardware virtualization. 
-It fails to ensure the confidentiality of the container's data when the host system is untrustworthy.
+They fail to ensure the confidentiality of the container's data when the host system is untrustworthy.
 
-Trusted execution environments (\acrshort{TEE}s) provide a mechanism to protect the confidentiality and integrity of code and data running in untrusted environments. However, none of the existing TEEs are designed for secure orchestration of containers. Untrusted Kubernetes can employ the OCI runtime interface~\cite*{oci-runtime-spec} to coordinate the execution of 
-TEE-protected applications and issue arbitrary commands to them. This interface enables attackers to circumvent the TEE's protection mechanisms and gain unauthorized access to the application's sensitive information.
+Trusted execution environments (\acrshort{TEE}s) provide a mechanism to protect the confidentiality and integrity of code and data running in untrusted environments. However, none of the existing TEEs are designed for secure orchestration of containers. Untrusted Kubernetes\cite*{k8s} can 
+employ the OCI runtime interface~\cite*{oci-runtime-spec} to coordinate the execution of TEE-protected applications and issue arbitrary commands to them. This interface enables attackers to circumvent the TEE's protection mechanisms and gain unauthorized access to 
+the application's sensitive data.
 
-Consequently, this thesis aims to analyze the OCI runtime interface and propose a solution for safeguarding containers from attacks from the above interface. The policy ensures the confidentiality and integrity of a container's data and code in the TEE while enabling untrusted Kubernetes\cite*{k8s} to deploy and manipulate containers as 
-before. In particular, we choose the Quark framework~\cite*{quark}, a container runtime based on the process VM (\acrshort{pVM}) architecture, as a starting point for investigating container secure orchestration. In comparison, Quark offers a smaller Trusted Computing Base (\acrshort{TCB}) and substantial performance 
-benefits over the traditional virtual machine-based Kata containers~\cite*{quark_performance_report}. Evaluation results demonstrate that our implementation successfully achieves the design goal, albeit resulting in a 1.48-fold increase in the \acrshort{TCB} (i.g., guest binary size). Inevitably, due to the interception and 
-checking of commands from the OCI runtime interface, our implementation imposes overheads on applications.  For example, the startup time for Redis~\cite*{redis} has increased by 2.2 times, while the throughput has decreased by 22\%.
+Consequently, this thesis aims to analyze the OCI runtime interface and propose a solution for safeguarding containers from attacks from the above interface. The solution ensures the confidentiality and integrity of a container's data and code in the TEE while 
+enabling untrusted Kubernetes\cite*{k8s} to deploy and manipulate containers as before. In particular, the Quark framework~\cite*{quark}, a container runtime based on the process VM (\acrshort{pVM}) architecture, is chosen as a starting point for investigating container secure orchestration. 
+In comparison, Quark offers a smaller Trusted Computing Base (\acrshort{TCB}) and substantial performance benefits over the traditional virtual machine-based Kata containers~\cite*{quark_performance_report}. Evaluation results demonstrate that the implementation successfully achieves the design goal, albeit 
+resulting in a 1.48-fold increase in the \acrshort{TCB} (i.g., guest binary size). Inevitably, due to the interception and checking of commands from the OCI runtime interface, the implementation imposes overheads on applications.  For example, the startup time for Redis~\cite*{redis} has 
+increased by 2.2 times, while the throughput has decreased by 22\%.
 %%% Local Variables:
 %%% TeX-master: "diplom"
 %%% End:
