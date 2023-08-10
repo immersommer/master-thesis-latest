@@ -173,7 +173,7 @@ and the execution result are discussed in Sections~\ref{sec:design_prptect_privi
 \begin{figure}[!htb]
   \centering
   \includegraphics[width=1\textwidth]{images/cquark_priviled_cmd_result_protection.PNG}
-  \caption[Process for \emph{securectl} to handle privileged level commands]{Process for \emph{securectl} to handle privileged level commands.}
+  \caption[The privileged command and its execution result are encrypted]{The privileged command and its execution result are encrypted}
   \label{fig:cquark_priviled_cmd_result_protection}
 \end{figure}
 
@@ -289,11 +289,6 @@ reference hash of the \texttt{ls} binary and its actual hash.
 
 
 
-
-
-% \subsection{Missing administration to application restartup}
-
-
 As discussed in Section~\ref{sec:Enclave_Runtime_Measurement}, the shield will measure the binaries and shared libraries during the application rebuild process and comparing the resulting measurement known as application restart hash with the application startup reference hash. Figure~\ref{fig:cquark_application_restart_demo} (a)
 exemplifies this process.
 \begin{figure}[!htb]
@@ -323,81 +318,37 @@ The above three examples highlighted the ability of the shield to refuse executi
 \label{sec:eva_qualitativ_summary}
 
 
-% \begin{longtable}{  p{3.4cm}  p{3.4cm}  p{3.4cm} p{2cm} }
-%   \caption{\centering DUSP Protein or RNA expression in animal and human brain\label{long3}}
-%         \toprule
-      
-% \textbf{Vulnerability}      
-% & \textbf{Attack Example}   
-% & \textbf{Possible Solution}
-% & \textbf{Comment}  \\\midrule
-
-% Deploying Secrets via untrusted Entities (Kubelet, Containerd, Qvisor)    
-% & File type secrets are mounted to container rootfs by qvisor, args and envv type secrets are passed to qkernel through qvisor
-% & Offload the secrets deployment from qvisor by defining a new secure channel btw. relying party and guest kernel for secrets provisioning and storing secrets on guest memory
-% & Problem solved  \\\hline
-
-% Deploying Secrets via untrusted Entities (Kubelet, Containerd, Qvisor)    
-% & File type secrets are mounted to container rootfs by qvisor, args and envv type secrets are passed to qkernel through qvisor
-% & Offload the secrets deployment from qvisor by defining a new secure channel btw. relying party and guest kernel for secrets provisioning and storing secrets on guest memory
-% & Problem solved  \\\hline
 
 
-% % objects and systems &
-% % Underlying values       
-% % & Plurality \\
-%         \bottomrule
-% \end{longtable}
+This section showcased that the system implemented in Chapter~\ref{sec:implementation} could mitigate most vulnerabilities of the OCI runtime interface summarized in Subsection~\ref{sec:security_analyse_oci_summary}. Table~\ref{tab:eva_qualitativ_summary} provides a concise overview of 
+these vulnerabilities, as well as their respective mitigations and corresponding demonstration location.
+
+Subsection~\ref{sec:eva_qualitativ_secure_depl} demonstrated that vulnerability 1 in Table~\ref{tab:eva_qualitativ_summary} is successfully mitigated by offloading secret management and deployment to the secret manager and shield layers. In relation to vulnerability 2, 
+Subsection~\ref{sec:eva_qualitativ_secure_stdio} revealed the STDIO shield's capability to encrypt the STDOUT and STDERR of guest processes, thereby safeguarding the application's logs and execution results of privileged commands. Besides, it is important to note that the STDIO 
+shield does not extend its protection to the terminal (out of the scope). Thus, an attacker can use \emph{kubectl attach} to connect to an interactive application's STDIO and send arbitrary commands. Although the execution results of these commands remain encrypted, 
+the attacker can, for example, deletes the application's confidential data. 
 
 
-% \begin{table}
-%   \tiny
-%   \centering
-%   \begin{tabular}{  p{5cm}  p{5cm}  p{3.4cm} }
-%     \toprule
-%     \multicolumn{3}{c}{Classification of the criticel .} \\[.5\normalbaselineskip]
-%     Vulnerabilities   & Solution  & Comment \\
-%     \midrule
-%     1.~Untrusted runtime manage and deploy secret & Offload the secret management and deployment to secret manager and shielding layer &  Mitigated (Section 5.1) \\[.5\normalbaselineskip]
-%     2.~EXEC operation \\
-%     \tabitem Lack of authentication and access control & Add EXCE checker to Qkernel &  Mitigated (Section 5.1) \\
-%     \tabitem  Missing protection for commands transmitted by untrusted runtime. & Add cryptographic protection to privileged commands &  Mitigated (Section 5.1) \\[.5\normalbaselineskip]
-%     3.~Lack protection for STDIO of processes & Add STDIO shield in guest kernel   &   \tabitem Application logs, command execution results are encrypted （Section 5.2） \\ 
-%     \tabitem $\lambda_1 = \lambda_2 > 0$ & Proper node & Unstable \\
-%     \tabitem $\lambda_1 = \lambda_2 < 0$ & Proper node & Asym.~stable \\
-%     \bottomrule
-%   \end{tabular}
-% \end{table}
+The demo in Subsection~\ref{sec:eva_qualitativ_secure_exec} proved that the shield can perform access control and authentication on EXEC requests. Moreover, as depicted in Figure~\ref{fig:cquark_priviled_cmd_result_protection} of the same subsection, privileged commands are encrypted. 
+To this end, vulnerability 3 in Table~\ref{tab:eva_qualitativ_summary} is resolved. It is important to note that vulnerability 4 (a) is not addressed, as it falls outside the scope of the thesis. 
+
+For vulnerability 4(b), Figure~\ref{fig:analysis_Secure_Application_Deployment} (a) in Subsection~\ref{sec:eva_qualitativ_secure_depl} showed that the secret manager could guarantee the integrity of binaries and shared libraries loaded before application startup by verifying the shield startup 
+hash embedded in the attestation report. Subsection~\ref{sec:eva_qualitativ_runtime_meausre} further demonstrated that the shield could ensure the integrity of binaries and shared libraries loaded at application runtime by measuring these files and comparing the measurements against 
+the reference hashes in the shield policy. Additionally, Subsection~\ref{sec:eva_qualitativ_secure_syscall} showcased that the system calls interceptor rejects read system calls based on the shield policy. The design of the system interceptor can be found in Section~\ref{sec:design_Interceptor}. 
+It successfully mitigates vulnerability 5. 
 
 
-% \begin{table}
-%   \tiny
-%   \centering
-%   \begin{tabular}{  p{5cm}  p{5cm}  p{3.4cm} }
-%     \toprule
-%     \multicolumn{3}{c}{Classification of the criticel} \\[.5\normalbaselineskip]
-%     Vulnerabilities   & Solution  & Comment \\
-%     \midrule
-%     1.~Untrusted runtime manage and deploy secret  & Offload secret management and deployment to secret manager & mitigated (Section 5.1)\\[.5\normalbaselineskip]
-%     2.~EXEC operation \\
-%     \tabitem Lack of authentication and access control  & Add EXCE checker to Qkernel &  mitigated (Section 5.1) \\[.5\normalbaselineskip]
-%     \tabitem Missing protection for commands transmitted by untrusted runtime.  & Add cryptographic protection to privileged commands & mitigated (Section 5.1)\\[.5\normalbaselineskip]
-%     3.~Lack protection for STDIO of processes & Add STDIO shield in guest kernel   &   \tabitem Application logs, command execution results are encrypted （Section 5.2） \\ 
-%     &~ & \tabitem Missing protection to the terminal (out of the scope)\\[.5\normalbaselineskip]
-%     4.~File system and volume & Add STDIO shield in guest kernel   &   \tabitem Application logs, command execution results are encrypted （Section 5.2） \\ 
-%     &~ & \tabitem Missing protection to the terminal (out of the scope)\\[.5\normalbaselineskip]
- 
-%     \bottomrule
-%   \end{tabular}
-% \end{table}
 
-\begingroup
-\renewcommand*{\arraystretch}{0.5}
+Finally, concerning vulnerability 6, Subsection~\ref{sec:eva_qualitativ_secure_log} confirmed the capability of the Qkernel log manager for administrating the VM's logs. Figure~\ref{fig:analysis_Secure_Application_Deployment} (a) in Subsection~\ref{sec:eva_qualitativ_secure_depl} then showed 
+that the integrity of the guest kernel startup parameter could be ensured since it is part of the shield startup hash, which is verified by the secret manager during remote attestation. Besides, the guest kernel (Qkernel)  binary should be measured by the TEE during VM 
+setup and sent to the secret manager as the VM boot measurement in the attestation report for integrity checking. However, due to the lack of TEE support for Quark, the secret manager receives a simulated report containing a dummy VM boot. Consequently, 
+the secret manager cannot verify the integrity of the Qkernel binary. Vulnerability 6 is, therefore, only partially mitigated. 
+
 
 \begin{table}[H]
   \centering%
   \setlength{\tabcolsep}{4pt}
-  \caption{Vulnerabilities in OCI runtime interface in the confidential computing and suggested solutions}
+  \caption{Vulnerabilities of OCI runtime interface in the confidential computing and suggested solutions\label{tab:eva_qualitativ_summary}}
   \footnotesize
   \resizebox*{1\columnwidth}{!}{
   \begin{tabularx}{\linewidth}{@{}l>{\RaggedRight}X>{\RaggedRight}X%
@@ -479,6 +430,10 @@ The above three examples highlighted the ability of the shield to refuse executi
     \tabularnewline
     \addlinespace\midrule%
     \textbf{6} & Lack of mechanism to ensure the proper configuration of the container running environment.
+    \begin{enumerate}[label=(\alph*), align=left, left=0pt, itemsep=1pt]
+      \item The integrity of guest kernel binary and guest kernel startup parameters.
+      \item The proper configuration of the guest logger.
+    \end{enumerate}
     & 
     \begin{itemize}[]
       \item Use Qkernel log manager to administrate the guest logs.
@@ -492,7 +447,6 @@ The above three examples highlighted the ability of the shield to refuse executi
     \bottomrule
 \end{tabularx}}
 \end{table}
-\endgroup
 
 % \begin{sidewaystable}
 % \caption{Title}
