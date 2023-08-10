@@ -117,20 +117,20 @@ This section analyzes vulnerabilities in the OCI interface for confidential comp
   \item\label{vulnerabilities:3}EXEC operation:
       \begin{enumerate}
         \item Lack of authentication and access control over EXEC requests.
-        \item The integrity and confidentiality of commands are compromised.
+        \item Commands are transmitted by untrusted runtime. Therefore, the integrity and confidentiality of commands issued by application owners are compromised.
       % and access control  Commands issued by the application owner may contain confidential data but are not protected in transit.
       \end{enumerate}
-  \item{vulnerabilities:4} Container root file system and volume
+  \item\label{vulnerabilities:4} Container root file system and volume
       \begin{enumerate}
-        \item Data written by the application to the root file system and volumes are accessible by untrusted entities on the host (out of the scope).
-        \item Binaries and shared libraries are vulnerable to tampering.
+        \item Lack of protection for data written to the root file system and volumes (out of the scope).
+        \item Loading compromised binaries and share libraries from the untrusted host.
       \end{enumerate}
   \item\label{vulnerabilities:5} The system call interception mechanism provided by Seccomp does not apply to confidential computing.
   \item\label{vulnerabilities:6} Lacking a mechanism to ensure that the container runtime environment is configured correctly. For VM containers, this means:
       \begin{enumerate}
-        \item Ensure that the correct guest kernel is loaded.
-        \item\label{vulnerabilities:10} Ensure that the guest kernel startup parameters are correct.
-        \item\label{vulnerabilities:11} Ensure that the guest kernel logging system is configured properly.
+        \item Ensure the integrity of guest kernel binary.
+        \item\label{vulnerabilities:10} Ensure the integrity of guest kernel startup parameters.
+        \item\label{vulnerabilities:11} Ensure the proper configuration of the guest kernel logging system.
       \end{enumerate}
 \end{enumerate}
 
@@ -178,14 +178,14 @@ three named pipes are created for the process's standard input, output, and erro
     \begin{subfigure}[b]{0.5\linewidth}
       \centering
       \includegraphics[width=0.9\linewidth]{images/normorl_io.png} 
-      \caption{Normal IO} 
+      \caption{STDIO of non-interactive process} 
       \label{fig1:a} 
       \vspace{4ex}
     \end{subfigure}%% 
     \begin{subfigure}[b]{0.5\linewidth}
       \centering
       \includegraphics[width=0.9\linewidth]{images/termianl_workflow.png} 
-      \caption{Terminal IO} 
+      \caption{STDIO of interactive process} 
       \label{fig1:b} 
       \vspace{4ex}
     \end{subfigure} 
@@ -310,7 +310,7 @@ log level in Qkernel to be OFF to protect the confidentiality of the CVM. In the
 \section{Summary}
 \label{sec:security_summarize}
 
-This chapter first defines the threat model. Then, it analyzes the problems of the OCI runtime interface in confidential computing. A summary of the vulnerabilities found in the OCI runtime interface is listed in Section~\ref{sec:security_analyse_oci_summary}. Section~\ref{sec:security_analyse_quark_analysis} does a security analysis further on the Quark 
+This chapter first defined the threat model. Then, it analyzed the problems of the OCI runtime interface in confidential computing. A summary of the vulnerabilities found in the OCI runtime interface is listed in Section~\ref{sec:security_analyse_oci_summary}. Section~\ref{sec:security_analyse_quark_analysis} did a security analysis further on the Quark 
 based on these vulnerabilities.
  
 \cleardoublepage

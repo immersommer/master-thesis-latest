@@ -32,6 +32,57 @@
 
 \usepackage[acronym]{glossaries}
 
+
+
+\usepackage[utf8]{inputenc}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{amsmath}
+\usepackage{url}
+\usepackage{ragged2e} % <---
+\usepackage{lineno}
+\usepackage{tabularx} % <---
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\graphicspath{ {images/} }
+\usepackage[font=normalsize,labelfont=bf]{caption}
+
+
+\usepackage{enumitem, etoolbox}
+\AtBeginEnvironment{table}{\setlist[itemize, 1]{wide=0pt, leftmargin= *, topsep=0pt, itemsep=0pt, labelsep=.333em,
+before=\leavevmode\vspace*{-\baselineskip},after= \vspace*{-\baselineskip}}}
+
+\newcolumntype{I}{ >{\itemize}X<{\enditemize}}
+
+\usepackage{makecell}
+\renewcommand\theadfont{\normalsize\bfseries}
+
+\usepackage{xcolor}
+
+
+
+
+
+% \usepackage{booktabs,ragged2e,tabularx,rotating}
+% \newcolumntype{L}{>{\RaggedRight}X}
+
+% \usepackage{caption}
+% \captionsetup{%
+%      justification=raggedright, 
+%      singlelinecheck=false,
+%      labelfont=bf,
+%      skip=0.5\baselineskip}
+
+% \usepackage{enumitem}
+% \newlist{tabitemize}{itemize}{1}
+% \setlist[tabitemize,1]{%
+%      label= \textbullet, left=0pt, nosep, 
+%      before=\begin{minipage}[t]{\hsize},
+%      after= \end{minipage}}
+
+
+
 % \usepackage{subfig}
 
 % \usepackage{showframe,lipsum} % just for the example
