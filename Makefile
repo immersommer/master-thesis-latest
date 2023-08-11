@@ -31,7 +31,6 @@ DOC_BIB     ?= own.bib
 DOC_IMG_JPG  = images/VM_vs_PVM.png # you can specify multiple images here
 
 
-DOC_IMG_JPG  = images/hypercall_qcall_ucall.pdf
 DOC_IMG_JPG  = images/attestation.PNG
 DOC_IMG_JPG  = images/resourcerequrie.PNG
 

@@ -30,16 +30,16 @@ context of confidential computing. Section~\ref{sec:security_analyse_quark_analy
 The OWASP application threat modeling methodology~\cite*{OWASP_Threat_Modeling} is employed to create a threat model comprising four aspects: actors, assets, external dependencies, and attack surface.
 
 \textbf{Actors.} The model involves the cloud provider and the tenant. The cloud provider is accountable for providing the hardware and software necessary for running and orchestrating applications. However, the tenant distrusts the cloud provider in the 
-context of confidential computing. Therefore, the software components within the cloud infrastructure, like Kubernetes control plane~\cite*{k8s}, containerd~\cite*{containerd}, and hypervisor, are untrusted.
+context of confidential computing. Therefore, the software components within the cloud infrastructure, like Kubernetes~\cite*{k8s}, Containerd~\cite*{containerd}, and hypervisor, are untrusted.
 
-\textbf{Assets.} The objective is to secure the OCI-managed workload, with Kubernetes being the implementation evaluated. Specifically, preserving the integrity of the application binary and its dependencies, maintaining the confidentiality and integrity of the application’s data during runtime, and protecting the secrets 
-provided to the application by its owner.
+\textbf{Assets.} The objective is to secure the OCI-managed workload, with Kubernetes being the implementation evaluated. Specifically, The goal includes preserving the integrity of the application binary and its dependencies, maintaining the confidentiality and integrity of the application’s secret 
+during application deployment and runtime.
 
-\textbf{External Dependencies.} The model assumes that the guests, including guest kernel and workloads, operate within a \acrshort{TEE}. This prevents the malicious hypervisor or powerful cloud operator from accessing the workload’s sensitive data through guest memory and registers. Furthermore, we exclude attacks related to 
-denial of service~\cite*{DOS_ATTACK}, side channels~\cite*{217454}, networks, or file systems.
+\textbf{External Dependencies.} The model assumes that the guests, including guest kernel and workloads, operate within a \acrshort{TEE}. This prevents the malicious hypervisor or powerful cloud operator from accessing the workload’s sensitive data through guest memory and registers. Furthermore, 
+the attacks related to denial of service~\cite*{DOS_ATTACK}, side channels~\cite*{217454}, networks, and file systems are excluded.
 
 \textbf{Attack Surface.} The model focuses on attacks occurring on the OCI interface~\cite*{oci-runtime-spec}. As the management of workloads is the cloud provider’s responsibility, it must have a means of accessing workloads for orchestration, even if the workloads are running within a TEE. Although the OCI runtime specification offers this possibility, 
-it exposes a new attack surface for an adversary to probe workloads’ secrets. Furthermore, since the OCI implementation in the Quark guest (Qkernel) interacts with the host through the Hypercall, Qcall, or Ucall interfaces, the specific calls employed by adversaries to launch  attacks are highlighted when analyzing the security of Quark.
+it exposes a new attack surface for an adversary to probe workloads’ secrets. Furthermore, since the OCI implementation in the Quark guest (Qkernel) interacts with the host through the Hypercall, Qcall, or Ucall interfaces, the specific calls employed by adversaries to launch attacks are highlighted when analyzing the security of Quark.
 The workflow of Hypercall, Qcall, or Ucall can be found in Section~\ref{sec:Quark}.
 
 
@@ -47,7 +47,7 @@ The workflow of Hypercall, Qcall, or Ucall can be found in Section~\ref{sec:Quar
 \section{Analysis of OCI Runtime Interface}
 \label{sec:security_analyse_oci_analysis}
 This section analyzes the problems in the OCI runtime interface~\cite*{oci-runtime-spec} in the context of confidential computing.  Figure~\ref{fig:security_analysis} depicts an OCI  runtime interface-compliant container runtime. This container runtime comprises a shim process (also called runtime) and a container namespace, which serves as the environment for running applications and EXEC processes. In the realm of confidential computing, the shim process is untrusted, whereas the container namespace is protected by a 
-trusted execution environment. In the following, the word shim and runtime are used interchangeably.
+trusted execution environment. In the following, the word \texttt{shim} and \texttt{runtime} are used interchangeably.
 
 
 \begin{figure}[htp]
@@ -67,7 +67,7 @@ to the host can manipulate these secrets. This compromises the confidentiality a
 \subsection{EXEC Operation}
 \label{sec:Security_OCI_EXEC}
 
-As depicted in Part B of Figure~\ref{fig:security_analysis}, shim's EXEC endpoint allows Anyone to issue commands to the applications. These include commands that allocate terminals, such as \emph{/bin/sh}, and others, like \emph{cat}, etc. Unfortunately, the container namespace does not implement authentication and access control mechanisms for EXEC requests from 
+As depicted in Part B of Figure~\ref{fig:security_analysis}, shim's EXEC endpoint allows anyone to issue commands to the applications. These include commands that allocate terminals, such as \emph{/bin/sh}, and others, like \emph{cat}, etc. Unfortunately, the container namespace does not implement authentication and access control mechanisms for EXEC requests from 
 the shim. Therefore, an adversary can issue arbitrary commands to an application to collect its secret. For example, using \emph{printenv} to obtain the application's environment variable type secrets. Besides, the commands issued by the application owner may contain confidential data but are unprotected during transmission. As shown in Part B of Figure~\ref{fig:security_analysis}, the untrusted 
 shim redirected commands and other metadata within the EXEC request to the container namespace. Consequently, the confidentiality and integrity of these commands may be compromised during transmission. To this end, the OCI interface~\cite*{oci-runtime-spec} should apply end-to-end cryptographic protection for these commands and add a checkpoint within the 
 container namespace for authentication and access control on the EXEC requests. Any unauthorized commands should be denied. For further details, please refer to Section~\ref{sec:design_EXEC_Requests}.
@@ -77,22 +77,22 @@ container namespace for authentication and access control on the EXEC requests. 
 \label{sec:security_analyse_STDIO_oci}
 The OCI specification~\cite*{oci-runtime-spec} does not include cryptographic protection for the STDIN, STDOUT, and STDERR  of interactive processes and the STDOUT and STDERR of non-interactive processes. According to the OCI runtime interface semantics, there may be application processes or EXEC processes in the container's namespace. As depicted in Part C of 
 Figure~\ref{fig:security_analysis}, the STDIOs of these processes are redirected by the shim. For application processes, the stream outputs of STDOUT and STDERR are stored as container logs on the host. For the EXEC process, command execution results are returned to the user via STDOUT or STDERR. In confidential computing, the application logs, command execution 
-results, and data the application owner sends to interactive processes via STDIN may contain sensitive information. Hence, forwarding these data by the untrusted shim would jeopardize the data's confidentiality and integrity. As such, it is essential to ensure cryptographic protection for the STDIN, STDOUT, and STDERR of interactive processes, as well as 
-the STDOUT and STDERR of non-interactive processes. A reference design can be found in Section~\ref{sec:design_prptect_privileged_request}
+results, and data the application owner sends to interactive processes via STDIN may contain sensitive information. Hence, forwarding these data by the untrusted shim would jeopardize the data's confidentiality and integrity. As such, it is essential to apply cryptographic protection for the STDIN, STDOUT, and STDERR of interactive processes, as well as 
+the STDOUT and STDERR of non-interactive processes. A reference design can be found in Section~\ref{sec:design_STDIO_PROTECTION}
 
 \subsection{Container Root Filesystem and Volume}
 
 The OCI runtime interface~\cite*{oci-runtime-spec} lacks a mechanism to ensure the confidentiality and integrity of data in the container root filesystem and volumes. It does not define how the container root filesystem and volumes should be configured. Therefore, different runtimes can configure them as they see fit. For instance, virtual machine-based container 
-runtimes (e.g., Kata runtimes~\cite*{Kata-Containers}) may mount the container root filesystem and volumes on the host and make them accessible to containers using a para-virtualized filesystem sharing mechanism (e.g., \emph{virtio-fs})~\cite*{kata_storage}. Alternatively, the runtime may treat the container root filesystem (comprising the container image layers) and volumes as block devices and expose them to the guest 
-using \emph{virtio-block}~\cite*{kata_storage}. However, untrusted hosts can view or tamper with the data in these components (refer to part D in Figure~\ref{fig:security_analysis}). For example, viewing confidential data in volumes written by applications and tampering with binaries such as applications or shared libraries. Consequently, the confidentiality and 
-integrity of container data are compromised. Note that according to the threat model in Section~\ref{sec:Threat_model}, filesystem protection is outside the scope of this thesis (i.e., protecting the data written to volumes and the filesystem). The threat model focuses on preserving the integrity of shared libraries and binaries, which include the application 
-binary and the binaries loaded at application runtime (e.g., command binaries).
+runtimes (e.g., Kata runtimes~\cite*{Kata-Containers}) may mount the container root filesystem and volumes on the host and make them accessible to containers using a paravirtualized filesystem sharing mechanism (e.g., \emph{virtio-fs})~\cite*{kata_storage}. Alternatively, the runtime may treat the container root filesystem (comprising the container image layers) and volumes as block devices and expose them to the guest 
+using \emph{virtio-block}~\cite*{kata_storage}. However, untrusted hosts can view or tamper with the data in these components (refer to part D of Figure~\ref{fig:security_analysis}). For example, viewing confidential data in volumes written by applications and tampering with binaries and shared 
+libraries. Consequently, the confidentiality and integrity of container data are compromised. Note that according to the threat model in Section~\ref{sec:Threat_model}, filesystem protection is outside the scope of this thesis (i.e., protecting the data written to volumes and the filesystem). The 
+threat model focuses on preserving the integrity of shared libraries and binaries, which include the application binary and the binaries loaded at application runtime (e.g., command binaries).
 
 
 \subsection{System Call Interception}
 \label{sec:security_analyse_oci_system_call}
-The \emph{Seccomp} section of the OCI runtime specification~\cite*{oci-runtime-spec} outlines a method for restricting the system calls accessible to an application. This approach relay on the Linux kernel's feature \emph{Seccomp}~\cite*{seccomp} and a configuration file from the application bundle. During the creation of an application process, the runtime 
-utilizes the file to configure \emph{Seccomp} accordingly. However, in confidential computing, the runtime is not trustworthy. It can tamper with the file to allow applications to execute system calls vulnerable to attack. Additionally, the host kernel is also deemed untrustworthy in this context. If the runtime were to rely on the \emph{Seccomp} mechanism 
+The \texttt{Seccomp} section of the OCI runtime specification~\cite*{oci-runtime-spec} outlines a method for restricting the system calls accessible to an application. This approach relay on the Linux kernel's feature \texttt{Seccomp}~\cite*{seccomp} and a configuration file from the application bundle. During the creation of an application process, the runtime 
+utilizes the file to configure \texttt{Seccomp} accordingly. However, in confidential computing, the runtime is not trustworthy. It can tamper with the file to allow applications to execute system calls vulnerable to attack. Additionally, the host kernel is also deemed untrustworthy in this context. If the runtime were to rely on the \texttt{Seccomp} mechanism 
 within the host kernel, the system call interception would become meaningless. Thus, the OCI runtime specification must introduce a new mechanism for intercepting system calls. For further details, please refer to the reference design available in Section~\ref{sec:design_Interceptor}.
 
 
@@ -106,7 +106,7 @@ the VM logging system appropriately. To address these concerns, the OCI interfac
 
 \subsection{Summary}
 \label{sec:security_analyse_oci_summary}
-This section analyzes vulnerabilities in the OCI interface for confidential computing. These vulnerabilities include:
+This section analyzed vulnerabilities in the OCI interface for confidential computing. These vulnerabilities include:
  \begin{enumerate}
   \item\label{vulnerability:1} Application secrets are deployed by untrusted runtime.
   \item\label{vulnerabilities:2} Processes' STDIOs lack cryptographic protection, i.e., protecting interactive processes STDIN, STDOUT, and STDERR, and non-interactive processes STDOUT and STDERR
@@ -125,7 +125,7 @@ This section analyzes vulnerabilities in the OCI interface for confidential comp
         \item Lack of protection for data written to the root file system and volumes (out of the scope).
         \item Loading compromised binaries and share libraries from the untrusted host.
       \end{enumerate}
-  \item\label{vulnerabilities:5} The system call interception mechanism provided by Seccomp does not apply to confidential computing.
+  \item\label{vulnerabilities:5} The system call interception mechanism provided by \texttt{Seccomp} does not apply to confidential computing.
   \item\label{vulnerabilities:6} Lacking a mechanism to ensure that the container runtime environment is configured correctly. For VM containers, this means:
       \begin{enumerate}
         \item Ensure the integrity of guest kernel binary.
@@ -135,11 +135,13 @@ This section analyzes vulnerabilities in the OCI interface for confidential comp
 \end{enumerate}
 
 
-\section{Analysis for the OCI runtime implementation in Quark}
+\section{Analysis for the OCI Runtime Interface in Quark}
 \label{sec:security_analyse_quark_analysis}
-Section~\ref{sec:security_analyse_oci_summary} provides a summary of vulnerabilities in the OCI runtime specification. The subsequent analysis will evaluate the security of Quark runtime deployed in the Kubernetes environment based on these vulnerabilities. Note that Qlib serves only as a developmental concept, as its code becomes part of the guest kernel (Qkernel) 
-and the hypervisor (Qvisor) binaries through the compilation process. Henceforth, the Qkernel and Qvisor are used in the following to denote the guest kernel and hypervisor binaries, respectively. Furthermore, the term runtime defined in Section~\ref{sec:security_analyse_oci_analysis} represents the Quark shim and Qvisor, while the container namespace 
-refers to the virtual machine encompassing both Qkernel and the application. Besides, the analysis uses \emph{Hcall::call id}, \emph{Qcall::call id}, and \emph{Ucall::call id} to specify a specific Hypercall, Qcall, and Ucall. Please consult Section~\ref{sec:Quark} for information on the Quark architecture and the workflow of Hypercall, Qcall, and Ucall.
+Section~\ref{sec:security_analyse_oci_summary} provide a summary of vulnerabilities in the OCI runtime specification. The subsequent analysis will evaluate the security of Quark runtime deployed in the Kubernetes~\cite*{k8s} environment based on these vulnerabilities. Note that Qlib serves 
+only as a developmental concept, as its code becomes part of the guest kernel (Qkernel) and the hypervisor (Qvisor) binaries through the compilation process. Henceforth, the Qkernel and Qvisor are used in the following to denote the guest kernel and hypervisor, respectively. Furthermore, the 
+term \texttt{runtime} defined in Section~\ref{sec:security_analyse_oci_analysis} represents the Quark shim and Qvisor, while the \texttt{container namespace} 
+refers to the virtual machine encompassing both Qkernel and the application. Besides, the analysis uses \emph{Hcall::call id}, \emph{Qcall::call id}, and \emph{Ucall::call id} to specify a specific Hypercall, Qcall, and Ucall. Please consult Section~\ref{sec:Quark} for information on the 
+Quark architecture and the workflow of Hypercall, Qcall, and Ucall.
 
 
 \subsection{Application Secret Deployment Process in Quark}
@@ -152,26 +154,26 @@ refers to the virtual machine encompassing both Qkernel and the application. Bes
 \end{figure}
 
 
-Untrusted Kubernetes~\cite*{k8s} and Quark shim manage and deploy application secrets, i.e., command line arguments, mount files, and environment variables. As shown in Figure~\ref{fig:quark_agent_work_flow}, when deploying the application, Containerd~\cite*{containerd} generates an application bundle and transmits it via the shim v2 API~\cite*{shim_v2} to the shim-v2-API server in the Quark shim. 
-As discussed in Section~\ref{sec:back_oci_runtime_spec}, this bundle contains the rootfs of the application along with an OCI-compatible configuration file. Quark shim creates the root filesystem for the container on the host side, mounts the file type secret, and passes the process specification via the Unix socket. The specification contains metadata for creating a process in the guest, including command line 
-arguments, environment variables, the type of STDIO (interactive or non-interactive IO), and the host file descriptor for transmitting data from/to the process STDIO. Upon receiving the specification, the Quark agent in the Qkernel will create an application process accordingly.
+Untrusted Kubernetes~\cite*{k8s} and Quark shim manage and deploy application secrets, i.e., command line arguments, mount files, and environment variables. As shown in Figure~\ref{fig:quark_agent_work_flow}, when deploying the application, Containerd~\cite*{containerd} generates an application bundle and transmits it via the \texttt{shim v2 API}~\cite*{shim_v2} to the \texttt{shim v2 API} server in the Quark shim. 
+As discussed in Section~\ref{sec:back_oci_runtime_spec}, this bundle contains the rootfs of the application along with an OCI-compatible configuration file. Quark shim creates the root filesystem for the container on the host side, mounts the file type secret, and passes the process configuration via the Unix socket. The configuration contains metadata for creating a process in the guest, including command line 
+arguments, environment variables, the type of STDIO (interactive or non-interactive IO), and the host file descriptor for transmitting data from/to the process STDIO. Upon receiving the configuration, the Quark agent in the Qkernel will create an application process accordingly.
 
 
-Quark-agent operates as a socket server accepting connection requests from the Quark Shim through \emph{Ucall::Uringop::accept()}. These requests include creating and deleting application processes, creating an exec process, etc. Upon receiving a request from Quark Shim to create an application or EXEC process, the Uringop::accept returns a host file descriptor 
-that contains the process specification. As the agent in the Qkernel cannot read its contents directly, it employs \emph{Qcall::Msg::ReadControlMsg} to request the Qvivor to read the file descriptor and return the specification. Based on the specification, Quark-agent creates a guest user process. Specifically, the command line arguments and the environment variables 
-are pushed to the process stack, and the STDIO of the process is set accordingly to the type of STDIO specified in the specification. Further details about the process's STDIO can be found in section~\ref{sec:security_analyse_STDIO}.
+Quark-agent operates as a socket server accepting connection requests from the Quark shim through \emph{Ucall::Uringop::accept()}. These requests include creating and deleting application processes, creating an EXEC process, etc. Upon receiving a request from Quark shim to create an application or EXEC process, the Uringop::accept returns a host file descriptor 
+that contains the process configuration. As the agent in the Qkernel cannot read its contents directly, it employs \emph{Qcall::Msg::ReadControlMsg} to request the Qvivor to read the file descriptor and return the configuration. Based on the configuration, Quark-agent creates a guest user process. Specifically, the command line arguments and the environment variables 
+are pushed to the process stack, and the STDIO of the process is set accordingly to the type of STDIO specified in the configuration. Further details about the process's STDIO can be found in section~\ref{sec:security_analyse_STDIO}.
 
 
-Using Kubernetes~\cite*{k8s} to manage application secrets and deploying them through untrusted Containerd~\cite*{containerd} and Quark shim lead to secret disclosure. Specifically, individuals with cluster access can exploit the kubectl tool to manipulate secrets. Furthermore, the Containerd and Quark Shim can tamper with these secrets during the application deployment. Besides, 
-when Quark-agent uses the Qcall interface to request Qvisor to read the process specification, Qvisor could potentially steal or modify these secrets.  The aforementioned analysis aligns with vulnerability~\ref{{vulnerability:1}} found in the analysis of the OCI runtime interface. For this reason, the management and deployment of secrets must be offloaded from Kubernetes, Quark Shim, 
-and Qvisor. A detailed explanation of the mitigation can be found in section~\ref{sec:design_Quark_Attestation_and_Provisioning_Infrastructure}.
+Using Kubernetes~\cite*{k8s} to manage application secrets and deploying them through untrusted Containerd~\cite*{containerd} and Quark shim lead to secret disclosure. Specifically, individuals with cluster access can exploit the \emph{kubectl} tool to manipulate secrets. Furthermore, the Containerd and Quark shim can tamper with these secrets during the application deployment. Besides, 
+when Quark-agent uses the Qcall interface to request Qvisor to read the process configuration, Qvisor could potentially steal or modify these secrets in it.  The aforementioned analysis aligns with vulnerability~\ref{{vulnerability:1}} of the OCI runtime interface listed in Section~\ref{sec:security_analyse_oci_summary}. For this reason, the management and deployment of secrets must be offloaded from Kubernetes, Quark shim, 
+and Qvisor. A detailed explanation of the mitigation can be found in Section~\ref{sec:design_Quark_Attestation_and_Provisioning_Infrastructure}.
 
 
 \subsection{Guest User Space Process STDIO}
 \label{sec:security_analyse_STDIO}
 
 The Quark agent loads the corresponding binary and initiates a guest user-space process for handling the request, such as creating an application or executing a command. Thus, Quark handles the application process STDIO in the same way as it handles the exec process STDIO. For instance, when Containerd~\cite*{containerd} wishes to create an EXEC process in Qkernel, 
-three named pipes are created for the process's standard input, output, and error. These are then passed to Quark Shim with other metadata. Quark Shim then employs these data to create the EXEC request's process specification. The Quark handles the process's STDIO differently based on the terminal keyword in the process specification.
+three named pipes are created for the process's standard input, output, and error. These are then passed to Quark shim with other metadata. Quark shim then employs these data to create the EXEC request's process configuration. The Quark handles the process's STDIO differently based on the terminal keyword in the process configuration.
 
 
 \begin{figure}[ht] 
@@ -213,8 +215,8 @@ analysis presented in Section~\ref{sec:security_analyse_STDIO_oci}. Therefore, t
 
 \subsection{EXEC Operation}
 As discussed in Subsection~\ref{sec:security_analyse_secret_deployment}, the Quark agent located in Qkernel is responsible for handling the EXEC request from Quark shim. However, it lacks authentication and access control over these requests. Thus, an attacker can issue arbitrary commands to the application to collect its secrets. Moreover, the commands are 
-redirected to Qkernel by Containerd~\cite*{containerd} and Quark shim, along with other metadata in EXEC request. Specifically, when Quark shim receives an EXEC request from Containerd, it generates a process specification from the metadata received from Containerd. This specification includes the command and its parameter, the STDIO type, the environment 
-variables, etc. Subsequently, Quark Shim forwards this specification to the Quark agent via a Unix socket, wherein a guest process is created to execute the command (Figure~\ref{fig:quark_agent_work_flow}). Since the commands issued by the application owner may contain confidential data. Forwarding these commands by Containerd, Quark Shim poses potential risks 
+redirected to Qkernel by Containerd~\cite*{containerd} and Quark shim, along with other metadata in EXEC request. Specifically, when Quark shim receives an EXEC request from Containerd, it generates a process configuration from the metadata received from Containerd. This configuration includes the command and its parameter, the STDIO type, the environment 
+variables, etc. Subsequently, Quark Shim forwards this configuration to the Quark agent via a Unix socket, wherein a guest process is created to execute the command (Figure~\ref{fig:quark_agent_work_flow}). Since the commands issued by the application owner may contain confidential data. Forwarding these commands by Containerd, Quark Shim poses potential risks 
 to their confidentiality and integrity. This finding aligns with the analysis presented in Section~\ref{sec:Security_OCI_EXEC}. As such, end-to-end cryptographic protection for these commands should be adopted, and authentication and access control checkpoints should be added in Qkernel. By doing so, any unauthorized commands can be denied. For further information, 
 please refer to section~\ref{sec:design_EXEC_Requests}.
 

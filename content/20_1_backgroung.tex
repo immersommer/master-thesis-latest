@@ -37,9 +37,9 @@ comprehension of subsequent chapters.
 
 \section{Kubernetes and runtime communication interface}
 \label{sec:k8s}
-Kubernetes~\cite*{k8s} is a portable and scalable open-source platform for managing and orchestrating containerized workloads. It comprises at least one master node and multiple worker nodes. The master node assumes global decision-making, scheduling, and managing cluster events. As shown in Figure~\ref{fig:k8s}, 
+Kubernetes~\cite*{k8s} is a tool for managing and orchestrating containers. It comprises at least one master node and multiple worker nodes. The master node handles global decision-making, scheduling, and managing cluster events. As shown in Figure~\ref{fig:k8s}, 
 the master node hosts an API server that provides users with an interface to manage and control the cluster. Users can submit requests to create or update Kubernetes objects like pods. A pod represents the smallest deployment unit in Kubernetes, which may contain multiple containers sharing network 
-and storage resources. Moreover, each worker node runs a Kubelet, a daemon responsible for processing requests from the master node and executing services on the node. When handling container creation and image management requests, Kubelet invokes a high-level container runtime like 
+and storage resources. Moreover, each worker node runs a Kubelet, a daemon responsible for processing requests from the master node and executing services on the worker node. When handling container creation and image management requests, Kubelet invokes a high-level container runtime like 
 Containerd~\cite*{containerd} or CRI-O~\cite*{cri-o}.These high-level runtimes take charge of managing the container lifecycle and images while delegating pod creation and 
 deletion to lower-level OCI-compliant runtimes such as Kata~\cite*{Kata-Containers}, Quark~\cite*{quark}, RunC~\cite*{runc}, etc.
 \begin{figure}[htp]
@@ -49,16 +49,17 @@ deletion to lower-level OCI-compliant runtimes such as Kata~\cite*{Kata-Containe
   \label{fig:k8s}
 \end{figure}
 
-Standardized communication interfaces have been defined among the components in Figure~\ref{fig:k8s} for compatibility and scalability. The Kubelet utilizes the CRI interface~\cite*{cri-interface} to access services offered by the high-level runtime. Within the CRI, two gRPC interfaces are defined: the ImageService 
-interface, responsible for managing images, and the RuntimeService interface, which manages containers and pods. Any high-level runtime integrated into the Kubernetes ecosystem should implement the CRI interface. In addition, high-level runtimes support low-level runtimes that implement the shim interface~\cite*{shim_v2, cri0_shim_v2}. 
-In Containerd, this interface is known as the shim v2 API~\cite*{shim_v2}, encompassing multiple ttrpc endpoints. It aims to abstract the implementation details of the low-level runtime and facilitate communication between higher-level runtimes and various lower-level runtimes.
+Standardized communication interfaces have been defined among the components in Figure~\ref{fig:k8s} for compatibility and scalability. The Kubelet utilizes the CRI interface~\cite*{cri-interface} to access services offered by the high-level runtime. Within the CRI, two gRPC interfaces are defined: 
+the \texttt{ImageService} interface, responsible for managing images, and the \texttt{RuntimeService} interface, which manages containers and pods. Any high-level runtime integrated into the Kubernetes ecosystem should implement the CRI interface. In addition, high-level runtimes support low-level 
+runtimes that implement the shim interface~\cite*{shim_v2, cri0_shim_v2}. In Containerd, this interface is known as the \texttt{shim v2 API}~\cite*{shim_v2}, encompassing multiple ttrpc endpoints. It aims to abstract the implementation details of the low-level runtime and facilitate 
+communication between higher-level runtimes and various lower-level runtimes.
 
 
 \section{OCI runtime specification}
 \label{sec:back_oci_runtime_spec}
 To ensure container portability and compatibility across runtimes, the Open Container Initiative (OCI) has introduced the OCI runtime specification~\cite*{oci-runtime-spec}. This specification outlines the procedure for low-level container runtimes to create and execute containers based on an 
-application bundle and the methods for managing the container lifecycle. The high-level container runtime generates the application bundle from an image. It contains the container's root file system and a configuration file. This bundle is transferred to the low-level runtime via the Shim v2 API~\cite*{shim_v2}. 
-The low-level runtime utilizes the metadata provided in the configuration file to create and configure the container. This metadata includes the following information: a process specification, metadata defining the container root file system, and mount information. The process specification contains 
+application bundle. The high-level container runtime generates the application bundle from an image. It contains the container's root file system and a configuration file. This bundle is transferred to the low-level runtime during the container creation phase. 
+The low-level runtime utilizes the metadata provided in the configuration file to create and configure the container. This metadata includes the following information: a process configuration, metadata defining the container root file system, and mount information. The process configuration contains 
 the necessary metadata for creating the application or EXEC process, including environment variables, program argument list (e.g., ["cat", "/"]), STDIO type, etc. Mount information indicates the files or filesystems that should be mounted to the container's root filesystem. This may include 
 Kubernetes secrets, Kubernetes configuration files, and volumes~\cite*{k8s}. Additionally, on Linux platforms, the configuration file includes settings for container security and hooks. These hooks are executable and executed by low-level container runtime at 
 different stages of the container lifecycle (Figure~\ref{fig:Container_Lifecycle_state}).
@@ -72,23 +73,23 @@ different stages of the container lifecycle (Figure~\ref{fig:Container_Lifecycle
 \section{Kata containers}
 \label{sec:Kata}
 
-Kata containers is an OCI-compliant low-level container runtime derived from combining two projects: Clear Containers and Hyper RunV~\cite*{Kata-Containers}. It offers an architecture for running containers in ultra-lightweight virtual machines. This architecture achieves performance similar to Runc~\cite*{runc} and 
-utilizes hardware virtualization technology to enhance workload isolation~\cite*{9198653}.
+Kata containers is an OCI-compliant low-level container runtime derived from combining two projects: Clear Containers and Hyper RunV~\cite*{Kata-Containers}. It runs containers in an ultra-lightweight virtual machine. This architecture preserves the speed of containers and utilizes 
+hardware virtualization technology to enhance container isolation~\cite*{Kata-Containers}.
 \begin{figure}[htp]
   \centering
   \includegraphics[width=0.6\textwidth]{images/kata.PNG}
   \caption[Kata containers architecture]{Kata containers architecture from~\cite*{Kata-Containers} }
   \label{fig:kata}
 \end{figure}
-Figure~\ref{fig:kata} presents the latest version (2.0) architecture of Kata Containers~\cite*{Kata_arch}. It consists of six elements: Kubernetes, high-level container runtime, Kata Shim v2, hypervisor, guest kernel, and agent. In Section~\ref{sec:k8s}, both Kubernetes and the high-level container 
-runtime are described. Kata shim v2 is a merging of multiple components in version 1.0, including the Kata shim, the Kata proxy, and the OCI-compliant Kata runtime~\cite*{Kata_arch}. It implements the Shim v2 interface. Therefore, Containerd~\cite*{containerd} can issue commands to it. Within the 
-virtual machine, Kata containers introduce a daemon named Kata agent, responsible for handling commands from Kata Shim v2 and managing the containers within the VM. Communication between Kata Shim v2 and the Kata agent is facilitated through the VM's vsocket interface and the gRPC protocol. Furthermore, the 
-Kata containers utilize a highly customized Linux guest kernel that strips off unnecessary modules to achieve a low boot time and small memory footprint.
+Figure~\ref{fig:kata} presents the latest architecture (version 2.0) of Kata containers~\cite*{Kata_arch}. It consists of four elements: Kata Shim v2, hypervisor, guest kernel, and Kata agent. Kata shim v2 is a merging of multiple components in version 1.0, including the Kata shim, 
+the Kata proxy, and the OCI-compliant Kata runtime~\cite*{Kata_arch}. It implements the \texttt{shim v2 API}~\cite*{shim_v2}. Therefore, Containerd~\cite*{containerd} can issue commands to it.  The Kata agent is a daemon running inside the virtual machine. It is responsible for handling commands 
+from Kata shim v2 and managing the containers within the VM. Communication between Kata shim v2 and the Kata agent is facilitated through the VM's \texttt{VIRTIO} or \texttt{VSOCK} interface and the gRPC protocol~\cite*{Kata_arch}. Furthermore, the 
+Kata containers utilize a highly optimized hypervisor and guest kernel that strips off unnecessary modules to achieve a low boot time and small memory footprint~\cite*{8939164}.
 
 
 \section{Quark containers}
 \label{sec:Quark}
-Quark containers~\cite*{quark} is an OCI-compliant container runtime written in the Rust language. It shares a similar architecture with the Kata container, ensuring an equivalent level of container isolation. 
+Quark containers~\cite*{quark} is an OCI-compliant container runtime written in the Rust language. Similar to Kata containers~\cite*{Kata-Containers}, it also runs the containers in the VM. 
 The difference is that Quark uses an application kernel (also known as the forward kernel) as a guest OS. It implements some system calls and forwards others to the host. Compared to the Kata containers, its guest kernel is smaller since it reuse many services the host provides, eliminating unnecessary code.
 Consequently, Quark has a smaller memory footprint and faster startup time~\cite*{quark_performance_report}. Moreover, Quark has developed the Ucall and Qcall interfaces to facilitate communication with the host. This approach efficiently avoids expensive VM exits when 
 forwarding system calls to the host.
@@ -101,48 +102,48 @@ forwarding system calls to the host.
 \end{figure}
 
 
-The architecture of the Quark container, as depicted in Figure~\ref{fig:QUARK_ARCH}, comprises five elements: Kubernetes~\cite*{k8s}, the high-level container runtime, Quark Shim v2, Qvisor, and Qkernel. The description of Kubernetes and the high-level container runtime can be found in Section~\ref{sec:k8s}. 
-Similarly to the Kata Shim, the Quark Shim is an OCI-compliant ttrpc server implemented following the Shim v2 API~\cite*{shim_v2}. As a result, it is capable of executing commands from Containerd~\cite*{containerd}. These commands may include invoking Qvisor to create lightweight virtual machines for 
-containers with Qkernel as the guest OS. Qvisor is a virtualmachine manager similar to Qemu. It utilizes the KVM API to create and manage VMs. Qkernel, on the other hand, is a minimized application kernel that contains only the necessary code. It employs the host service to implement process 
-management, memory management, file system, and network stack. Notably, Qkernel utilizes the host operating system and Qvisor to manage physical devices, thereby avoiding sophisticated IO handling and physical memory management. In addition, Qkernel implements most of the Linux system calls, which can be triggered by 
-guest processes using the X86 syscall instruction. To accept the request from the Quark Shim,  Qkernel implements a socket server called Quark agent. It uses Ucall 
-and Qcall interfaces to communicate with Quark Shim. Unlike the Kata agent, which operates as a user space process, the Quark agent is integrated within the Qkernel, and its code is part of the Qkernel (guest kernel) binary.
+The architecture of the Quark container, as depicted in Figure~\ref{fig:QUARK_ARCH}, comprises three elements: Quark shim, Qvisor, and Qkernel. Similarly to the Kata shim, the Quark shim is an OCI-compliant ttrpc server implemented following the \texttt{shim v2 API}~\cite*{shim_v2}. As a 
+result, it can execute commands from Containerd~\cite*{containerd}. These commands may include invoking Qvisor to create lightweight virtual machines for running containers with Qkernel as the guest OS. Qvisor is a virtual machine manager similar to QEMU. It utilizes the KVM API to create and 
+manage VMs. Qkernel, on the other hand, is a minimized application kernel that contains only the necessary code. It employs the host service to implement process management, memory management, file system, and network stack. 
+In addition, Qkernel implements most of the Linux system calls, which can be triggered by guest processes using the x86 \texttt{SYSCALL} instruction. To accept the request from the Quark shim, Qkernel implements a socket server called Quark agent. It uses Hypercall, Ucall, and Qcall interfaces to 
+communicate with Quark shim. Unlike the Kata agent, which operates as a user space process, the Quark agent is integrated within the Qkernel, and its code is part of the Qkernel (guest kernel) binary.
 
 
 
 \begin{figure}[htp]
   \centering
-  \includegraphics[width=1\textwidth]{images/hypercall_qcall_ucall.pdf}
+  \includegraphics[width=1\textwidth]{images/hypercall_qcall_ucall.png}
   \caption[Workflow of Hypercall, Qcall, and Ucall]{Workflow of Hypercall, Qcall, and Ucall}
   \label{fig:hypercall_qcall_ucall}
 \end{figure}
 
 
 The workflow of Hypercall, Qcall, and Ucall is depicted in Figure~\ref{fig:hypercall_qcall_ucall}. Hypercall serves as the traditional mechanism for guests to communicate with the Virtual Machine Monitor (VMM). Qkenrel employs Hypercall to access services in Qvisor, like file opening and IO 
-initialization. Figure~\ref{fig:hypercall_qcall_ucall}a illustrates the workflow of Hypercall. Upon triggering Hypercall, the CPU mode is changed from the guest ring 0  to the host ring 0. Subsequently, the KVM examines the Virtual Machine Control Block to determine the reason for the VM exit and 
+initialization. Figure~\ref{fig:hypercall_qcall_ucall} (a) illustrates the workflow of Hypercall. Upon triggering Hypercall, the CPU mode is changed from the guest ring 0  to the host ring 0. Subsequently, the KVM examines the Virtual Machine Control Block to determine the reason for the VM exit and 
 forwards the Hypercall to the Qvisor running in host ring 3. Following the processing of the Hypercall, the Qvisor requests the KVM to resume guest execution.
 
-Executing a Hypercall incurs significant overhead due to multiple world switches. As such, Quark offers an asynchronous mechanism known as Qcall as an alternative approach for communicating with Qvisor. As depicted in Figure~\ref{fig:hypercall_qcall_ucall}(b), this mechanism consists of a 
-shared memory queue between the Qkernel and the Qvisor and an IO thread in Qvisor. The shared queue facilitates the transfer of requests from Qkernel to Qvisor. The IO thread is responsible for retrieving the requests from the queue and notifying or awakening the Qkernel thread once the Qvisor completes the request. In summary,   
-this mechanism allows Qkernel to access services in Qvisor asynchronously, eliminating the need for VM exit. 
+Executing a Hypercall incurs significant overhead due to multiple world switches. As such, Quark offers an asynchronous mechanism known as Qcall as an alternative approach for communicating with Qvisor. As depicted in Figure~\ref{fig:hypercall_qcall_ucall} (b), this mechanism consists of a 
+shared memory queue between the Qkernel and the Qvisor and an IO thread in Qvisor. The shared queue facilitates the transfer of requests from Qkernel to Qvisor. The IO thread is responsible for retrieving the requests from the queue and notifying or awakening the Qkernel thread once the Qvisor 
+completes the request. In summary, this mechanism allows Qkernel to access services in Qvisor asynchronously, eliminating the need for VM exit. 
 
-The host operating system is responsible for performing IO read and write operations on physical devices. Therefore, Quark introduces the Ucall mechanism for communicating with the host kernel. This mechanism utilizes the Linux io\_uring~\cite*{io_uring} and shared queues between Qvisor and Qkernel. It supports
-both synchronous and asynchronous IO operations. Figure~\ref{fig:hypercall_qcall_ucall} explains the workflow of this mechanism. Initially, a Qkernel thread submits an IO request to the guest submission queue (Figure ~\ref{fig:hypercall_qcall_ucall}c (1)). Subsequently, the Qvisor Ucall handler copies the request to the Uring submission queue 
-(Figure~\ref{fig:hypercall_qcall_ucall} (2)). Once the Uring kernel handler completes processing the IO request, it places the result into the uring completion queue (Figure~\ref{fig:hypercall_qcall_ucall}c (3), (4)). The result includes a user\_data, which is submitted with the initial IO 
-request and contains information about the Qkernel thread. The Qvisor Ucall handler can use this information to notify or wake the corresponding Qkernel thread. Note that the notification occurs after the IO processing result has been copied to the guest completion 
-queue (Figure~\ref{fig:hypercall_qcall_ucall}c (5), (6)).
+The host operating system is responsible for performing IO read and write operations on physical devices. Therefore, Quark introduces the Ucall mechanism for communicating with the host kernel. This mechanism utilizes the Linux \texttt{io\_uring}~\cite*{io_uring} and shared queues between 
+Qvisor and Qkernel. It supports both synchronous and asynchronous IO operations. Figure~\ref{fig:hypercall_qcall_ucall} (c) explains the workflow of this mechanism. Initially, a Qkernel thread submits an IO request to the guest submission queue (Figure ~\ref{fig:hypercall_qcall_ucall} (c) step 1). 
+Subsequently, the Qvisor Ucall handler copies the request to the uring submission queue (Figure~\ref{fig:hypercall_qcall_ucall} (c) step 2). Once the uring kernel handler completes processing the IO request, it places the result into the uring completion 
+queue (Figure~\ref{fig:hypercall_qcall_ucall} (c) step 3, 4). The result includes a \emph{user\_data}, which is submitted with the initial IO request and contains information about the Qkernel thread. The Qvisor Ucall handler can use this information to notify the corresponding Qkernel thread. 
+Note that the notification occurs after the IO processing result has been copied to the guest completion queue (Figure~\ref{fig:hypercall_qcall_ucall} (c) step 5, 6).
 
 \section{Trusted Execution Environment}
 
-The hardware-based Trusted Execution Environment (~\acrshort{TEE}) establishes tamper-proof computing environments that ensure the confidentiality and integrity of data. It safeguards applications' private sensitive code and data against co-located attackers through verifiable boot mechanisms, 
-CPU and memory isolation, trusted IO, and secure storage~\cite*{Hardware-supported-TEE}. This security guarantee relays on hardware. Consequently, compromising privacy software (e.g., operating system and hypervisor) does not diminish the~\acrshort{TEE}'s capacity to protect security-sensitive appliances ~\cite*{7345265}.
+The hardware-based~\acrshort{TEE} establishes tamper-proof computing environments that ensure the confidentiality and integrity of data. It safeguards applications' private sensitive code and data against co-located attacks through verifiable boot, runtime isolation, trusted IO, and 
+secure storage~\cite*{Hardware-supported-TEE}. This security guarantee relays on hardware. Consequently, compromising privileged software (e.g., operating system and hypervisor) does not diminish the~\acrshort{TEE}'s capacity to protect security-sensitive appliances ~\cite*{7345265}.
 
 
 Hardware-based~\acrshort{TEE} models can be categorized into two types: virtual machine-based~\acrshort{TEE} and process-based~\acrshort{TEE}~\cite*{10.3389/fcomp.2022.930741}. Examples of virtual machine-based~\acrshort{TEE}s include Intel TDX~\cite*{Intel_tdx_whitepaper} and AMD SEV-SNP~\cite*{SEV_SNP_white_book}, whereas 
 Intel SGX~\cite*{INTEL_SGX} is the most famous process-based~\acrshort{TEE}. While Intel SGX has a smaller~\acrshort{TCB}, splitting an application into trusted and untrusted parts results in a degraded user experience. In contrast, VM-based~\acrshort{TEE}s enable the execution of programs without modification. However, this approach increases the 
 \acrshort{TCB}, making it more susceptible to attacks~\cite*{Execution_Environment_landscape}.
 
-The following two sections provide an overview of VM-based~\acrshort{TEE}. We chose AMD SEV-SNP and Intel TDX as examples because they will likely be widely used. An explanation of process-based~\acrshort{TEE}s is beyond the scope of this thesis. For further details on this topic, please refer to~\cite*{cryptoeprint:2016/086, 10.1145/2487726.2488370}.
+The following two sections provide an overview of VM-based~\acrshort{TEE}. The AMD SEV-SNP and Intel TDX are chosen as examples because they will likely be widely used. An explanation of process-based~\acrshort{TEE}s is beyond the scope of this thesis. For further details on the process-based~\acrshort{TEE}, 
+please refer to~\cite*{cryptoeprint:2016/086, 10.1145/2487726.2488370}.
 
 
 \subsection{AMD SEV-SNP}
@@ -151,13 +152,12 @@ AMD SEV-SNP~\cite*{SEV_SNP_white_book} is AMD's latest virtual machine-based~\ac
 encrypted memory.
 
 
-AMD SEV-SNP utilizes encryption to protect the memory of a virtual machine. When a service running in an \acrshort{CVM} accesses memory, the AES-128 encryption engine transparently encrypts or decrypts the memory using a memory encryption key.  This key is unique for each 
+AMD SEV-SNP utilizes encryption to protect the memory of a virtual machine. When a service running in an \acrshort{CVM} accesses memory, the AES-128 encryption engine transparently encrypts or decrypts the memory using a memory encryption key~\cite*{snp_Explained}.  This key is unique for each 
 VM and securely stored in the AMD secure processor (~\acrshort{AMD SP}) to prevent unauthorized access. Consequently, untrusted entities can only read the ciphertext on the VM memory. To enable memory page sharing between \acrshort{CVM}s, or between \acrshort{CVM}s and the hypervisor, SEV-SNP introduces a new 
-control bit known as the "C-bit" in the page table entry. This allows \acrshort{CVM}s to determine which pages should be encrypted.
+control bit known as the "C-bit" in the page table entry~\cite*{SEV_SNP_white_book}. This allows \acrshort{CVM}s to determine which pages should be encrypted. Furthermore, SEV-SNP introduces the Reverse Map Table (RMP) to protect the integrity of VM memory~\cite*{SEV_SNP_white_book}. 
+RMP records the ownership of pages and ensures that each physical page is owned by only one entity. In this case, only the page owner can modify the page content
 
 
-SEV-SNP introduces the Reverse Map Table (RMP) to protect the integrity of VM memory. The RMP ensures that each physical page is exclusively owned by a single entity. In this case, only the designated owner of a page has permission to modify its contents. Any change in ownership 
-will result in SEV-SNP erasing the contents of that page. To this end, untrusted entities can only read the encrypted VM memory without the ability to make any modifications to it.
 
 \begin{figure}[htp]
   \centering
@@ -179,25 +179,33 @@ will result in SEV-SNP erasing the contents of that page. To this end, untrusted
      \label{fig:amd_snp_atteation}
 \end{figure}
 
-SEV-SNP also supports remote attestation, which allows the \acrshort{CVM} owner to verify the authenticity of the VM. Unlike its predecessor, SEV-SNP enables \acrshort{CVM}s to communicate with the~\acrshort{AMD SP} during runtime and request it to generate an attestation report. The communication between the \acrshort{CVM} and~\acrshort{AMD SP} 
-is facilitated by the SEV-SNP guest messages protocol~\cite*{snp_firmware, amd_sev_summarize}. A brief description of the protocol can also be found in Section~\ref{subsec:impl_Attestation_driver}.  The workflow for remote attestation is shown in Figure~\ref{fig:amd_attestation_workflow}. The \acrshort{CVM} first utilizes the SEV-SNP guest messages protocol to request a report from the~\acrshort{AMD SP}. 
-The report is signed using the Versioned Chip Endorsement Key (VCEK) and contains details such as the~\acrshort{AMD SP}'s measurement of the VM boot process, the~\acrshort{AMD SP} firmware version, and custom data. The~\acrshort{VCEK} is unique to each AMD platform because it is derived from platform-specific secrets and TCB versions. Once the \acrshort{CVM} owner receives the report,  they can utilize the CHIP\_ID and TSB fields 
-in the report to retrieve a certificate chain (Figure~\ref{fig:amd_snp_certificate_chain}) from the AMD Key Distribution Center~\cite*{amd_sev_summarize}. The certificate chain can be used to verify the signature of the report. Subsequently, by examining the remaining fields of the report, the \acrshort{CVM} owner can determine whether the 
-\acrshort{CVM} is genuine.
+SEV-SNP also supports remote attestation, which allows the \acrshort{CVM} owner to verify the authenticity of the VM. Unlike its predecessor, SEV-SNP enables \acrshort{CVM}s to obtain the attestation report from ~\acrshort{AMD SP} at runtime. The communication between the \acrshort{CVM} and~\acrshort{AMD SP} 
+is facilitated by the SEV-SNP guest messages protocol~\cite*{snp_firmware, amd_sev_summarize}. A brief description of the protocol can also be found in Section~\ref{subsec:impl_Attestation_driver}.  The workflow for remote attestation is shown in Figure~\ref{fig:amd_snp_atteation} (a). 
+The \acrshort{CVM} first utilizes the SEV-SNP guest messages protocol to request a report from the~\acrshort{AMD SP}. The report is signed using the Versioned Chip Endorsement Key (VCEK) and contains details such as the~\acrshort{AMD SP}'s measurement of the VM boot process, the~\acrshort{AMD SP} 
+firmware version, and custom data~\cite*{snp_firmware}. The~\acrshort{VCEK} is unique to each AMD platform because it is derived from platform-specific secrets and TCB versions~\cite*{snp_firmware}. Once the \acrshort{CVM} owner receives the report,  they can utilize the \texttt{CHIP\_ID} and \texttt{TSB} fields in the report to 
+retrieve a certificate chain (Figure~\ref{fig:amd_snp_atteation} (b)) from the AMD Key Distribution Center~\cite*{amd_sev_summarize}. The certificate chain can be used to verify the signature of the report. Subsequently, by examining the remaining fields of the report, the \acrshort{CVM} owner 
+can determine whether the \acrshort{CVM} is genuine.
 
 \subsection{Intel TDX}
 \label{subsec:tdx}
 
-Intel TDX~\cite*{Intel_tdx_whitepaper} is a virtual machine-based~\acrshort{TEE} solution. Despite not being available on the market, some system-level software has already decided to adopt Intel TDX~\cite*{Kate_support_tdx, Linux_support_tdx}. Hence, we have provided a concise introduction to Intel TDX.
+Intel TDX~\cite*{Intel_tdx_whitepaper} is a virtual machine-based~\acrshort{TEE} solution. It introduces a new CPU mode called Secure Arbitration Mode (SEAM). As shown in Figure~\ref{fig:td_arch}, the TDX module and all \acrshort{CVM}s (TDs) run in this mode. It provides an 
+isolated execution environment for TDs so that privileged software (e.g., hypervisor) running in other modes cannot access the TDs' register and memory. The TDX module manages the TDs and offers an interface for the hypervisor to send instructions to the TDs. The TDX module can verify these instructions against a security policy to ensure the TDs are correctly operated.
+
 \begin{figure}[htp]
   \centering
   \includegraphics[width=0.4\textwidth]{images/td_arch.png}
   \caption[TDX architecture]{TDX architecture}
   \label{fig:td_arch}
 \end{figure}
-Intel TDX introduces a new CPU mode called Secure Arbitration Mode (SEAM). As shown in Figure~\ref{fig:td_arch}, the TDX module and all \acrshort{CVM}s (TDs) run in this mode. It provides an isolated execution environment for TDs so that privileged software (e.g., hypervisor) running in other modes cannot access 
-the TDs' register and memory. The TDX module manages the TDs and offers an interface for the hypervisor to send instructions to the TDs. The instructions include VMLAUNCH-VMX for starting a TD, VMRESUME for restarting the TD, etc. The TDX module can verify these instructions against a security 
-policy to ensure the TDs are correctly operated.
+
+
+TDX also supports shared memory to facilitate communication between TDs or TD and untrusted entities like hypervisors. Like the SEV-SNP, each TD divides its memory into private and shared. External entities can access TD's shared memory in plaintext. This mechanism is implemented by introducing a 
+new bit called the shared bit in the Guest Physical Address (GPA) and two EPTs, namely secure EPT and shared EPT~\cite*{Intel_tdx_whitepaper}. TD can use the shared bit to determine whether the Guest's Physical Address (GPA) corresponds to shared memory. The secure EPT and shared EPT are 
+responsible for converting private/shared GPAs to physical addresses. Note that only the private pages are encrypted using a TD's private key ~\cite*{Intel_tdx_whitepaper}. Additionally, the Intel TDX also supports memory integrity protection. As~\cite*{kollendageneral} stated, the protection is 
+achieved by \enquote{including a 1-bit TD identifier for each cache line and optionally a 28-bit message authentication code (MAC) that includes the 1-bit identifier to ensure that any unauthorized changes to the memory are detected.}
+
+
 \begin{figure}[htp]
   \centering
   \begin{subfigure}[b]{0.65\textwidth}
@@ -217,23 +225,18 @@ policy to ensure the TDs are correctly operated.
      \caption[Intel TDX remote attestation]{Intel TDX remote attestation}
      \label{fig:tdx_attestation}
 \end{figure}
-TDX also supports shared memory to facilitate communication between TDs or TD and untrusted entities like hypervisors. Like the SEV-SNP, each TD divides its memory into private and shared. External entities can access TD's shared memory in plaintext. This mechanism is implemented by introducing a 
-new bit called the "shared bit" into the TD's page table entry and two EPTs, namely Secure EPT and Shared EPT. TD uses the shared bit to determine whether the Guest's Physical Address (GPA) corresponds to shared memory. The secure EPT and shared EPT are responsible for converting private/shared 
-GPAs to physical addresses. Note that only the private pages belonging to the secure EPT are encrypted by MKTME~\cite*{Intel_tdx_whitepaper}. Additionally, the Intel-TDX module hosts a data structure known as the Physical-Address-Metadata Table~\cite*{Intel_tdx_whitepaper}, which enforces page ownership. As a result, a page cannot be simultaneously 
-mapped into the private memory of two TDs.
 
-
-TDX leverages the Intel SGX attestation infrastructure for remote attestation~\cite*{Intel_tdx_whitepaper}, as shown in Figure~\ref{fig:tdx_attestation_flow}.
-The workflow begins with the TD requesting the TDX Module to generate a local report using the instruction SEAMOPS [SEAMREPORT]. This report includes the TD's measurements, the SVNs of the elements in TDX-TCB, TD-provided data, etc~\cite*{Intel_tdx_whitepaper}. The integrity of this report is ensured by the CPU's HMAC key.
-After generating the local report, the TD sends it to the quoting enclave,  which resides on the same platform. The quoting enclave first employs the EVERIFYREPORT2 instruction to request the CPU to verify the report's MAC. Then, it utilizes its attestation key to generate a signature based on the 
-report content. The report content and the signature form a quote. Notably, the attestation key of the quoting enclave is certified by the platform certification enclave (PCE) using the provisioning certification key (PCK), which is itself certified by Intel.
-Consequently, the signature of the quote forms a chain of signatures, as illustrated in Figure~\ref{fig:tdx_certi_chain}. The certificate chain can be used to verify the authenticity of this report off the platform. Subsequently, the TD transmits the quote to the TD owner. The over can verify the quote's signature by downloading the certificates from  
-either the platform certificate signing service (PCCS) or intel provisioning certification service (PCS)~\cite*{DBLP:journals/corr/abs-2303-15540}.
-Finally, by examining the report's contents, the TD owner can determine whether the TD is genuine.  For a detailed explanation of the Intel TDX remote attestation, we 
-refer the reader to \cite*{Intel_tdx_whitepaper, 9448036, DBLP:journals/corr/abs-2303-15540}.
+TDX leverages the Intel SGX attestation infrastructure for remote attestation~\cite*{Intel_tdx_whitepaper}, as shown in Figure~\ref{fig:tdx_attestation} (a).
+The workflow begins with the TD requesting the TDX Module to generate a local report. This report includes the TD's measurements, TD-provided data, etc~\cite*{Intel_tdx_whitepaper}. The integrity of this report is protected by the CPU's HMAC key.
+After generating the local report, the TD sends it to the quoting enclave,  which resides on the same platform. The quoting enclave first request the CPU to verify the report's MAC. Then, it utilizes its attestation key to generate a signature based on the 
+report content. The report content and the signature form a quote. Notably, the attestation key of the quoting enclave is certified by the Platform Certification Enclave (PCE) using the Provisioning Certification Key (PCK), which is itself certified by Intel.
+Consequently, the signature of the quote forms a chain of signatures, as illustrated in Figure~\ref{fig:tdx_attestation} (b). The certificate chain can be used to verify the authenticity of this report off the platform. Subsequently, the TD transmits the quote to the TD owner. 
+The owner can verify the quote's signature by downloading the certificates from  
+either the Platform Certificate Signing Service (PCCS) or intel Provisioning Certification Service (PCS)~\cite*{DBLP:journals/corr/abs-2303-15540}.
+Finally, by examining the report's contents, the TD owner can determine whether the TD is genuine.  Note that a detailed explanation of the above workflow can be found in \cite*{DBLP:journals/corr/abs-2303-15540}. 
 
 \subsection{Comparison of AMD SEV-SNP and Intel TDX}
-Figure~\ref{fig:snp_tdx_compare} compares the features of Intel TDX and AMD SEV-SNP~\cite*{amd_sev_summarize}. In particular, we chose the most popular and widely used \acrshort{TEE}, Intel SGX~\cite*{INTEL_SGX}, 
+Figure~\ref{fig:snp_tdx_compare} compares the features of Intel TDX and AMD SEV-SNP~\cite*{amd_sev_summarize}. In particular, the widely used \acrshort{TEE}, Intel SGX~\cite*{INTEL_SGX}, is chosen 
 as a reference.
 
 \begin{figure}[htp]
@@ -252,6 +255,11 @@ as a reference.
 
 
 
+
+The KBS attestation protocol~\cite*{kbs_Attestation_protocol}  presents a mechanism for remote attestation and provisioning. As shown in Figure~\ref{fig:kbs_overwiev}, this protocol involves the Key Broker Service (\acrshort{KBS}) and the Key Broker Client (\acrshort{KBC}). Typically, a \acrshort{KBC} refers to a confidential virtual machine or enclave that runs containers, while the 
+\acrshort{KBS} acts as a secret manager. The KBS can utilize this protocol to attest a KBC and securely transmit secrets to it. Besides, the protocol employs TLS\cite*{tls_record_size} to prevent malicious attackers 
+from hijacking the \acrshort{KBS} address,  impersonating the \acrshort{KBS},  and injecting harmful data into the \acrshort{KBC}~\cite*{kbs_Attestation_protocol}. Specifically, the protocol requires that the \acrshort{KBS}'s public key be effectively distributed to the \acrshort{KBC} so 
+that the \acrshort{KBC} can authenticate the \acrshort{KBS} during the TLS handshake.
 \begin{figure}[htp]
   \centering
   \includegraphics[width=0.6\textwidth]{images/kbs_overwiev.png}
@@ -259,14 +267,10 @@ as a reference.
   \label{fig:kbs_overwiev}
 \end{figure}
 
-The KBS attestation protocol~\cite*{kbs_Attestation_protocol}  presents a mechanism for remote attestation and provisioning. As shown in Figure~\ref{fig:kbs_overwiev}, this protocol involves the Key Broker Service (\acrshort{KBS}) and the Key Broker Client (\acrshort{KBC}). Typically, a \acrshort{KBC} refers to a confidential virtual machine or enclave that runs containers, while the 
-\acrshort{KBS} acts as a secret manager. The KBS can utilize this protocol to attest a KBC and securely transmit secrets to it. In this protocol, the \acrshort{KBC} first utilizes the 
-Request-Challenge-Attestation-Response (RCAR) method to authenticate to the \acrshort{KBS}. Then, the HTTP GET request is employed to obtain the secrets from the \acrshort{KBS}. Besides, the protocol employs TLS\cite*{tls_record_size} to prevent malicious attackers from hijacking the \acrshort{KBS} address,  impersonating the \acrshort{KBS},  and injecting harmful 
-data into the \acrshort{KBC}. Specifically, the protocol requires that the \acrshort{KBS}'s public key be effectively distributed to the \acrshort{KBC} so that the \acrshort{KBC} can authenticate the \acrshort{KBS} during the TLS handshake.
 
 The protocol is divided into two phases. The first phase is the authentication phase, where the \acrshort{KBS} authenticates the \acrshort{KBC} using the \acrshort{KBC}'s attestation report. The second phase is the resource request phase, in which the \acrshort{KBS} allows the \acrshort{KBC} to retrieve a secret managed using the HTTP GET.  
 The secret transmitted from the \acrshort{KBS} to the \acrshort{KBC} is encrypted using the \acrshort{KBC}'s public key. The public key is sent to the \acrshort{KBS} with the \acrshort{KBC}'s attestation report during the first phase. Because the hash of the public key is included in the \acrshort{KBC}'s attestation report, the \acrshort{KBS} can confirm that the public key is from the \acrshort{KBC} and ensure that only the \acrshort{KBC} can decrypt the encrypted secret. Additionally, the \acrshort{KBS} assigns an HTTP cookie to the \acrshort{KBC} during the authentication phase. This cookie associates the authentication result obtained in the first phase with the corresponding \acrshort{KBC}. During the resource 
-request phase, \acrshort{KBS} uses this cookie to find the \acrshort{KBC}'s authentication result and considers it along with the policy to determine if a secret should be provided to the \acrshort{KBC}. The following two diagrams detail how \acrshort{KBS} and \acrshort{KBC} work in phases 1 and 2:
+request phase, \acrshort{KBS} uses this cookie to find the \acrshort{KBC}'s authentication result and considers it along with the secret owner defined policy to determine if a secret should be provided to the \acrshort{KBC}. The following two diagrams detail how \acrshort{KBS} and \acrshort{KBC} work in phases 1 and 2:
 
 
 \begin{figure}[htp]
@@ -299,7 +303,9 @@ As defined in the key broke service attestation protocol, \acrshort{KBC} can req
 
 
 \section{Summary}
-This chapter begins with an introduction to Kubernetes~\cite*{k8s} and the concept of high and low-level container runtimes. Subsequently, the standards and interfaces that enhance the scalability of Kubernetes are explained, specifically CRI~\cite*{cri-interface}, OCI~\cite*{oci-runtime-spec}, and Shim V2 API~\cite*{shim_v2}.
-Then, the architecture of the Kata and Quark container runtimes~\cite*{Kata-Containers, quark} is explained. Furthermore, TEE-related concepts such as memory protection and remote attestation are illustrated using AMD SEV-SNP~\cite*{SEV_SNP_white_book} and Intel TDX~\cite*{Intel_tdx_whitepaper} as examples. Lastly, a brief description of the KBS attestation protocol~\cite*{kbs_Attestation_protocol} is provided.
+This chapter first introduced Kubernetes~\cite*{k8s} and the concept of high and low-level container runtimes. Subsequently, the standards and interfaces that enhance the scalability of Kubernetes were explained, specifically CRI~\cite*{cri-interface}, OCI~\cite*{oci-runtime-spec}, and 
+\texttt{shim v2 API}~\cite*{shim_v2}.
+Then, the architecture of the Kata and Quark container~\cite*{Kata-Containers, quark} was explained. Furthermore, TEE-related concepts such as memory protection and remote attestation were illustrated using AMD SEV-SNP~\cite*{SEV_SNP_white_book} and Intel TDX~\cite*{Intel_tdx_whitepaper} as 
+examples. Lastly, a brief description of the KBS attestation protocol~\cite*{kbs_Attestation_protocol} was provided.
 \cleardoublepage
 
