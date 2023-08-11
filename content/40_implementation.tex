@@ -24,7 +24,7 @@
 
 The chapter outlines the implementation of the system designed in Chapter~\ref{sec:design}. Firstly, it illustrates the implementation of the attestation and provisioning infrastructure (Section~\ref{sec:impl_attestation_infr}). This includes the communication establishment between the 
 attestation and provisioning agent with the secret manager, the way the secret injector deploys secrets, the runtime attestation support's implementation, and how the attestation driver acquires attestation reports from \acrshort{TEE}. Secondly, it details the implementation of the 
-software measurement manager (~\ref{sec:impl_measurement}). Section~\ref{sec:impl_exec} then presents the EXEC checker's steps for checking an exec request. Finally, sections~\ref{sec:impl_STDIO},~\ref{sec:impl_interceptor}, and~\ref{sec:iml_qlog} explain the implementation of the process's STDIO 
+software measurement manager (Section~\ref{sec:impl_measurement}). Section~\ref{sec:impl_exec} then presents the EXEC checker's steps for checking an exec request. Finally, sections~\ref{sec:impl_STDIO},~\ref{sec:impl_interceptor}, and~\ref{sec:iml_qlog} explain the implementation of the process's STDIO 
 protection, system call interceptor, and the Qkernel log manager, respectively. The source code is accessible on GitHub~\cite*{theis_source_code}.
 
 \section{Attestation and Provisioning Infrastructure}

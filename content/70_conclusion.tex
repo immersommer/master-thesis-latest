@@ -20,15 +20,15 @@
 
 % \todo{write conclusion}
 
-This thesis aims at enabling untrustworthy cloud providers to orchestrate applications within \acrshort{CVM} while ensuring the confidentiality and integrity of applications' data. In particular, to minimize the \acrshort{TCB} of the enclave, we have selected \acrshort{pVM} as a starting point.
+This thesis aims at enabling untrustworthy cloud providers to orchestrate applications within \acrshort{CVM} while ensuring the confidentiality and integrity of applications' data. In particular, to minimize the \acrshort{TCB} of the CVM, \acrshort{pVM} is selected as a starting point.
  
-Chapter~\ref{sec:security_analyse} analyzes the security risks of the OCI runtime interface. To address these concerns, the thesis introduced the OCI runtime interface shield and proposed modifications to the OCI runtime interface in Chapter~\ref{sec:design}. The shield is implemented 
+Chapter~\ref{sec:security_analyse} analyzes the security risks of the OCI runtime interface. To address these concerns, the thesis introduces the OCI runtime interface shield and proposes modifications to the OCI runtime interface in Chapter~\ref{sec:design}. The shield is implemented 
 within the \acrshort{CVM} and enforces a policy provided by the application owner on the OCI interface. Figure~\ref{fig:generic_policy} illustrates an example of such a policy. The shield allows the application owner to remotely verify the state of the \acrshort{CVM} and securely deploy secrets. 
 While the \acrshort{CVM} is operational, the shield can authenticate and do access control on EXEC requests, encrypts STDIO for the processes running in the \acrshort{CVM}, restricts guest system calls, and manages \acrshort{CVM} logs. Additionally, a secure client for the application owners is 
 implemented, enabling them to issue privilege commands and update the shield policy.
  
-The qualitative analysis in Section~\ref{sec:eva_qualitativ} proved that the system implemented in Chapter~\ref{sec:implementation} can effectively mitigate most issues found in security analysis. A summary of the analysis can be found in Table~\ref{tab:eva_qualitativ_summary} in Section~\ref{sec:eva_qualitativ_summary}. 
-On the other hand, the quantitative analysis in Section~\ref{sec:eva_Quantitative} revealed performance degradation due to the system. This is evident in longer application startup time, 
+The qualitative analysis in Section~\ref{sec:eva_qualitativ} proves that the system implemented in Chapter~\ref{sec:implementation} can effectively mitigate most issues found in security analysis. A summary of the analysis can be found in Table~\ref{tab:eva_qualitativ_summary}. 
+On the other hand, the quantitative analysis in Section~\ref{sec:eva_Quantitative} reveals performance degradation due to the system. This is evident in longer application startup time, 
 decreased application throughput, an increased \acrshort{TCB} size, etc. Nevertheless, Quark's \acrshort{TCB} is only one-sixteenth the size of Kata Containers\cite*{Kata-Containers}, highlighting the superiority of the \acrshort{pVM} architecture. 
  
 Further work is required before the solution can be deployed. For example, support for running Quark on secure VMs (e.g., Intel TDX~\cite*{Intel_tdx_whitepaper}) and enhancing the remote attestation infrastructure are necessary. The following section provides a detailed discussion of these aspects.
@@ -36,7 +36,7 @@ Further work is required before the solution can be deployed. For example, suppo
 
 \section{Furture Work}
 
-Chapter~\ref{sec:design} Design provides solutions to the problems identified through the security analysis in Chapter~\ref{sec:security_analyse}. However, some of these were not implemented since they were out of scope. This includes the secret uploading discussed in 
+Chapter~\ref{sec:design} provides solutions to the problems identified through the security analysis in Chapter~\ref{sec:security_analyse}. However, some of these were not implemented since they were out of scope. This includes the secret uploading discussed in 
 Section~\ref{sec:design_Secret_Uploading}, the methods to mitigate secret cross-leakage described in Section~\ref{sec:secure_application_deployment} on page \pageref{eq:1}, and the terminal protection outlined in Section~\ref{subsec:design_terminal}. In the next step, the 
 priority will be to implement these designs.
 
@@ -65,29 +65,6 @@ Currently, a \acrshort{CVM} is restricted to running a single application. Attem
 This prevents the service mesh from working properly since it requires the sidecar container to be run in the \acrshort{CVM}. As such,  future releases should involve an extension of the software measurement manager. In this case, the application owner can specify the loadable containers and their 
 reference hashes in the shield policy. This will allow the \acrshort{CVM} to load additional containers. During the loading process, the software measurer will use the container's reference hash to ensure that the loaded container binaries are correct.
 
-
-% \subsection{Vulnerability Out of Scope}
-% Besides the vulnerabilities already discussed, the following security risks may affect Vanilla Quark:
-
-
-% \textbf{Physical Access Attacks.} An untrustworthy entity, including cloud operators who have physical access to the machine where the application runs, can carry out physical access attacks on the system. One example of such attacks 
-% is Offline DRAM Analysis. A partial solution to alleviate the threat is to run guests on AMD SEV SNP or INTEL TDX.  Those interested in learning more about this topic should refer to \cite*{SEV_SNP_white_book}, \cite*{DBLP:journals/corr/abs-2303-15540}.
-
-
-% \textbf{Lack of protection to guest memory and register states.} Lack of protection to guest memory and register states.  Insufficient protection for guest memory and register states allows non-trusted entities, such as a hypervisor, to access guest secrets, leading to security breaches. 
-% Trusted execution hardware like AMD SEV\cite*{SEV_SNP_white_book} and Intel TDX\cite*{Intel_tdx_whitepaper} address this by encrypting guest memory and registers. However, CQuark does not yet support running on the Trusted execution hardware yet.
-
-
-% \textbf{Paravirtualized filesystem sharing mechanism.} Vanilla Quark uses this mechanism to share files and volumes stored on the host with applications on the guest. Any modifications made by an application on a file will be reflected on the host. This poses a security risk as an attacker could 
-% gain access to the application’s private data by accessing the application's rootfs on the host. A common approach is implementing a guest filesystem shielding layer to protect inbound and outbound guest data. Those interested in learning more about this topic should 
-% refer to \cite*{file_system_shield}.
-
-
-% \textbf{No security guarantee for communications over the Internet (unbounded network access to containers).} The qkernel in Vanilla Quark lacks authentication to network requests and cryptographic protection for transmitted data, resulting in potential unauthorized access to the application or 
-% man-in-the-middle attack\cite*{Man_in_the_middle_attack}. For instance, attackers can use Kubectl port forwarding to connect to an application listening on the target port and acquire the application’s confidential data or service. A possible solution is implementing a guest network shield that leverages TLS to authorize 
-% incoming network requests and provides cryptographic protection for incoming and outgoing data. However, this thesis does not cover this type of vulnerability, and readers are encouraged to refer to reference \cite*{network_shiled}.
-
-% \textbf{Side channel attack.} Side channels, such as TLB side channel\cite*{217454}, cache side channel\cite*{7163050}, ciphertext side channel\cite*{274707} , and page-fault side-channel\cite*{236278}, can jeopardize the confidentiality of programs.  This type of vulnerability is considered out of the scope.
 
 
 

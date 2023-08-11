@@ -21,7 +21,7 @@
 %\ldots design \ldots
 
 %\todo{write design}
-This chapter will present a shielding layer design to mitigate the vulnerabilities found in security analysis over OCI runtime interface (refer to Section~\ref{sec:security_analyse_oci_summary}). The shielding layer consists of the remote attestation and provisioning infrastructure, CVM runtime measurement manager, the EXEC request checker, 
+This chapter will present a shielding layer design to mitigate the vulnerabilities of the OCI runtime interface listed in Section~\ref{sec:security_analyse_oci_summary}. The shielding layer consists of the remote attestation and provisioning infrastructure, CVM runtime measurement manager, the EXEC request checker, 
 guest process STDIO protector, system call interceptor, and guest log manager. The remote attestation and provisioning infrastructure offers a secure mechanism for managing and deploying secrets. This mechanism can be employed to mitigate vulnerabilities~\ref{vulnerability:1}, and~\ref{vulnerabilities:6} (a). The CVM runtime measurement manager measures the data 
 loaded by the host, such as application binary and shared libraries. These measurements will be used by the shield to conduct integrity checks. Thus, vulnerabilities~\ref{vulnerabilities:4} (b) and~\ref{vulnerabilities:6} (b)  will be solved. The EXEC request checker will authenticate and do access control over the EXEC 
 requests, thereby mitigating vulnerability~\ref{vulnerabilities:3}. Additionally, to address vulnerability~\ref{vulnerabilities:2}, the shield will cryptographically protect the STDIO streams of the guest processes (guest process STDIO protector). Lastly, the system call interceptor and guest log manager propose 
@@ -49,6 +49,11 @@ Subsequently, while the \acrshort{CVM} is running, the shield will deploy applic
 
 
 \section{Quark Attestation and Provisioning Infrastructure}
+
+
+
+Figure~\ref{fig:Qkernel_attestation_infrastructurc} shows the Quark attestation and provisioning infrastructure. It comprises the secret manager, attestation and provisioning agent, secret injector, attestation report system call handler, Qkernel attestation driver, and software measurement manager. It provides the following services:
+
 \label{sec:design_Quark_Attestation_and_Provisioning_Infrastructure}
 
 \begin{figure}[!htb]
@@ -57,11 +62,6 @@ Subsequently, while the \acrshort{CVM} is running, the shield will deploy applic
     \caption[Quark Attestation and Provisioning Infrastructure]{Quark Attestation and Provisioning Infrastructure}
     \label{fig:Qkernel_attestation_infrastructurc}
 \end{figure}
-
-
-Figure~\ref{fig:Qkernel_attestation_infrastructurc} shows the Quark attestation and provisioning infrastructure. It comprises the secret manager, attestation and provisioning agent, secret injector, attestation report system call handler, Qkernel attestation driver, and software measurement manager. It provides the following services:
-
-
 This infrastructure enables the secure deployment of secrets during application startup. Before the application process is launched, the remote attestation and provisioning agent uses the KBS attestation protocol~\cite*{kbs_Attestation_protocol} to prove its identity to the secret manager and retrieve secrets, which includes shield policy and application 
 secrets (e.g., startup parameters, environment variables, and files). The TEE hardware generates the attestation report required in the protocol with the help of the Qkernel attestation driver. This report contains the shield startup hash. This hash includes measurements made by the software measurement manager on data loaded from the host, such as 
 the application binary and the Qkernel configuration file. The secret manager will compare the shield startup hash with a reference value provided by the application owner to ensure that the application and CVM are correctly configured. Once the shield obtains secrets, it utilizes the shield policy to initialize itself. The application’s secrets are 
@@ -122,7 +122,7 @@ The format of the SEV-SNP report is shown in Figure~\ref*{fig:attestation_report
 \end{figure}
 
 The secret manager can verify the report's signature using the certificate chain required by AMD KDC~\cite*{snp_kdc}. By checking the measurements of the virtual machine boot process, the secret manager can confirm that the CVM is using the correct Qkernel binary because the Qkernel is loaded into the CMV memory by Qvisor using 
-\todo{new font for the defination} SNP\_LAUNCH\_UPDATE~\cite*{snp_firmware} before VM boot. Notably, the code of the shielding layer is part of the Qkernel binary.
+\texttt{SNP\_LAUNCH\_UPDATE}~\cite*{snp_firmware} before VM boot. Notably, the code of the shielding layer is part of the Qkernel binary.
 
 The user-defined data in the report is a hash of the shield startup hash and metadata required by the KBS protocol~\cite*{kbs_Attestation_protocol}. These metadata include a RAS public key representing the identity of the \acrshort{CVM} and an attestation challenge assigned by the secret manager. An explanation of these metadata can be found in Section~\ref{sec:kbs}. The software measurement 
 manager creates the shield startup hash and incorporates all the sensitive data that the \acrshort{CVM} loads from the host after the \acrshort{CVM} starts. This includes Qkernel command line argument (i.e., Qkernel configuration file~\cite*{quark_conf_file}), binaries, shared libraries, and the public key of the secret manager. By comparing the shield startup hash
@@ -172,8 +172,9 @@ correctly initialized the shielding layer. In other words, if the shielding laye
     \caption[\acrshort{CVM} runtime measurement]{\acrshort{CVM} runtime measurement}
     \label{fig:soft_ware_manager_meausrment}
 \end{figure}
-\acrshort{CVM} runtime measurements are crucial due to the vulnerability~\ref{vulnerabilities:6} in  OCI runtime interface~\cite*{oci-runtime-spec}. However, the AMD SEV-SVP~\cite*{SEV_SNP_white_book} does not support VM runtime measurements~\cite*{snp_firmware}, and the Intel TDX only allocates four registers for this purpose~\cite*{Intel_tdx_whitepaper}. Consequently, we provide a software measurement 
-manager in the shielding layer to measure the data loaded from the host while the \acrshort{CVM} is running. As shown in Figure~\ref{fig:soft_ware_manager_meausrment}, The software measurement manager provides shield startup hash, runtime hash, application startup reference hash, and application restart hash.
+\acrshort{CVM} runtime measurements are crucial due to the vulnerability~\ref{vulnerabilities:4} (b) and~\ref{vulnerabilities:6} (b) of the  OCI runtime interface~\cite*{oci-runtime-spec} summarized in Section~\ref{sec:security_analyse_oci_summary}. However, the AMD SEV-SVP~\cite*{SEV_SNP_white_book} 
+does not support VM runtime measurements~\cite*{snp_firmware}, and the Intel TDX only allocates four registers for this purpose~\cite*{Intel_tdx_whitepaper}. Consequently, a software measurement 
+manager is designed to measure the data loaded from the host while the \acrshort{CVM} is running. As shown in Figure~\ref{fig:soft_ware_manager_meausrment}, the software measurement manager provides shield startup hash, runtime hash, application startup reference hash, and application restart hash.
 
 \textbf{Shield startup hash.} This value refers to the measures of host-loaded data from the \acrshort{CVM} start until finishing loading the application binary (refer to Figure~\ref{fig:soft_ware_manager_meausrment}). The measured data includes the secret manager's public key, the Qkernel's configuration file, the application's binary, and multiple binaries and 
 shared libraries loaded to set up the application environment. Notably, since Kubernetes requires launching a Pause container as a sandbox container before creating the application container~\cite*{cri_plugin_arch}, the shield startup hash also contains a measurement of the binaries and shared libraries loaded when the pause container was created. The attestation 
@@ -201,9 +202,9 @@ application's first startup. This hash is a subset of the shield startup hash.
 ]
 \end{lstlisting}
 
-The shield offers two modes: Production and Development\todo{new font}. As illustrated in Listing~\ref{lst:shiled_policy_measyrement}, the application owner can determine the mode by utilizing the \emph{shield\_mode} keyword in the shield policy. In Production\todo{new font} mode, the reference values in the shield policy will be used for checking the correctness 
-of the shield startup hash and runtime hashes obtained from the software measurement manager. To get these reference values, the application owner should set the \emph{shield\_mode} to Development\todo{new font} and run \acrshort{CVM} in a trusted environment. 
-In this case, the software measurement manager will print the shield startup hash and runtime hashes to the Qkernel log on the host, which can be used as reference hashes.
+The shield supports two modes: \texttt{Production} and \texttt{Development}. As illustrated in Listing~\ref{lst:shiled_policy_measyrement}, the application owner can specifies the mode by utilizing the \emph{shield\_mode} keyword in the shield policy. In \texttt{Production} mode, the reference 
+values in the shield policy will be used for checking the correctness of the shield startup hash and runtime hashes obtained from the software measurement manager. To get these reference values, the application owner should set the \emph{shield\_mode} to \texttt{Development} and run 
+\acrshort{CVM} in a trusted environment. In this case, the software measurement manager will print the shield startup hash and runtime hashes to the Qkernel log on the host, which can be used as reference hashes.
 
 
 \section{New Pattern for EXEC Requests}
@@ -216,7 +217,7 @@ In this case, the software measurement manager will print the shield startup has
 \end{figure}
 
 
-A new pattern for EXEC requests is proposed to address issue~\ref{vulnerabilities:3} identified in the security analysis. As illustrated in Figure~\ref{fig:new_pattern_of_exec}, The design divides EXEC requests into two categories, namely privileged and unprivileged EXEC requests. 
+A new pattern for EXEC requests is proposed to address issue~\ref{vulnerabilities:3} of the OCI runtime interface listed in Section~\ref{sec:security_analyse_oci_summary}. As illustrated in Figure~\ref{fig:new_pattern_of_exec}, the design divides EXEC requests into two categories, namely privileged and unprivileged EXEC requests. 
 Privileged EXEC requests are issued by privileged users (i.e., application owners), while untrusted entities issue unprivileged requests. An untrusted entity here refers to someone other than the application owner. Privileged and non-privileged users send privileged or non-privileged requests to the \acrshort{CVM} using \emph{securectl} or \emph{kubectl}, 
 respectively. Both requests are redirected to the \acrshort{CVM} through the Kubernetes~\cite*{k8s}. Upon receiving an EXEC request, the Quark agent forwards it to the EXEC request checker. According to the shield policy, the EXEC request checker will authenticate and access control the request. The Quark agent will decide whether to create the 
 EXEC process based on the result returned by the EXEC request checker.
@@ -253,11 +254,12 @@ EXEC process based on the result returned by the EXEC request checker.
 "enable_policy_updata": false,
 \end{lstlisting}
 
-Listing~\ref*{lst:shiled_policy_exec} highlights the configuration for EXEC request checker in the shield policy. Each privilege level possesses an allowlist of commands \emph{allowed\_cmd} and an allowlist of directories \emph{allowed\_dir}. The command allowlist specifies what commands the user can issue, while the 
-directory allowlist controls which directories a command can access. When an EXEC request is received, the EXEC checker examines all path-like strings in the command argument and verifies if they exist in the directory allowlist. If a command has no arguments, the EXEC checker checks whether the current working directory of 
-the command is a subpath of a directory in the directory allowlist so that the command can only be executed in some specific directories. Notably, directory allowlist does not apply to terminal allocation commands like \emph{/bin/sh}, \emph{/bin/bash}, and \emph{sh}. This permits users to allocate a terminal 
-from any directory. For instance, the policy in Listing~\ref*{lst:shiled_policy_exec} enables privileged users to issue \emph{cat}, \emph{ls}, and \emph{/bin/sh} commands. The \emph{cat} and \emph{ls} commands are restricted to the \textbf{/var} directory and its subdirectories. Therefore, any attempt to execute commands in other directories (e.g., 
-\emph{cat /} and \emph{cat /bin}) will be denied. On the other hand, since \emph{/bin/sh} is included in the command allowlist, privileged users can allocate a terminal. Moreover, if a privilege level's command allowlist is empty, all commands issued by the user with this privilege level will be rejected.
+Listing~\ref*{lst:shiled_policy_exec} highlights the configuration for EXEC request checker in the shield policy. Each privilege level possesses a command allowlist \emph{allowed\_cmd} and a directory allowlist \emph{allowed\_dir}. The command allowlist specifies what commands the user can issue, while the 
+directory allowlist controls which directories a command can access. When an EXEC request is received, the EXEC checker examines all path-like strings in the command argument and verifies if they exist in the directory allowlist. If a command has no arguments, the EXEC checker checks whether the 
+current working directory of the command is a subpath of a directory in the directory allowlist so that the command can only be executed in some specific directories. Notably, directory allowlist does not apply to terminal allocation commands like \texttt{/bin/sh}, \texttt{/bin/bash}, and \texttt{sh}. 
+This permits users to allocate a terminal from any directory. For instance, the policy in Listing~\ref*{lst:shiled_policy_exec} enables privileged users to issue \texttt{cat}, \texttt{ls}, and \texttt{/bin/sh} commands. The \texttt{cat} and \texttt{ls} commands are restricted to the \texttt{/var} directory 
+and its subdirectories. Therefore, any attempt to execute commands in other directories (e.g., 
+\texttt{cat /} and \texttt{cat /bin}) will be denied. On the other hand, since \texttt{/bin/sh} is included in the command allowlist, privileged users can allocate a terminal. Moreover, if a privilege level's command allowlist is empty, all commands issued by the user with this privilege level will be rejected.
 
 \begin{figure}[!htb]
     \centering
@@ -280,10 +282,10 @@ this, the algorithm utilizes the command's current working directory to convert 
     \caption[Frame structure  for protecting privileged exec request]{Frame structure  for protecting privileged exec request}
     \label{fig:exec_frame}
 \end{figure}
-The frame structure shown in Figure~\ref{fig:new_pattern_of_exec} protects privileged commands and distinguishes them from non-privileged commands. The frame structure encapsulates the string "Privileged," the AES-GCM encrypted payload, the AES-GCM~\cite*{aes_gcm} random number (nonce) used for payload decryption, and the authentication tag. 
-The plaintext payload contains the keyword "Privileged," the session ID, a counter,  a Linux command, and its parameters. Kubernetes and the OCI runtime specification require that commands and their parameters in EXEC requests be passed as a vector of strings. For example, ["cat", "/var/log"]~\cite*{k8s}. As such, 
-the encrypted payload, nonce, and tag in the frame structure are encoded in base64, and the frame is passed as a string array to the \acrshort{CVM} via the Kubernetes API. Note that the string array is part of the EXEC request process configuration called args (See section\ref{subsec:oci_exec}). Upon receiving an EXEC request, 
-the EXEC request checker can determine if the request is privileged by viewing the first element of the arg array. If the element is the keyword Privileged", the request will be classified as privileged.
+The frame structure shown in Figure~\ref{fig:new_pattern_of_exec} protects privileged commands and distinguishes them from non-privileged commands. The frame structure encapsulates the string \texttt{Privileged}, the AES-GCM encrypted payload, the AES-GCM~\cite*{aes_gcm} random number (nonce) used 
+for payload decryption, and the authentication tag. The plaintext payload contains the keyword \texttt{Privileged}, the session ID, a counter,  a Linux command, and its parameters. Kubernetes and the OCI runtime specification require that commands and their parameters in EXEC requests be passed as 
+a vector of strings. For example, ["cat", "/var/log"]~\cite*{k8s}. As such, the encrypted payload, nonce, and tag in the frame structure are encoded in base64, and the frame is passed as a string array to the \acrshort{CVM} via the Kubernetes API. Note that the string array is part of the EXEC request process configuration called args (See section\ref{subsec:oci_exec}). Upon receiving an EXEC request, 
+the EXEC request checker can determine if the request is privileged by viewing the first element of the arg array. If the element is the keyword \texttt{Privileged}, the request will be classified as privileged.
 
 AES-GCM~\cite*{aes_gcm} ensures the confidentiality, authenticity, and integrity of privileged commands and their arguments. Besides, it is easy to deploy, requiring only a shared key. After a successful remote attestation, a key is shared between the application owner and the \acrshort{CVM}. The application owner can 
 use this key to encrypt privileged commands and their parameters. When the \acrshort{CVM} receives a privileged request, the EXEC request checker can use the key to confirm that the request was generated by a privileged user who knows the key (authentication), verify the request's integrity, and decrypt the 
@@ -291,7 +293,7 @@ request.
 
 
 The monotonic counter and session are designed to prevent reply attacks. The counter is assigned by the \acrshort{CVM}'s shield to a privileged user. When the value of the monotonic counter in an EXEC request is smaller than the reference value stored in the \acrshort{CVM}, the request will be rejected. Since there may be 
-more than one privileged user, it is hard to share the counter. Therefore, we introduce sessions. In this case, the shield will assign each privileged user a random session id and a unique counter. This id and counter are stored in the \acrshort{CVM}'s memory and will be sent to a privileged user via a secure channel. 
+more than one privileged user, it is hard to share the counter. Therefore, the session is introduced. In this case, the shield will assign each privileged user a random session id and a unique counter. This id and counter are stored in the \acrshort{CVM}'s memory and will be sent to a privileged user via a secure channel. 
 The privileged user can use the session id and counter to construct a privileged EXEC request. Note that the counter is added by one after each EXEC request. With the session and counter, the following two reply attacks are avoided. First, the attacker sends a request that belongs to an illegal session, 
 i.e., the shield does not store the session id. Second, the attacker has sent an outdated request to the \acrshort{CVM}. This means that the counter value in a request is less than the current counter value recorded by the shield for the requested session ID. In this case, the shield will refuse the EXEC request.
 
@@ -317,17 +319,18 @@ i.e., the shield does not store the session id. Second, the attacker has sent an
 \end{figure}
 
 
-Figure~\ref{fig:session_policy} (a) demonstrates how a privileged user gets a session. The privileged user submits a login request using \emph{securectl} to the \acrshort{CVM} in the login phase. The login request is a privileged EXEC request with the format visualized in Figure~\ref{fig:session_policy} (b). Instead of an actual Linux command, the keyword Login and a random number 
-are used as the command and parameter. The random number is used to prevent reply attacks. After the EXEC request checker verifies and decrypts the encrypted payload, it checks the command in the payload. If the command is the keyword Login, it assigns a session ID and a unique counter to the privileged user. 
-These two values are stored in the \acrshort{CVM}'s memory and returned to \emph{securectl} securely. Specifically, it creates a process when that EXEC request is received. However, the keyword "Login" is not a Linux command. Thus, the shield replaces the command executed by the EXEC process with \emph{ls} Once the process 
-completes running \emph{ls} and writes the result to its STDOUT, the STDIO shield will intercept the data and replaces it with the session ID and counter. Since the login request is privileged, the STDIO shield will encrypt the data before sending it to the user. 
+Figure~\ref{fig:session_policy} (a) demonstrates how a privileged user gets a session. The privileged user submits a login request using \emph{securectl} to the \acrshort{CVM} in the login phase. The login request is a privileged EXEC request with the format visualized in Figure~\ref{fig:session_policy} (b). Instead of an actual Linux command, the keyword \texttt{Login} and a random number 
+are used as the command and parameter. The random number is used to prevent reply attacks. After the EXEC request checker verifies and decrypts the encrypted payload, it checks the command in the payload. If the command is the keyword \texttt{Login}, it assigns a session ID and a unique counter to the privileged user. 
+These two values are stored in the \acrshort{CVM}'s memory and returned to \emph{securectl} securely. Specifically, it creates a process when that EXEC request is received. However, the keyword \texttt{Login} is not a Linux command. Thus, the shield replaces the command executed by the EXEC process 
+with \texttt{ls}. Once the process 
+completes running \texttt{ls} and writes the result to its STDOUT, the STDIO shield will intercept the data and replaces it with the session ID and counter. Since the login request is privileged, the STDIO shield will encrypt the data before sending it to the user. 
 
 When the keyword \emph{enabale\_policy} is true in the shield policy (refer to Listing~\ref{lst:shiled_policy_exec}), privileged users can use \emph{securectl} to update the shield policy. Similar to the session allocation request, the policy is updated by sending a privilege-level command to the \acrshort{CVM}. The format of the command can be found 
-in~\ref{fig:session_policy} (c). Unlike the session request's payload, it uses the keyword policy-update as the command, with the new shield policy as the command's argument
+in~\ref{fig:session_policy} (c). Unlike the session request's payload, it uses the keyword \texttt{policy-update} as the command, with the new shield policy as the command's argument
 
 \section{Guest User Space Process STDIO Protection}
 \label{sec:design_STDIO_PROTECTION}
-A guest user-space process STDIO shield is proposed to tackle the vulnerability~\ref{vulnerabilities:2} found in the security analysis of the OCI runtime interface. The following explains how the STDIO shield protects the STDIO of non-interactive and interactive processes. It is important to note that privileged processes refer to 
+A guest user-space process STDIO shield is proposed to tackle the vulnerability~\ref{vulnerabilities:2} of the OCI runtime interface listed in Section~\ref{sec:security_analyse_oci_summary}. The following explains how the STDIO shield protects the STDIO of non-interactive and interactive processes. It is important to note that privileged processes refer to 
 both the application process and processes executing privileged EXEC commands. The distinction between interactive and non-interactive processes lies in their STDIO, specifically whether it is of terminal type. 
 
 
@@ -425,12 +428,12 @@ non-interactive privilege processes. When \emph{interactive\_porcess\_stdout\_er
     \label{fig:syscall_interceptor}
 \end{figure}
 A system call interceptor is implemented in Qkernel, as illustrated in Figure~\ref{fig:syscall_interceptor}. When a guest system call is invoked, the CPU jumps to the guest system call entry point. This entry point is responsible for finding the system call handler in the Qkernel based on the system 
-call ID. However, before it does so, it must call the interceptor. The interceptor decides whether the system call is allowed based on its configuration in the shield policy. If the system call is not permitted, the guest system call entry point returns EPERM\todo{new font} instead of calling the 
+call ID. However, before it does so, it must call the interceptor. The interceptor decides whether the system call is allowed based on its configuration in the shield policy. If the system call is not permitted, the guest system call entry point returns \texttt{EPERM} instead of calling the 
 system call handler. 
 
-The interceptor's configuration is shown in Listing~\ref{lst:shiled_policy_interceptor}. The keyword \emph{enable} determines whether the interceptor is enabled. The keyword \emph{mode} specifies the system interceptor's mode: ContextBased or GlobalBased\todo{new font}. In GlobalBased\todo{new font} mode, the interceptor 
-functions across all guest processes, while in ContextBased\todo{new font} mode, it operates exclusively for the application process. Considering the potential presence of multiple processes in the guest user space, it is strongly recommended to employ GlobalBased mode\todo{new font}. Currently, the system 
-interceptor supports only the action, ScmpActErrno\todo{new font}, which entails rejecting system calls when their IDs are absent from the allowlist termed \emph{syscalls}. Additionally, since the shield policy is securely deployed into the \acrshort{CVM} along with the application secrets, 
+The interceptor's configuration is shown in Listing~\ref{lst:shiled_policy_interceptor}. The keyword \emph{enable} determines whether the interceptor is enabled. The keyword \emph{mode} specifies the system interceptor's mode: \texttt{ContextBased} or \texttt{GlobalBased}. In \texttt{GlobalBased} mode, the interceptor 
+functions across all guest processes, while in \texttt{ContextBased} mode, it operates exclusively for the application process. Considering the potential presence of multiple processes in the guest user space, it is strongly recommended to employ \texttt{GlobalBased} mode. Currently, the system 
+interceptor supports only the action, \texttt{ScmpActErrno}, which entails rejecting system calls when their IDs are absent from the allowlist termed \emph{syscalls}. Additionally, since the shield policy is securely deployed into the \acrshort{CVM} along with the application secrets, 
 untrusted entities (e.g., Quark shim) cannot tamper with the configuration of the system call interceptor in the shield policy. This ensures that the system call interceptor works correctly.
 
 \begin{lstlisting}[language=json, caption= System call interceptor's configuration in the shield policy, label={lst:shiled_policy_interceptor}]
@@ -446,9 +449,9 @@ untrusted entities (e.g., Quark shim) cannot tamper with the configuration of th
 
 \section{Qkernel Log Manager}
 \label{sec:Qkernel_logger}
-A Qkernel log manager is implemented to address issue \ref{vulnerabilities:6} (c). It can be configured utilizing the shield policy, exemplified in Listing~\ref{lst:shiled_policy_log}. The keyword \emph{enable} determines whether the manager is enabled. When set to false, the Qkernel log system employs the logging level specified in 
-the Qkernel configuration file~\cite*{quark_conf_file}. Furthermore, the keyword \emph{allowed\_max\_log\_level} designates the maximum log level Qkernel can print. As discussed in Section~\ref{sec:VM_Misconfiguration}, Qkernel supports five log levels. For instance, when \emph{allowed\_max\_log\_level} is set to INFO\todo{new font}, Qkernel is exclusively 
-restricted to printing logs at the INFO\todo{new font}, and ERROR\todo{new font} levels. Notably, the Qkernel log manager is enabled and employs the log level OFF\todo{new font} before the \acrshort{CVM} obtains the policy from the secret manager.
+A Qkernel log manager is implemented to address issue \ref{vulnerabilities:6} (c) of the OCI runtime interface listed in Section~\ref{sec:security_analyse_oci_summary}. It can be configured utilizing the shield policy, exemplified in Listing~\ref{lst:shiled_policy_log}. The keyword \emph{enable} determines whether the manager is enabled. When set to false, the Qkernel log system employs the logging level specified in 
+the Qkernel configuration file~\cite*{quark_conf_file}. Furthermore, the keyword \emph{allowed\_max\_log\_level} designates the maximum log level Qkernel can print. As discussed in Section~\ref{sec:VM_Misconfiguration}, Qkernel supports five log levels. For instance, when \emph{allowed\_max\_log\_level} is set to \texttt{INFO}, Qkernel is exclusively 
+restricted to printing logs at the \texttt{INFO}, and \texttt{ERROR} levels. Notably, the Qkernel log manager is enabled and employs the log level \texttt{OFF} before the \acrshort{CVM} obtains the policy from the secret manager.
 
 \begin{lstlisting}[language=json, caption= Qkernel log manager's configuration in the shield policy, label={lst:shiled_policy_log}]
 "qkernel_log_config": {
@@ -462,7 +465,7 @@ restricted to printing logs at the INFO\todo{new font}, and ERROR\todo{new font}
 \label{sec:Modification_OCI}
 
 \subsection{Extending the container lifecycle to support confidential computing}
-The container lifecycle definition in the OCI RUNTIME specification~\cite*{oci-runtime-spec} lacks support for confidential computing. This section first defines container runtime and enclave in the context of confidential computing. Then it will propose modifications to the container 
+The container lifecycle definition in the OCI runtime specification~\cite*{oci-runtime-spec} lacks support for confidential computing. This section first defines container runtime and enclave in the context of confidential computing. Then it will propose modifications to the container 
 lifecycle.
 
 
@@ -473,7 +476,7 @@ For example, in the Kata containers~\cite*{Kata-Containers}, these three compone
 as untrusted runtime components, including the shim and hypervisor. In addition, the enclave is referred to as a trusted execution environment that runs containers. In the case of VM containers, the enclave is the  CVM that contains the agent, guest kernel, applications, etc.
 
 \subsubsection{Modification to Container Lifecycle}
-The following changes are made to the container lifecycle. Note that the bold text in the list is the part we modified; the rest is copied from OCI runtime specification~\cite*{oci-runtime-spec}.
+The following changes are made to the container lifecycle. Note that the bold text in the list is the part modified by the thesis; the rest is copied from OCI runtime specification~\cite*{oci-runtime-spec}.
 
 \begin{enumerate}
     \item OCI compliant runtime's create command is invoked with a reference to the location of the bundle and a unique identifier.
@@ -513,8 +516,8 @@ The following changes are made to the container lifecycle. Note that the bold te
    
   The STDIO protection hook should be invoked when an application or a privileged exec process reads or writes its STDIO. It encrypts the privileged process's STDIN, STDOUT, and STDERR based on policy obtained from relying party by the attestation and provisioning hook. A reference design can be found in Section~\ref{sec:design_STDIO_PROTECTION}.
    
-  The attestation and provisioning hook, runtime measurement hook, and STDIO protection hook may be included as part of the enclave's operating system or loaded from the host after the enclave starts. In the former case, these hooks will be measured by the \acrshort{TEE} hardware or bootloader. In the latter case, The application launch measurement hook should measure 
-  these hooks. 
+  The attestation and provisioning hook, runtime measurement hook, and STDIO protection hook may be included as part of the enclave's operating system or loaded from the host after the enclave starts. In the former case, these hooks will be measured by the \acrshort{TEE} hardware or bootloader. In 
+  the latter case, the application launch measurement hook should measure these hooks. 
 \subsection{EXEC Operating Guidelines}
 \label{subsec:oci_exec}
 The OCI runtime specification intentionally refrains from standardizing the EXEC operation to provide developers with flexibility~\cite*{exec_semantics}. However, in confidential computing scenarios, the EXEC operation allows attackers to acquire application secrets, thereby compromising confidentiality. Thus, the thesis advocates for the 
@@ -540,7 +543,7 @@ This avoids tampering with this file by an untrusted runtime. A reference design
 
 \subsection{Enclave runtime configuration}
 
-As discussed in Section~\ref{sec:security_analyse_oci_vm}, the enclave (i.e., container namespace) must be properly configured. For a VM container, this includes properly configuring the VM's logging system, loading the correct guest kernel, and guest kernel parameters. The VM can use a configuration file loaded from the host to initialize the logging system 
+As discussed in Section~\ref{sec:security_analyse_oci_vm}, the enclave (i.e., container namespace) must be properly configured. This includes properly configuring the VM's logging system and loading the correct guest kernel and guest kernel parameters for a VM container. The VM can use a configuration file loaded from the host to initialize the logging system 
 and add the measurement of the file to the attestation evidence of the attestation and provisioning hook. On the other hand, the VM could also initialize the logging system using a configuration file obtained from a relying party by the attestation and provisioning hook. The solution to choose is implementation specific. For guest kernels and guest kernel parameters, their 
 measurements should also be added to the attestation evidence of the attestation and provisioning hook so that the relying party can verify their integrity.
   
