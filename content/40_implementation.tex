@@ -161,7 +161,7 @@ impl SecretKeeper {
 }   
 \end{lstlisting}
 
-Function \emph{set\_secrets\_mount\_info} records information about the application's file system, which can be used to create a sub-filesystem for the file type secrets. As discussed in Section~\ref{sec:design_Quark_Attestation_and_Provisioning_Infrastructure}, the file system is mounted under 
+The function \emph{set\_secrets\_mount\_info} records information about the application's file system, which can be used to create a sub-filesystem for the file type secrets. As discussed in Section~\ref{sec:design_Quark_Attestation_and_Provisioning_Infrastructure}, the file system is mounted under 
 directory \textbf{/secret}. Mounting the file system is facilitated by the function \emph{inject\_file\_based\_secret\_to\_secret\_file\_system}, which calls the function \emph{MountSubmounts} in Qkernel. The function \emph{bookkeep\_secrets} stores the application's secrets in the \emph{SecretKeeper}. 
 Additionally, since the command-line and environment variable type secrets are pushed onto the application's stack,  \emph{SecretKeeper} does not implement any function to deploy these types of secrets.
 
@@ -190,20 +190,16 @@ directory \textbf{/secret}. The secret inode also adopts the \emph{InodeOperatio
 stored in \emph{SecretKeeper}. Moreover, the file does not implement \emph{WriteAt}, as the secret sub-filesystem is read-only.
 
 \begin{lstlisting}[language=rust, caption= Interface for accessing the file type secrets, label={lst:accessing_file}]
-
 pub trait InodeOperations: Sync + Send {
     fn Lookup(&self, task: &Task, dir: &Inode, name: &str) -> Result<Dirent>;
     fn GetFile(&self, task: &Task, dir: &Inode, dirent: &Dirent, flags: FileFlags) -> Result<File>;
     ...
 }
-
 pub trait FileOperations: Sync + Send + Waitable + SockOperations + SpliceOperations {
     fn WriteAt(&self,　task: &Task,　f: &File,　srcs: &[IoVec]，offset: i64,_blocking: bool) -> Result<i64>;
     fn ReadAt(&self,task: &Task,f: &File, dsts: &mut [IoVec],offset: i64, _blocking: bool,) -> Result<i64>;
     ...
 }
-    
-      
 \end{lstlisting}
 
 \subsection{Attestation Driver}
@@ -213,7 +209,7 @@ Once Qkernel supports AMD SEV-SNP, the driver can operate directly with the AMD 
 
 
 Guest and AMD firmware are communicating following SEV-SNP guest messages protocol~\cite*{snp_firmware}. During initialization, AMD firmware adds a secret page to the guest's private memory. This page contains four keys, namely, \texttt{VMPCK0-3}~\cite*{snp_firmware}, which the guest and the 
-AMD firmware share. Using the \texttt{VMPCK},  the guest can initiate an SEV-SN guest request with an encrypted payload and relay the request to the SNP through the hypervisor. Subsequently, the SNP firmware decrypts the request with the proper \texttt{VMPCK} and completes the request. 
+AMD firmware share. Using the \texttt{VMPCK},  the guest can initiate a SEV-SNP guest request with an encrypted payload and relay the request to the SNP through the hypervisor. Subsequently, the SNP firmware decrypts the request with the proper \texttt{VMPCK} and completes the request. 
 These requests include generating a key, creating an attestation report, etc. The key and report are encrypted by \texttt{VMPCK} and returned to the guest via the SNP response. The guest can decrypt the response to get the corresponding data.
 
 \begin{figure}[htp]
@@ -313,7 +309,7 @@ If it does, the manager sets the measurement length to the file size of the shar
 
 
 
-After creating the last \acrshort{VMA}, the interpreter executes the close system call to release the shared library's file descriptor. The system call handler, in turn, notifies the software measurement manager that the library loading is completed. The  manager then obtains the measurement 
+After creating the last \acrshort{VMA}, the interpreter executes the close system call to release the shared library's file descriptor. The system call handler, in turn, notifies the software measurement manager that the library loading is completed. The manager then obtains the measurement 
 result of the shared library from the map. The manager will process the result differently depending on the library's loading timing, as discussed in Section~\ref{sec:Enclave_Runtime_Measurement}.
 \subsection{Other Measurements}
 The software measurement manager uses the SHA-512 hash function. This function accepts an array of bytes and returns a hash. Since the Qkernel configuration file is a structure, the software manager first serializes it into a JSON string and then converts it into a byte array. The array will 
@@ -388,7 +384,7 @@ the EXEC ID to retrieve a legitimate EXEC request's metadata and create the corr
 \begin{figure}[!htb]
     \centering
     \includegraphics[width=0.8\textwidth]{images/exec_req_authentication_flow_chart.png}
-    \caption[EXEC cheker workflow]{EXEC cheker workflow}
+    \caption[EXEC checker workflow]{EXEC checker workflow}
     \label{fig:exec_req_authentication_flow_chart}
 \end{figure}
 
@@ -424,7 +420,7 @@ Like the \emph{encrypNormalIOStdouterr} function, the function in Listing~\ref{l
 \section{System Call Interceptor}
 \label{sec:impl_interceptor}
 The three functions in the Listing~\ref{lst:Interceptor} are responsible for updating the interceptor’s policy at runtime, initializing the interceptor’s policy at \acrshort{CVM} startup, and determining whether a system call is allowed. When the interceptor operates in \texttt{ContextBased} mode, 
-the \emph{is\_guest\_syscall\_allowed} function utilizes the application process id stored in the structure \emph{GuestSyscallInterceptor} to identify whether a process is the application process. To prevent competition between the three functions accessing the interceptor's policy, the interceptor is 
+the \emph{is\_guest\_syscall\_allowed} function utilizes the application process ID stored in the structure \emph{GuestSyscallInterceptor} to identify whether a process is the application process. To prevent competition between the three functions accessing the interceptor's policy, the interceptor is 
 protected by RwLock. Additionally, the \emph{BackEndSyscallInterceptorConfig} maintains a vector that contains the id of allowed system calls (allowlist). The \emph{is\_guest\_syscall\_allowed} function checks whether a system call's ID is present in this list to determine whether the system call 
 is allowed. It is important to note that accessing this allowlist has an O(n) time complexity.
 
@@ -471,7 +467,4 @@ This chapter explained how the design in Chapter~\ref{sec:design} was implemente
 
 
 
-%%% Local Variables:
-%%% TeX-master: "diplom"
-%%% End:
 

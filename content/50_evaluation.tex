@@ -98,7 +98,7 @@ Figure~\ref{fig:analysis_Secure_Application_Deployment} (a) shows that the \acrs
 between the shield startup hash and the reference hash \emph{shield\_startup\_ref\_measurement} specified in the shield policy (Figure~\ref{fig:generic_policy}). The shield startup hash includes the measurement for binaries and shared libraries loaded during application setup, 
 Qkernel configuration files, etc. (refer to Section~\ref{sec:Enclave_Runtime_Measurement}). As depicted in Figure~\ref{fig:analysis_Secure_Application_Deployment} (b), the \acrshort{CVM} successfully retrieves the secret from the secret manager and prints them. 
 It's worth noting that the directory \texttt{/secret} remains invisible from the host (as seen in Figure~\ref{fig:analysis_Secure_Application_Deployment} (c)), as file type secrets and the filesystem mounted under the \texttt{/secret} directory are within the \acrshort{CVM}. 
-Therefore, the security issue~\ref{vulnerability:1} of OCI runtime interface~\cite*{oci-runtime-spec} summarized in Section~\ref{sec:security_analyse_oci_summary} has been effectively resolved.
+Therefore, the security issue~\ref{vulnerability:1} and ~\ref{vulnerabilities:6} (b) of OCI runtime interface~\cite*{oci-runtime-spec} summarized in Section~\ref{sec:security_analyse_oci_summary} have been effectively resolved.
 
 
 \begin{figure}[!htb]
@@ -263,8 +263,8 @@ the application process failed to start. The failure occurred because it lacked 
 \label{sec:eva_qualitativ_runtime_meausre}
 According to the discussion in Section~\ref{sec:Enclave_Runtime_Measurement}, the shield measures the binaries (e.g., shared libraries, command binaries) loaded from the host at application runtime and compares the resulting hashes with the reference hashes in the shield policy.  
 
-Figure~\ref{fig:cquark_runtime_runtime_lib_measurement_demo} shows a measurement demo of the shared library. Regarding the setup, the reference hash of the library \texttt{/lib/x86\_64-linux-gnu/libgcc\_s.so.1} in the shield policy is intentionally set to empty and the maximum logging level of the Qlog manager is configured to \texttt{Info}. Next, 
-the modified policy is deployed to the secret manager. The Qkernel logs in Figure~\ref{fig:cquark_runtime_runtime_lib_measurement_demo} show that the \acrshort{CVM} encountered a crash due to a discrepancy between the measurements of the loaded library and the corresponding reference hash stored in the policy.
+Figure~\ref{fig:cquark_runtime_runtime_lib_measurement_demo} shows a measurement demo of the shared library. Regarding the setup, the reference hash of the library \texttt{/lib/x86\_64-linux-gnu/libgcc\_s.so.1} in the shield policy is intentionally set to empty and the maximum logging level of the 
+Qlog manager is configured to \texttt{Debug}. Next, the modified policy is deployed to the secret manager. The Qkernel logs in Figure~\ref{fig:cquark_runtime_runtime_lib_measurement_demo} show that the \acrshort{CVM} encountered a crash due to a discrepancy between the measurements of the loaded library and the corresponding reference hash stored in the policy.
 
 
 \begin{figure}[!htb]
@@ -289,8 +289,8 @@ reference hash of the \texttt{ls} binary and its actual hash.
 
 
 
-As discussed in Section~\ref{sec:Enclave_Runtime_Measurement}, the shield will measure the binaries and shared libraries during the application rebuild process and comparing the resulting measurement known as application restart hash with the application startup reference hash. Figure~\ref{fig:cquark_application_restart_demo} (a)
-exemplifies this process.
+As discussed in Section~\ref{sec:Enclave_Runtime_Measurement}, the shield will measure the binaries and shared libraries during the application restart process and compare the resulting measurement, known as application restart hash, with the application startup reference hash. 
+Figure~\ref{fig:cquark_application_restart_demo} (a) exemplifies this process.
 \begin{figure}[!htb]
     \subfloat[Application restart workflow\label{fig:app_restart_eva}]{%
     \includegraphics[clip,width=\columnwidth]{images/app_restart_eva.png}%
@@ -305,8 +305,8 @@ exemplifies this process.
 \end{figure}
 
 In this example, the Qlog manager’s max log level is configured to \texttt{Info} and the keywords \texttt{stdin: true} and \texttt{tty: true} are added to the container spec of the YAML file used to deploy the 
-application (Figure~\ref{fig:cquark_deployment}). These keywords keep the application’s stdin open and notify Kubernetes\cite*{k8s} that it should be regarded as a terminal. As shown in Figure~\ref{fig:app_restart_eva}, the application is first created using the modified YAML file. Once the application starts, \emph{kubectl attach -it} is used to 
-attach to the application process and send \texttt{ctrl c} to the CVM. The \texttt{ctrl c} will cause the terminal IO redirection thread sends \texttt{SIGINT} to terminate the application, as discussed in section~\ref{sec:security_analyse_STDIO}. The output of the second \emph{kubectl get} command confirmed that the application had successfully restarted. 
+application (Figure~\ref{fig:cquark_deployment}). These keywords keep the application’s stdin open and notify Kubernetes\cite*{k8s} that it should be regarded as a terminal. As shown in Figure~\ref{fig:cquark_application_restart_demo} (a), the application is first created using the modified YAML file. Once the application starts, \emph{kubectl attach -it} is used to 
+attach to the application process and send \texttt{ctrl c} to the process. The \texttt{ctrl c} will cause the terminal IO redirection thread sends \texttt{SIGINT} to terminate the application, as discussed in section~\ref{sec:security_analyse_STDIO}. The output of the second \emph{kubectl get} command confirmed that the application had successfully restarted. 
 As can be seen from the Qkernel logs shown in Figure~\ref{fig:cquark_application_restart_demo} (b), the shield measured binaries and shared libraries loaded from the host during the application restart. The shield compared the resulting measurements with the application startup reference hash to determine that the binaries and shared libraries loaded during 
 the two startups were consistent.
 
@@ -323,7 +323,7 @@ The above three examples highlighted the ability of the shield to refuse executi
 This section showcased that the system implemented in Chapter~\ref{sec:implementation} could mitigate most vulnerabilities of the OCI runtime interface summarized in Subsection~\ref{sec:security_analyse_oci_summary}. Table~\ref{tab:eva_qualitativ_summary} provides a concise overview of 
 these vulnerabilities, as well as their respective mitigations and corresponding demonstration location.
 
-Subsection~\ref{sec:eva_qualitativ_secure_depl} demonstrated that vulnerability 1 in Table~\ref{tab:eva_qualitativ_summary} is successfully mitigated by offloading secret management and deployment to the secret manager and shield layers. In relation to vulnerability 2, 
+Subsection~\ref{sec:eva_qualitativ_secure_depl} demonstrated that vulnerability 1 in Table~\ref{tab:eva_qualitativ_summary} is successfully mitigated by offloading secret management and deployment to the secret manager and shield. In relation to vulnerability 2, 
 Subsection~\ref{sec:eva_qualitativ_secure_stdio} revealed the STDIO shield's capability to encrypt the STDOUT and STDERR of guest processes, thereby safeguarding the application's logs and execution results of privileged commands. Besides, it is important to note that the STDIO 
 shield does not extend its protection to the terminal (out of the scope). Thus, an attacker can use \emph{kubectl attach} to connect to an interactive application's STDIO and send arbitrary commands. Although the execution results of these commands remain encrypted, 
 the attacker can, for example, deletes the application's confidential data. 
@@ -332,16 +332,15 @@ the attacker can, for example, deletes the application's confidential data.
 The demo in Subsection~\ref{sec:eva_qualitativ_secure_exec} proved that the shield can perform access control and authentication on EXEC requests. Moreover, as depicted in Figure~\ref{fig:cquark_priviled_cmd_result_protection} of the same subsection, privileged commands are encrypted. 
 To this end, vulnerability 3 in Table~\ref{tab:eva_qualitativ_summary} is resolved. It is important to note that vulnerability 4 (a) is not addressed, as it falls outside the scope of the thesis. 
 
-For vulnerability 4 (b), Figure~\ref{fig:analysis_Secure_Application_Deployment} (a) in Subsection~\ref{sec:eva_qualitativ_secure_depl} showed that the secret manager could guarantee the integrity of binaries and shared libraries loaded before application startup by verifying the shield startup 
-hash embedded in the attestation report. Subsection~\ref{sec:eva_qualitativ_runtime_meausre} further demonstrated that the shield could ensure the integrity of binaries and shared libraries loaded at application runtime by measuring these files and comparing the measurements against 
-the reference hashes in the shield policy. Additionally, Subsection~\ref{sec:eva_qualitativ_secure_syscall} showcased that the system calls interceptor rejects read system calls based on the shield policy. The design of the system interceptor can be found in Section~\ref{sec:design_Interceptor}. 
-It successfully mitigates vulnerability 5. 
+For vulnerability 4 (b), Figure~\ref{fig:analysis_Secure_Application_Deployment} (a) in Subsection~\ref{sec:eva_qualitativ_secure_depl} showed that the secret manager could guarantee the integrity of binaries and shared libraries loaded before the application process is launched. 
+This is done by verifying the shield startup hash embedded in the attestation report. Subsection~\ref{sec:eva_qualitativ_runtime_meausre} further demonstrated that the shield could ensure the integrity of binaries and shared libraries loaded during application runtime and restart. 
+Additionally, Subsection~\ref{sec:eva_qualitativ_secure_syscall} showcased that the system calls interceptor rejects read system calls based on the shield policy. The design of the system interceptor can be found in Section~\ref{sec:design_Interceptor}. It successfully mitigates vulnerability 5. 
 
 
 
 Finally, concerning vulnerability 6, Subsection~\ref{sec:eva_qualitativ_secure_log} confirmed the capability of the Qkernel log manager for administrating the VM's logs. Figure~\ref{fig:analysis_Secure_Application_Deployment} (a) in Subsection~\ref{sec:eva_qualitativ_secure_depl} then showed 
 that the integrity of the guest kernel startup parameter could be ensured since it is part of the shield startup hash, which is verified by the secret manager during remote attestation. Besides, the guest kernel (Qkernel)  binary should be measured by the TEE during VM 
-setup and sent to the secret manager as the VM boot measurement in the attestation report for integrity checking. However, due to the lack of TEE support for Quark, the secret manager receives a simulated report containing a dummy VM boot. Consequently, 
+setup and sent to the secret manager as the VM boot measurement in the attestation report for integrity checking. However, due to the lack of TEE support for Quark, the secret manager receives a simulated report containing a dummy VM boot measurement. Consequently, 
 the secret manager cannot verify the integrity of the Qkernel binary. Vulnerability 6 is, therefore, only partially mitigated. 
 
 
@@ -448,69 +447,6 @@ the secret manager cannot verify the integrity of the Qkernel binary. Vulnerabil
 \end{tabularx}}
 \end{table}
 
-% \begin{sidewaystable}
-% \caption{Title}
-
-% \begin{tabularx}{\linewidth}{@{} l LLL @{}}
-%     \toprule 
-%     & Vulnerabilities & Solution & Comment \\
-%     \midrule
-%     \textbf{1} 
-%     & Secrets are managed and deployed by k8s and runtime
-%     & Offload the secret management and deployment to secret manager and the shield
-%     &
-%     \begin{tabitemize}
-%     \item Vulnerability resolved.
-%     \item A demo can be found in section 3.
-%     \end{tabitemize}
-%     \\
-%     \midrule
-%     \textbf{2}
-%     & EXEC operation
-%       \begin{enumerate}[label=(\alph*),left=0pt,nosep]
-%         \item Missing authentication and access control
-%         \item Commands are transmitted by untrusted runtime
-%       \end{enumerate}
-%     & Add EXEC checker in Qkernel and cryptographic protection for privileged commands
-%     &
-%     \begin{tabitemize}
-%     \item Vulnerability resolved.
-%     \item A demo can be found in section~3.
-%     \end{tabitemize}
-%     \\
-%     \midrule
-%     \textbf{3}
-%     & Lack of protection for STDIO of process
-%     & Add STDIO shield in Qkernel
-%     &
-%     \begin{tabitemize}
-%     \item STDIO shield only encrypts STDOUT and STDERR (Demo in Section~3)
-%     \item Protection for STDIO of interactive process (i.e., terminal) is out of the scope
-%     \end{tabitemize}
-%     \\
-%     \midrule
-%     \textbf{4(a)}
-%     & Lack of protection for data written to volume
-%     & Add filesystem shield (Section~3)
-%     &
-%     \begin{tabitemize}
-%     \item Out of the scope
-%     \end{tabitemize}
-%     \\
-%     \midrule%
-%     \textbf{4(b)}
-%     & Loading compromised binary and share library
-%     & Add software measurement manager in Qkernel (Section~3)
-%     &
-%     \begin{tabitemize}
-%     \item Vulnerability resolved
-%     \item Demo can be found in section 3 and 3.
-%     \end{tabitemize}
-%     \\
-%     \bottomrule
-% \end{tabularx}
-
-% \end{sidewaystable}
 
 
 
@@ -528,9 +464,9 @@ The quantitative analysis evaluates the performance of the system implementation
 performance loss of running real-world applications in confidential Quark. The section is structured around the following subsections. 
 
 Subsection~\ref{Hardware_and_Software_Setup} first describes the hardware and software setup for benchmarking. Subsection~\ref{Attestation_Report_Syscall} then evaluates the speed of obtaining three types of attestation reports using a microbenchmark. Subsequently, the latency overhead of the guest system 
-call interceptor is evaluated in Subsection~\ref{bench_Interceptor}. Unlike vanilla Quark, confidential Quark stores file-type secrets on the guest's memory. Therefore, Subsection~\ref{bench_reading_file_secret} estimates the speed at which applications can access file-type secrets in vanilla and confidential Quark.
+call interceptor is evaluated in Subsection~\ref{bench_Interceptor}. Unlike vanilla Quark, confidential Quark stores file-type secrets in the guest's memory. Therefore, Subsection~\ref{bench_reading_file_secret} estimates the speed at which applications can access file-type secrets in vanilla and confidential Quark.
  
-Later, in Subsection~\ref{bench_issuing_Instructions}, the latency benchmark results for issuing commands using kubectl in confidential and vanilla Quark are presented. Also, the speed of sending the same commands in confidential Quark using kubectl and securectl is compared. Then after 
+Later, in Subsection~\ref{bench_issuing_Instructions}, the latency benchmark results for issuing commands using \emph{kubectl} in confidential and vanilla Quark are presented. Also, the speed of sending the same commands in confidential Quark using \emph{kubectl} and \emph{securectl} is compared. Then after 
 estimating the performance of accessing binary-mapped memory regions in Subsection~\ref{accesiing_binary_mapped_memory}. Subsection~\ref{micro_app_start_up} then observes the effect of the number of file type secrets and the size of the measured binary on the application startup time duration.
 
 
@@ -540,7 +476,6 @@ Apache HTTP server benchmarking tool~\cite*{ab} are utilized to measure applicat
 A summary of the quantitative analysis can be found in Subsection~\ref{sec:qualitativ_sum}.
 
 
-% Further details, including the benchmark configuration and results can be found on page XX.
 
 \subsection{Hardware and Software Setup}\label{Hardware_and_Software_Setup}
 
@@ -562,7 +497,7 @@ and the YAML file for the deployment can be found in the repository~\cite*{perf_
 \begin{figure}[!htb]
     \centering
     \includegraphics[width=0.5\textwidth]{images/perf_attestation_report_result.PNG}
-    \caption[Benchmark result of Attestation Report Syscall]{Qkernel Attestation Report Syscall Benchmark Result}
+    \caption[Benchmark result of attestation report syscall]{Qkernel attestation report syscall benchmark Result}
     \label{fig:perf_attestation_report_result}
 \end{figure}
 
@@ -580,15 +515,15 @@ host. This provides a clear understanding of the overhead introduced by the inte
 \begin{figure}[!htb]
     \centering
     \includegraphics[width=0.5\textwidth]{images/ben_results_syscall_interceptor.PNG}
-    \caption[Benchmark result of Syscall Interceptor]{Latency comparison of executing system calls in confidential VS vanilla Quark. The latency is thereby measured using the guest system call \emph{clock\_gettime(monotonic)}. 
+    \caption[Benchmark result of Syscall Interceptor]{Latency comparison of executing system calls in confidential vs. vanilla Quark. The latency is thereby measured using the guest system call \emph{clock\_gettime(monotonic)}. 
         Each system call is executed 100,000  times in a tight loop. Read and write buffer size is 100 bytes}
     \label{fig:ben_results_syscall_interceptor}
 \end{figure}
 
 The test results in Figure~\ref{fig:ben_results_syscall_interceptor} reveal that vanilla Quark takes only around 270 ns to execute a single \texttt{getpid} and \texttt{getppid} call, while confidential Quark takes approximately 4716 ns. This indicates that the guest system call interceptor causes a delay of about 4500 ns per system call. Moreover, a 
-comparable latency overhead is introduced for read and write system calls, i.e.,4500 ns. However, \texttt{read} and \texttt{write} system calls are processed on the host side and take longer. Thus their processing time in confidential Quark rises less significantly than that of \texttt{getpid} and \texttt{getppid}. To summarize, in 
-confidential Quark, host-handled system calls (i.e., \texttt{write} and \texttt{read}) and guest-handled-only (e.g.,\texttt{getpid} and \texttt{getppid}) are 1.47x and 17x slower, respectively, compared to vanilla Quark。 The overhead of the system call interceptor comes from accesses to the system call whitelist. Since the whitelist is 
-protected by a lock, each access to the whitelist must acquire this lock first. In addition, this whitelist is kept in an array. Thus, accessing the whitelist consists has an O(n) time complexity.
+comparable latency overhead is introduced for read and write system calls. However, \texttt{read} and \texttt{write} system calls are processed on the host side and take longer. Thus their processing time in confidential Quark rises less significantly than that of \texttt{getpid} and \texttt{getppid}. To summarize, in 
+confidential Quark, host-handled system calls (i.e., \texttt{write} and \texttt{read}) and guest-handled-only (e.g.,\texttt{getpid} and \texttt{getppid}) are 1.47x and 17x slower, respectively, compared to vanilla Quark. The overhead of the system call interceptor comes from the access to 
+the system call whitelist. Since the whitelist is protected by a lock, each access to the whitelist must acquire this lock first. In addition, the whitelist is kept in an array. Thus, accessing the whitelist has an O(n) time complexity.
 
 \subsection{Micro-benchmark – Speed of Reading File-base Secret}
 \label{bench_reading_file_secret}
@@ -607,12 +542,12 @@ is in repository~\cite*{perf_test_repo}.
 The results in Figure~\ref{fig:reading_speed_of_file_type_secrets_in_Baseline_and_Cquark} reveal that confidential Quark's performance in accessing file-type secrets is competitive with vanilla Quark. Surprisingly, the speed in 
 confidential Quark is only 1.17 times better. The likely reason for this is that the overhead of the guest system call interceptor in confidential Quark partially offsets the overhead incurred by the VM exit in vanilla Quark.
 
-\subsection{Micro-benchmark – Latency Test For Issuing Instructions To Application}
+\subsection{Micro-benchmark – Latency Test for Issuing Instructions to Application}
 \label{bench_issuing_Instructions}
 
 This section presents the results of tests conducted to assess the latency of issuing instructions to applications in confidential Quark. The tests involved comparing the latency of sending commands using \emph{kubectl} in confidential and vanilla Quark and the speed comparison test for issuing 
-unprivileged and privileged commands in confidential Quark using \emph{kubectl} and \emph{securectl}, respectively. As such, the test framework is extended to issue specific instructions to an application using either \emph{kubectl} or \emph{securectl} while recording command execution time~\cite*{benchamark_perf_kubectl}. 
-Besides, each command is issued 1,000 times to ensure dependable results. In the following, four commonly used commands are chosen for the test: \texttt{pwd}, \texttt{ls}, \texttt{cat}, and \texttt{cp}.
+unprivileged and privileged commands in confidential Quark using \emph{kubectl} and \emph{securectl}, respectively. As such, the test framework is extended to issue specific instructions to an application using either \emph{kubectl} or \emph{securectl} while recording command 
+execution time~\cite*{benchamark_perf_kubectl}. Besides, each command is issued 1,000 times to ensure dependable results. In the following, four commonly used commands are chosen for the test: \texttt{pwd}, \texttt{ls}, \texttt{cat}, and \texttt{cp}.
 
 
 
@@ -627,7 +562,7 @@ Besides, each command is issued 1,000 times to ensure dependable results. In the
     \begin{subfigure}[b]{0.5\linewidth}
       \centering
       \includegraphics[width=1\textwidth]{images/timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl.png} % second figure itself
-        \caption{Time for transferring a command through other components (i.e., ~\emph{kubectl}, Kubernetes, Containerd, and Quark-shim) vs. the time for executing it in Qkernel}
+        \caption{Time for transferring a command through other components (i.e.,~\emph{kubectl}, Kubernetes, Containerd, and Quark-shim) vs. the time for executing it in Qkernel}
         \label{fig:timeshare_issuing_cmd_in_cquark_upstream_quark_kubectl}
       \vspace{4ex}
     \end{subfigure} 
@@ -663,63 +598,22 @@ since it needs to authenticate and access control for each command and measures 
 
 
 
-Figure~\ref{fig9} (a) compares the time required to issue privileged and unprivileged commands using ~\emph{securectl} and ~\emph{kubectl} in confidential Quark. The results show that issuing privileged commands is much faster than issuing unprivileged commands. 
-This finding is counterintuitive since privileged instructions require additional cryptographic protection, which implies executing additional code. To investigate this further, the time for transferring a command through other components (i.e., ~\emph{kubectl}/~\emph{securectl},  Kubernetes, Containerd, and Quark-shim) and the time for executing it in Qkernel 
+Figure~\ref{fig9} (a) compares the time required to issue privileged and unprivileged commands using~\emph{securectl} and~\emph{kubectl} in confidential Quark. The results show that issuing privileged commands is much faster than issuing unprivileged commands. 
+This finding is counterintuitive since privileged instructions require additional cryptographic protection, which implies executing additional code. To investigate this further, the time for transferring a command through other components (i.e.,~\emph{kubectl}/\emph{securectl},  Kubernetes, Containerd, and Quark-shim) and the time for executing it in Qkernel 
 are measured.  The results in Figure~\ref{fig9} (b) show that Qkernel takes roughly one millisecond longer to execute privileged commands than it does to execute unprivileged commands. However, non-privileged level commands spend significantly more 
-time in the other components than privileged commands (dashed-filled boxes). The only difference between the other components for the privileged and unprivileged commands is the tool used to issue the instructions (i.e., ~\emph{kubectl}/~\emph{securectl}). This means that ~\emph{securectl} is more lightweight than 
-~\emph{kubectl} and thus offsets the cryptographic protection overhead of privileged commands.
+time in the other components than privileged commands (dashed-filled boxes). The only difference between the other components for the privileged and unprivileged commands is the tool used to issue the instructions (i.e., ~\emph{kubectl}/\emph{securectl}). This means that \emph{securectl} is more 
+lightweight than \emph{kubectl} and thus offsets the cryptographic protection overhead of privileged commands.
 
 
 
 
 
 
-\subsection{Micro-benchmark – Latency Test For Accessing Binary-mapped Memory Region}
+\subsection{Micro-benchmark – Latency Test for Accessing Binary-mapped Memory Region}
 \label{accesiing_binary_mapped_memory}
 
-% //%or \small or \footnotesize etc.
-% \begin{lstlisting}[language=C,frame=single,caption=Program for testing speed of accessing binary-mapped memory region Variant,label=code3,basicstyle=\tiny]
-%     #define ARRAY_LEN (unsigned long)(1024*1024*100)    
-%     char array[ARRAY_LEN] = {[ 0 ... (1) ] = 'a'} ;
-
-%     int main {
-%         struct timespec start, end;
-%         clockid_t clk_id = CLOCK_MONOTONIC;  // CLOCK_REALTIME CLOCK_BOOTTIME CLOCK_PROCESS_CPUTIME_ID
-%         struct timespec nanos;
-%         clock_gettime(CLOCK_MONOTONIC, &nanos);
-%         srand(nanos.tv_nsec); 
-    
-%         for(int i = 0; i < ARRAY_LEN; i++) {
-%            index[i] = get_random();
-     
-%         }
-     
-%         clock_gettime(clk_id, &start);
-%         for(int i = 0; i < ARRAY_LEN; i++) {
-%            int current_idx = index[i];
-%            //sequential read
-%            // char a = array[i];
-%            //sequential write
-%            // array[i] = 'b';
-%            //random read
-%            // char a = array[current_idx];
-%            //random write
-%            // array[current_idx] = 'b';
-%         }
-%         clock_gettime(clk_id, &end);
-     
-%         unsigned long long  start_ns = to_ns(start);
-%         unsigned long long  end_ns = to_ns(end);
-%         printf("start %ju, end  %jun", start_ns, end_ns);
-
-%         return 0;
-
-%     }
-
- 
-% \end{lstlisting}
-Compared to vanilla Quark, confidential Quark preloads executables and shared libraries into the guest when it measures them. This avoids page error handling for loading these files at program runtime. As such, this subsection compares the speed of access to binary-mapped memory regions at runtime 
-in the confidential and vanilla Quark. The benchmark utilizes a program~\cite*{benchamark_micro} containing ~\emph{a global initialized array} and a ~\emph{for} loop. The program can access the array within the ~\emph{for} loop using four access modes: \texttt{random read}, \texttt{random write}, 
+Instead of lazy loading a process's executable and shared libraries while the process is running, confidential Quark preloads these files into the guest. This avoids page error handling for loading these files at program runtime. As such, this subsection compares the speed of access to binary-mapped memory regions at runtime 
+in the confidential and vanilla Quark. The benchmark utilizes a program~\cite*{benchamark_micro} containing~\emph{a global initialized array} and a~\emph{for} loop. The program can access the array within the~\emph{for} loop using four access modes: \texttt{random read}, \texttt{random write}, 
 \texttt{sequential read}, and \texttt{sequential write}.  The test is conducted in three binary data segment mapped memory sizes, i.e., 5MB, 10MB, and 100MB. For each case, the benchmark framework~\cite*{benchamark_framework} executes the program 30 times and calculates the average cost of accessing the array. Note that the size of the binary data segment 
 mapped memory region is controlled by the size of the array. 
 
@@ -757,8 +651,8 @@ mapped memory region is controlled by the size of the array.
 
 
 
-The results shown in Figures~\ref{fig7} (a) and~\ref{fig7} (b) indicate that the sequential access in the confidential Quark is 1.86 times faster than in the vanilla Quark. The reason is that confidential Quark preloads the binary into the guest memory before the program launches, thus avoiding page 
-fault handling at runtime. For the same reason, random reads and writes in confidential Quark are 1.08 times faster than in vanilla Quark (Figure ~\ref{fig7} (c) and Figure ~\ref{fig7} (d)).
+The results shown in Figures~\ref{fig7} (a) and~\ref{fig7} (b) indicate that the sequential access in the confidential Quark is more than 1.8 times faster than in the vanilla Quark. The reason is that confidential Quark preloads the binary into the guest memory before the program launches, thus avoiding page 
+fault handling at runtime. For the same reason, random reads and writes in confidential Quark are about 1.08 times faster than in vanilla Quark (Figure ~\ref{fig7} (c) and Figure ~\ref{fig7} (d)).
 
 
 \subsection{Micro-benchmark – Latency Test for Application Startup}
@@ -766,12 +660,12 @@ fault handling at runtime. For the same reason, random reads and writes in confi
 
 This subsection evaluates the latency overhead that the shield imposes on application startup. As described in Chapter~\ref{sec:implementation}, two factors may affect the application startup time: the number of file type secrets and the data size measured by the software measurement manager. Therefore, 
 the following three tests are performed in this subsection. First, a baseline is established by setting the number of file type secrets to zero and running the hello world program in Listing~\ref{code2} with an array length equal to 1024 * 1024. 
-In experiment 2, the number of file type secrets is increased to observe the change in program startup time. Experiment 3 examines how increasing the binary size affects the program startup time.
+In experiment 2, the number of file type secrets is increased to observe the change in program startup time. Experiment 3 examines the effect of increasing the binary size on program startup time.
 
 
     
 The test framework~\cite*{benchamark_framework} is extended to start and terminate the application iteratively. It measures the mean and variance of the program startup time and evaluates the overhead imposed by the components in the shield. These components include the remote attestation and 
-provisioning agent,  secret injector,  hardware evidence driver, and software measurement manager. Additionally, the statically linked program from Listing~\ref{code2} is utilized as the test workload. It contains a global initialization array to regulate the binary data segment size. 
+provisioning agent,  secret injector,  hardware evidence driver, and software measurement manager. Additionally, the statically linked program from Listing~\ref{code2} is utilized as the test workload. It contains a global initialized array to regulate the binary data segment size. 
 The framework will run the application 100 times. For the methodology for measuring the overhead introduced by the shield component, please refer to  subsection~\ref{Hardware_and_Software_Setup}.
 
 \begin{lstlisting}[language=C,frame=single,caption=Hello World Program Variant,label=code2]
@@ -820,8 +714,8 @@ negligible compared to the overhead caused by the attestation agent (837 ms). In
     \label{fig:startup_time_change_as_file_type_secret_increasing}
 \end{figure}
 
-Figure~\ref{fig:startup_time_change_as_file_type_secret_increasing} shows how the latency overhead of the remote attestation and provisioning agent changes as the number of file-type secrets increases. The overhead from the remote attestation and provisioning agent is proportional to the 
-number of file type secrets because it must perform one HTTP + TLS operation for each file. When the number of file-type secrets reaches 128, the overhead associated with the agent becomes astounding, reaching 4500 ms, accounting for over 70\% of the total program startup time.
+Figure~\ref{fig:startup_time_change_as_file_type_secret_increasing} shows that the latency overhead from the remote attestation and provisioning agent is proportional to the number of file type secrets. 
+This is because the agent must perform one HTTP + TLS operation for each file. When the number of file-type secrets reaches 128, the overhead associated with the agent becomes astounding, reaching 4500 ms, accounting for over 70\% of the total program startup time.
 \begin{figure}[!htb]
     \centering
     \includegraphics[width=0.8\textwidth]{images/startup_time_change_as_elf_size_increasing.PNG}
@@ -830,7 +724,7 @@ number of file type secrets because it must perform one HTTP + TLS operation for
 \end{figure}
 
 
-Figure~\ref{fig:startup_time_change_as_elf_size_increasing} shows that the latency overhead of the software measurement manager is proportional to the size of the binary. Besides, when the measured data is less than or equal to 100MB, the latency overhead of the software measurer is lower than the 
+Figure~\ref{fig:startup_time_change_as_elf_size_increasing} shows that the latency overhead of the software measurement manager is proportional to the size of the binary. Besides, when the measured data is less than or equal to 100 MiB, the latency overhead of the software measurer is lower than the 
 overhead introduced by the remote attestation and provisioning agent.
 
 
@@ -881,7 +775,7 @@ requests using 50 concurrent clients to Redis and Nginx, respectively. In additi
 The results in Figure~\ref{fig:reds_nginx_startup_comp} indicate that confidential Quark takes about twice as long as vanilla Quark to complete the application setup. This result is reasonable because the confidential Quark must perform additional operations such as remote attestation and 
 measuring data loaded from the host. When comparing the startup times of Nginx and Redis in confidential Quark, it is evident that Nginx takes about 324 ms longer than Redis. Fig~\ref{fig:time_disribution_startup_redis_nginx} shows that the difference mainly comes from the latency overhead 
 difference of the software measurement manager and the remote attestation and provisioning agent, i.e., 424 ms and 65 ms, respectively. Since both applications retrieve the same number of secrets from the secret manager, the difference in remote attestation and provisioning 
-agent's overhead should come from network jitter. In addition, Table~\ref{table:Measurement_For_Nginx_Redis} shows that the software measurement manager measured 67.14 and 16.25 Mb in Nginx and Redis, respectively. Because the software measurement manager has to measure more data in 
+agent's overhead should come from the network jitter. In addition, Table~\ref{table:Measurement_For_Nginx_Redis} shows that the software measurement manager measured 67.14 and 16.25 Mib in Nginx and Redis, respectively. Because the software measurement manager has to measure more data in 
 Nginx, its latency overhead is larger in Nginx. 
 
 \begin{figure}[!htb]
@@ -906,7 +800,7 @@ Figure~\ref{fig:reds_nginx_exit_comp} shows that the exit time for Redis and Ngi
   \label{fig:nginx_throughput}
 \end{figure}
 
-The throughput test results for Redis and Nginx are shown in Figure~\ref{fig:redis_throughput} and Figure~\ref{fig:redis_throughput}. It shows that executing Redis and Nginx in confidential Quark leads to about 22\% and 10\% performance degradation, respectively. 
+The throughput test results for Redis and Nginx are shown in Figure~\ref{fig:redis_throughput} and Figure~\ref{fig:nginx_throughput}. It shows that executing Redis and Nginx in confidential Quark leads to about 22\% and 10\% performance degradation, respectively. 
 The possible reason for this impact is the overhead introduced by intercepting guest system calls.
 
 
@@ -970,59 +864,25 @@ Table~\ref{table:tcb_size_quark_vs_kata} compares the size of \acrshort{TCB}s in
 \label{sec:qualitativ_sum}
 This section evaluated the latency and throughput overhead introduced by the shield using different benchmarks.
 
-Subsection~\ref{Attestation_Report_Syscall} found that obtaining the simulation hardware report is 50\% slower than getting the other two software reports. Subsequently, the benchmark result in subsection~\ref*{bench_Interceptor} showed that the guest system interceptor 
-imposes an overhead of 1.47x and 17x for guest-handled and host-handled system calls, respectively. Furthermore, Subsection~\ref{bench_reading_file_secret} revealed that in the confidential Quark, the speed of accessing file-type secrets is 1.17 times higher than in the vanilla Quark.
-Later, Subsection~\ref{bench_issuing_Instructions} demonstrated that issuing commands using \emph{kubectl} in confidential Quark is 15\% slower than in vanilla Quark. On the other hand, using \emph{securectl} issuing commands is 1.1 times faster than using \emph{kubectl} in confidential 
+Subsection~\ref{Attestation_Report_Syscall} found that obtaining the simulation hardware report is much slower than getting the other two software reports. Subsequently, the benchmark result in subsection~\ref*{bench_Interceptor} showed that the guest system interceptor 
+imposes an overhead of 1.47x and 17x for host-handled and guest-handled system calls, respectively. Furthermore, Subsection~\ref{bench_reading_file_secret} revealed that in the confidential Quark, the speed of accessing file-type secrets is 1.17 times higher than in the vanilla Quark.
+Subsection~\ref{bench_issuing_Instructions} then demonstrated that issuing commands using \emph{kubectl} in confidential Quark is about 20\% slower than in vanilla Quark. On the other hand, using \emph{securectl} to issue commands is 1.1 times faster than using \emph{kubectl} in confidential 
 Quark since \emph{securectl} is more lightweight than \emph{kubectl}.
 
-Then after estimating the performance of accessing binary-mapped memory regions, it was observed that confidential Quark outperforms vanilla Quark in this regard (Subsection~\ref{accesiing_binary_mapped_memory}). Sequential access in confidential Quark is 1.86 times faster, while random reading and 
-writing of binary-mapped memory regions exhibit approximately 1.08 times faster speed in confidential Quark. These results can be attributed to confidential Quark’s binary measurement during program startup, which prompts the Qkernel to load the binary into memory, 
-thus preventing page fault handling during runtime. Regarding the application startup time, Subsection~\ref*{micro_app_start_up}’s evaluation results indicated that the attestation and provisioning agent constitutes the bulk of the overhead when the size of the measurement data is less than 100 MB. 
+Then after estimating the performance of accessing binary-mapped memory regions, Subsection~\ref{accesiing_binary_mapped_memory} observed that confidential Quark outperforms vanilla Quark in this regard. Sequential access in confidential Quark is more than 1.86 times faster, while random reading and 
+writing of binary-mapped memory regions exhibit approximately 1.08 times faster speed in confidential Quark. Regarding the application startup time, Subsection~\ref*{micro_app_start_up}’s evaluation results indicated that the attestation and provisioning agent constitutes the bulk of the overhead when the size of the measurement data is less than 100 MB. 
 Furthermore, when the number of file type secrets reaches 128, the overhead associated with the remote attestation and provisioning agent reaches 4500 ms, more than 70\% of the total program startup time.
 
-Subsection~\ref*{macri_app_start_up} performed macro-benchmarks using Nginx~\cite*{nginx} and Redis~\cite*{redis}. The findings demonstrated that Redis and Nginx require 1.49X and 1.55X startup times in confidential Quark than in vanilla Quark, respectively. 
-In terms of application exit time, Redis and Nginx exhibit almost the same performance when running in confidential and vanilla Quark. Regarding the throughput, the test results indicated that Nginx and Redis running in confidential Quark encounter performance declines of approximately 9\% and 20\%, 
+Subsection~\ref*{macri_app_start_up} performed macro-benchmarks using Nginx~\cite*{nginx} and Redis~\cite*{redis}. The findings demonstrated that Redis and Nginx require 1.93X and 2,21X startup times in confidential Quark than in vanilla Quark, respectively. 
+In terms of application exit time, Redis and Nginx exhibit almost the same performance when running in confidential and vanilla Quark. Regarding the throughput, the test results indicated that Nginx and Redis running in confidential Quark encounter performance declines of approximately 10\% and 20\%, 
 respectively.
 
-About TCB overhead, Subsection~\ref{tcb} showed that the shield increases the binary of the Quark guest kernel by about 1.47 times. Nevertheless, the TCB of confidential Quark is roughly one-sixteenth of the size of the Kata containers. 
+About TCB overhead, Subsection~\ref{tcb} showed that the shield increase the binary of the Quark guest kernel by about 1.47 times. Nevertheless, the TCB of confidential Quark is roughly one-sixteenth of the size of the Kata containers. 
 
 \section{Summary}
-This chapter conducted qualitative and quantitative analyses to evaluate the confidential Quark~\ref{sec:implementation}. The qualitative analysis explained how confidential Quark mitigates the vulnerabilities found in security analysis (Chapter~\ref{sec:security_analyse}). 
-Regarding the quantitative analysis, a testing framework~\cite*{benchamark_framework} was developed to characterize the performance of confidential Quark. The results showed that confidential Quark engenders significant overhead compared to vanilla Quark. 
-This overhead is visible in longer program creation times, reduced runtime program throughput, reduced speed of issuing instructions to the program, increased \acrshort{TCB} size, etc. Note that the summary of qualitative and quantitative analyses can be found in Section~\ref*{sec:eva_qualitativ_summary} and ~\ref{sec:qualitativ_sum}, respectively. 
-
-
-
-% \begin{table}[htp]
-%     \caption{Software measurement manager measured data during application startup}
-%     \begin{tabularx}{\textwidth}{*{2}{p{0.5\textwidth}}}\toprule
-%                                  & ELF &  Shared Library   & Process Spec  & Stack   & Guest Kernel Args  & Total Measurement \\ \midrul
-%     Measurement For Hello world  &  1.4468 MiB    &   0 MiB  &   3819 Byte   & 305 Byte   &5865 Byte  & 1.457 MiB \\\addlinespace
-%     \bottomrule
-%     \end{tabular}
-%     \label{table: Measurement_For_Hello_world}
-% \end{table}
-
-
-% \begin{table}[!ht]
-%     \sffamily
-%     \caption{Terminologies in SQL \& corresponding in MongoDB}
-%     \label{tab:my_label}
-%     \centering
-%     \begin{tabularx}{\textwidth}{*{2}{p{0.5\textwidth}}}
-%     \toprule
-%                                  & ELF &  Shared Library   & Process Spec  & Stack   & Guest Kernel Args  & Total Measurement \\ \midrule
-%     Measurement For Hello world  &  1.4468 MiB    &   0 MiB  &   3819 Byte   & 305 Byte   &5865 Byte  & 1.457 MiB \\\addlinespace
-%     \dots & \dots \\
-%     \bottomrule
-%     \end{tabularx}
-%     \end{table}
-
-
-
-
+This chapter conducted qualitative and quantitative analyses to evaluate the confidential Quark~\ref{sec:implementation}. The qualitative analysis explained how confidential Quark mitigates the vulnerabilities of the OCI runtime interface listed in Section~\ref*{sec:security_analyse_oci_summary}. 
+Regarding the quantitative analysis, a testing framework~\cite*{benchamark_framework} was developed to characterize the performance of confidential Quark. The results showed that confidential Quark incurs significant latency overhead compared to vanilla Quark. 
+This overhead is visible in longer program creation times, reduced runtime program throughput, reduced speed of issuing instructions to the program, increased \acrshort{TCB} size, etc. 
+Note that the summary of qualitative and quantitative analyses can be found in Section~\ref*{sec:eva_qualitativ_summary} and ~\ref{sec:qualitativ_sum}, respectively. 
 \cleardoublepage
 
-%%% Local Variables:
-%%% TeX-master: "diplom"
-%%% End:

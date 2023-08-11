@@ -22,16 +22,16 @@
 
 This thesis aims at enabling untrustworthy cloud providers to orchestrate applications within \acrshort{CVM} while ensuring the confidentiality and integrity of applications' data. In particular, to minimize the \acrshort{TCB} of the CVM, \acrshort{pVM} is selected as a starting point.
  
-Chapter~\ref{sec:security_analyse} analyzes the security risks of the OCI runtime interface. To address these concerns, the thesis introduces the OCI runtime interface shield and proposes modifications to the OCI runtime interface in Chapter~\ref{sec:design}. The shield is implemented 
-within the \acrshort{CVM} and enforces a policy provided by the application owner on the OCI interface. Figure~\ref{fig:generic_policy} illustrates an example of such a policy. The shield allows the application owner to remotely verify the state of the \acrshort{CVM} and securely deploy secrets. 
-While the \acrshort{CVM} is operational, the shield can authenticate and do access control on EXEC requests, encrypts STDIO for the processes running in the \acrshort{CVM}, restricts guest system calls, and manages \acrshort{CVM} logs. Additionally, a secure client for the application owners is 
-implemented, enabling them to issue privilege commands and update the shield policy.
+Chapter~\ref{sec:security_analyse} analyzed the vulnerabilities of the OCI runtime interface in confidential computing. To address these issues, Chapter~\ref{sec:design} introduced the OCI runtime interface shield and proposed modifications to the OCI runtime interface. The shield is implemented 
+within the \acrshort{CVM} and enforces a policy provided by the application owner on the OCI runtime interface. Figure~\ref{fig:generic_policy} on page \pageref{fig:generic_policy} illustrates an example of such a policy. The shield allows the application owner to verify the state of the \acrshort{CVM}
+and securely deploy secrets. While the \acrshort{CVM} is operational, the shield can authenticate and do access control on EXEC requests, encrypts STDIO for the processes running in the \acrshort{CVM}, restricts guest system calls, and manages \acrshort{CVM}'s logs. Additionally, a 
+secure client for the application owners is implemented, enabling them to issue privilege commands and update the shield policy.
  
-The qualitative analysis in Section~\ref{sec:eva_qualitativ} proves that the system implemented in Chapter~\ref{sec:implementation} can effectively mitigate most issues found in security analysis. A summary of the analysis can be found in Table~\ref{tab:eva_qualitativ_summary}. 
-On the other hand, the quantitative analysis in Section~\ref{sec:eva_Quantitative} reveals performance degradation due to the system. This is evident in longer application startup time, 
+The qualitative analysis in Section~\ref{sec:eva_qualitativ} proved that the system implemented in Chapter~\ref{sec:implementation} can effectively mitigate most issues found in the security analysis. A summary of the qualitative analysis can be found in Table~\ref{tab:eva_qualitativ_summary} on page \pageref{tab:eva_qualitativ_summary}. 
+On the other hand, the quantitative analysis in Section~\ref{sec:eva_Quantitative} revealed performance degradation due to the system. This is evident in longer application startup time, 
 decreased application throughput, an increased \acrshort{TCB} size, etc. Nevertheless, Quark's \acrshort{TCB} is only one-sixteenth the size of Kata Containers\cite*{Kata-Containers}, highlighting the superiority of the \acrshort{pVM} architecture. 
  
-Further work is required before the solution can be deployed. For example, support for running Quark on secure VMs (e.g., Intel TDX~\cite*{Intel_tdx_whitepaper}) and enhancing the remote attestation infrastructure are necessary. The following section provides a detailed discussion of these aspects.
+Further work is required before the solution can be deployed. For example, running Quark in secure VMs (e.g., Intel TDX~\cite*{Intel_tdx_whitepaper}) and enhancing the remote attestation infrastructure are necessary. The following section provides a detailed discussion of these aspects.
 
 
 \section{Furture Work}
