@@ -12,34 +12,9 @@
 
 
 
-@ARTICLE{feske07,
-  author = {Norman Feske},
-  title = {{A case study on the cost and benefit of dynamic RPC marshalling
-	for low-level system components}},
-  date = {2007},
-  volume = {41},
-  number = {4},
-  pages = {40--48},
-  issn = {0163-5980},
-  doi = {http://doi.acm.org/10.1145/1278901.1278908},
-  journal = {SIGOPS Operating Systems Review},
-  location = {New York, NY, USA},
-  publisher = {ACM}
-}
 
-@article{KRATZKE20171,
-title = {Understanding cloud-native applications after 10 years of cloud computing - A systematic mapping study},
-journal = {Journal of Systems and Software},
-volume = {126},
-pages = {1-16},
-year = {2017},
-issn = {0164-1212},
-doi = {https://doi.org/10.1016/j.jss.2017.01.001},
-url = {https://www.sciencedirect.com/science/article/pii/S0164121217300018},
-author = {Nane Kratzke and Peter-Christian Quint},
-keywords = {Cloud-native application, CNA, Systematic mapping study, Elastic platform, Microservice, Self service, Pattern, Softwareization},
-abstract = {It is common sense that cloud-native applications (CNA) are intentionally designed for the cloud. Although this understanding can be broadly used it does not guide and explain what a cloud-native application exactly is. The term “cloud-native” was used quite frequently in birthday times of cloud computing (2006) which seems somehow obvious nowadays. But the term disappeared almost completely. Suddenly and in the last years the term is used again more and more frequently and shows increasing momentum. This paper summarizes the outcomes of a systematic mapping study analyzing research papers covering “cloud-native” topics, research questions and engineering methodologies. We summarize research focuses and trends dealing with cloud-native application engineering approaches. Furthermore, we provide a definition for the term “cloud-native application” which takes all findings, insights of analyzed publications and already existing and well-defined terminology into account.}
-}
+
+
 
 @ONLINE{k8s,
   author = {Kubernetes community},
@@ -81,13 +56,7 @@ abstract = {It is common sense that cloud-native applications (CNA) are intentio
   urldate = {2022-11-28}
 }
 
-@ONLINE{Runtime-Comparison,
-  author = {Evan Baker, Senior Software Engineer, Critical Stack},
-  title = {{A Comprehensive Container Runtime Comparison}},
-  url = {https://www.capitalone.com/tech/cloud/container-runtime/},
-  note = {Learn why runtimes are a key component of container management and how they make it easier to execute and deploy containers.},
-  urldate = {2022-11-28}
-}
+
 
 @ONLINE{runc,
   author = {Open Container Initiative},
@@ -125,28 +94,11 @@ abstract = {It is common sense that cloud-native applications (CNA) are intentio
 
 
 
-@INPROCEEDINGS{9198653,
-  author={Kumar, Rakesh and Thangaraju, B},
-  booktitle={2020 IEEE International Conference on Electronics, Computing and Communication Technologies (CONECCT)}, 
-  title={Performance Analysis Between RunC and Kata Container Runtime}, 
-  year={2020},
-  volume={},
-  number={},
-  pages={1-4},
-  doi={10.1109/CONECCT50063.2020.9198653}}
-
 @ONLINE{quark,
   author = {Quark Containers community},
   title = {{Quark Containers}},
   url = {https://github.com/QuarkContainer/Quark},
   urldate = {2022-11-28}
-}
-
-
-@ONLINE{speed_secure_container_slogen,
-  title = {{The Speed of Containers, the Security of VMs}},
-  url = {https://katacontainers.io},
-  urldate = {2022-12-01}
 }
 
 
@@ -178,23 +130,6 @@ pages={57-64},
 doi={10.1109/Trustcom.2015.357}
 }
 
-@inproceedings{101145,
-author = {Mofrad, Saeid and Zhang, Fengwei and Lu, Shiyong and Shi, Weidong},
-title = {A Comparison Study of Intel SGX and AMD Memory Encryption Technology},
-year = {2018},
-isbn = {9781450365000},
-publisher = {Association for Computing Machinery},
-address = {New York, NY, USA},
-url = {https://doi.org/10.1145/3214292.3214301},
-doi = {10.1145/3214292.3214301},
-abstract = {Hardware-assisted trusted execution environments are secure isolation technologies that have been engineered to serve as efficient defense mechanisms to provide a security boundary at the system level. Hardware vendors have introduced a variety of hardware-assisted trusted execution environments including ARM TrustZone, Intel Management Engine, and AMD Platform Security Processor. Recently, Intel Software Guard eXtensions (SGX) and AMD Memory Encryption Technology have been introduced. To the best of our knowledge, this paper presents the first comparison study between Intel SGX and AMD Memory Encryption Technology in terms of functionality, use scenarios, security, and performance implications. We summarize the pros and cons of these two approaches in comparison to each other.},
-booktitle = {Proceedings of the 7th International Workshop on Hardware and Architectural Support for Security and Privacy},
-articleno = {9},
-numpages = {8},
-keywords = {Intel SGX, hardware-supported security, AMD SEV},
-location = {Los Angeles, California},
-series = {HASP '18}
-}
 
 
 @ONLINE{INTEL_SGX,
@@ -204,12 +139,6 @@ series = {HASP '18}
 }
 
 
-@inproceedings{Costan2016SanctumMH,
-  title={Sanctum: Minimal Hardware Extensions for Strong Software Isolation},
-  author={Victor Costan and Ilia A. Lebedev and Srinivas Devadas},
-  booktitle={USENIX Security Symposium},
-  year={2016}
-}
 
 
 @ONLINE{Execution_Environment_landscape,
@@ -260,12 +189,6 @@ location = {Tel-Aviv, Israel},
 series = {HASP '13}
 }
 
-@ONLINE{SGX_PAPER_LIST,
-  title = {{SGX Paper List}},
-  url = {https://github.com/vschiavoni/sgx-papers},
-  note = {A curated list of system papers using/about Intel SGX},
-  urldate = {2022-12-10}
-}
 
 
 @ONLINE{Intel_tdx_whitepaper,
@@ -276,17 +199,7 @@ series = {HASP '13}
 
 
 
-@ONLINE{Kate_support_tdx,
-  title = {{New Kata Containers 3.0.0 release supports GPUs, Rust, Intel TDX and more}},
-  url = {https://github.com/kata-containers/kata-containers/releases},
-  urldate = {2022-12-10}
-}
 
-@ONLINE{Linux_support_tdx,
-  title = {{Initial Intel TDX Enablement Positioned For Linux 5.19}},
-  url = {https://www.phoronix.com/news/Intel-TDX-Linux-5.19},
-  urldate = {2022-12-10}
-}
 
 @article{DBLP:journals/corr/abs-2303-15540,
   author       = {Pau{-}Chen Cheng and
@@ -311,29 +224,7 @@ series = {HASP '13}
 }
 
 
-@ONLINE{Intel_EPID,
-  title = {{Intel® Enhanced Privacy ID (EPID) Security Technology}},
-  url = {https://www.intel.com/content/www/us/en/developer/articles/technical/intel-enhanced-privacy-id-epid-security-technology.html},
-  urldate = {2022-12-10}
-}
 
-@ARTICLE{9448036,
-  author={Sardar, Muhammad Usama and Musaev, Saidgani and Fetzer, Christof},
-  journal={IEEE Access}, 
-  title={Demystifying Attestation in Intel Trust Domain Extensions via Formal Verification}, 
-  year={2021},
-  volume={9},
-  number={},
-  pages={83067-83079},
-  doi={10.1109/ACCESS.2021.3087421}}
-
-  @article{Menetrey2022AnES,
-  title={An Exploratory Study of Attestation Mechanisms for Trusted Execution Environments},
-  author={James M'en'etrey and Christian Gottel and Marcelo Pasin and Pascal Felber and Valerio Schiavoni},
-  journal={ArXiv},
-  year={2022},
-  volume={abs/2204.06790}
-}
 
 
 @ONLINE{sev,
@@ -402,15 +293,6 @@ TITLE={Implementation, Integration and Performance Evaluation of a TLSShielding 
 YEAR={2019},
 }
 
-@INPROCEEDINGS{7163050,
-  author={Liu, Fangfei and Yarom, Yuval and Ge, Qian and Heiser, Gernot and Lee, Ruby B.},
-  booktitle={2015 IEEE Symposium on Security and Privacy}, 
-  title={Last-Level Cache Side-Channel Attacks are Practical}, 
-  year={2015},
-  volume={},
-  number={},
-  pages={605-622},
-  doi={10.1109/SP.2015.43}}
 
 
   @inproceedings {217454,
@@ -427,31 +309,7 @@ month = aug,
 }
 
 
-@inproceedings {236278,
-author = {Mengyuan Li and Yinqian Zhang and Zhiqiang Lin and Yan Solihin},
-title = {Exploiting Unprotected {I/O} Operations in {AMD{\textquoteright}s} Secure Encrypted Virtualization},
-booktitle = {28th USENIX Security Symposium (USENIX Security 19)},
-year = {2019},
-isbn = {978-1-939133-06-9},
-address = {Santa Clara, CA},
-pages = {1257--1272},
-url = {https://www.usenix.org/conference/usenixsecurity19/presentation/li-mengyuan},
-publisher = {USENIX Association},
-month = aug,
-}
 
-
-@inproceedings {274707,
-author = {Mengyuan Li and Yinqian Zhang and Huibo Wang and Kang Li and Yueqiang Cheng},
-title = {{CIPHERLEAKS}: Breaking Constant-time Cryptography on {AMD} {SEV} via the Ciphertext Side Channel},
-booktitle = {30th USENIX Security Symposium (USENIX Security 21)},
-year = {2021},
-isbn = {978-1-939133-24-3},
-pages = {717--732},
-url = {https://www.usenix.org/conference/usenixsecurity21/presentation/li-mengyuan},
-publisher = {USENIX Association},
-month = aug,
-}
 
 
 @ONLINE{Qaurk_Demo_for_qualitativ,
@@ -461,39 +319,9 @@ month = aug,
 }
 
 
-@ONLINE{confidentail_quark_yaml,
-  title = {{confidentail quark yaml}},
-  url = {https://github.com/yaoxin1995/Quark-demo/blob/evaluation_qualitativ/confidentail_quark.yaml},
-  urldate = {2023-6-10}
-}
-
-@ONLINE{k8s_secret_yaml,
-  title = {{k8s secret yaml}},
-  url = {https://github.com/yaoxin1995/Quark-demo/blob/evaluation_qualitativ/mongo-secret.yaml},
-  urldate = {2023-6-10}
-}
-
-@ONLINE{vanilla_quark_deploy_for_qualitativ_yaml,
-  title = {{vanilla quark deployment yaml}},
-  url = {https://github.com/yaoxin1995/Quark-demo/blob/evaluation_qualitativ/vanilla_quark.yaml},
-  urldate = {2023-6-10}
-}
-
-
-@ONLINE{enclave_policy,
-  title = {{enclave policy}},
-  url = {https://github.com/yaoxin1995/Quark-demo/blob/evaluation_qualitativ/policy.json},
-  urldate = {2023-6-10}
-}
 
 
 
-
-@ONLINE{qualitativ_baseline,
-  title = {{vanilla quark used for qualitativ analyse}},
-  url = {https://github.com/yaoxin1995/master-thesis-quark/tree/qualitative-analyse-baseline},
-  urldate = {2023-6-10}
-}
 
 
 
@@ -503,19 +331,8 @@ month = aug,
   urldate = {2023-8-10}
 }
 
-@ONLINE{qualitativ_workload,
-  title = {{application used for qualitativ analyse}},
-  url = {https://github.com/yaoxin1995/Quark-demo/blob/evaluation_qualitativ/quarlitative-analyse/src/main.rs#L10},
-  urldate = {2023-6-10}
-}
 
 
-
-@ONLINE{kubectl,
-  title = {{Command line tool (kubectl)}},
-  url = {https://kubernetes.io/docs/reference/kubectl/},
-  urldate = {2023-6-10}
-}
 
 @ONLINE{redis,
   title = {{Redis- The open source, in-memory data store}},
@@ -654,25 +471,6 @@ month = aug,
 }
 
 
-@article{DBLP:journals/corr/WuGLD16,
-  author       = {Daoyuan Wu and
-                  Debin Gao and
-                  Yingjiu Li and
-                  Robert H. Deng},
-  title        = {SecComp: Towards Practically Defending Against Component Hijacking
-                  in Android Applications},
-  journal      = {CoRR},
-  volume       = {abs/1609.03322},
-  year         = {2016},
-  url          = {http://arxiv.org/abs/1609.03322},
-  eprinttype    = {arXiv},
-  eprint       = {1609.03322},
-  timestamp    = {Mon, 13 Aug 2018 16:46:57 +0200},
-  biburl       = {https://dblp.org/rec/journals/corr/WuGLD16.bib},
-  bibsource    = {dblp computer science bibliography, https://dblp.org}
-}
-
-
 @ONLINE{shim_v2,
   title = {containerd shim v2 api},
   url = {https://github.com/containerd/containerd/blob/main/runtime/v2/README.md},
@@ -720,13 +518,6 @@ month = aug,
 @ONLINE{exec_proposal,
   title = {Exec proposal},
   url = {https://github.com/duglin/runtime-spec/blob/7117ede74b31ade43d93a82f25a1cc78cb1b7353/runtime.md},
-  urldate = {2023-6-10}
-}
-
-
-@ONLINE{Understanding_sdin,
-  title = {Understanding stdin: true tty: true on a kubernetes container},
-  url = {https://stackoverflow.com/questions/65915849/understanding-stdin-true-tty-true-on-a-kubernetes-container},
   urldate = {2023-6-10}
 }
 
@@ -821,19 +612,9 @@ series = {SoCC '18}
 }
 
 
-@ONLINE{future_container,
-  title = {The Future of Containers – What’s Next?},
-  url = {https://mobycast.fm/the-future-of-containers-whats-next/},
-  urldate = {2023-6-10}
-}
 
 
 
-@ONLINE{gvisor,
-  title = {gbisor: The Container Security Platform},
-  url = {https://gvisor.dev/},
-  urldate = {2023-6-10}
-}
 
 @inproceedings{Johnson2023ParmaCC,
   title={Parma: Confidential Containers via Attested Execution Policies},
@@ -1012,12 +793,6 @@ month = jul,
   title = {The GNU C Library (glibc)},
   url = {https://www.gnu.org/software/libc/},
   urldate = {2023-7-20}
-}
-@inproceedings{Hoekstra2013UsingII,
-  title={Using innovative instructions to create trustworthy software solutions},
-  author={Matthew Hoekstra and Reshma Lal and Pradeep Pappachan and Vinay Phegade and Juan del Cuvillo},
-  booktitle={Hardware and Architectural Support for Security and Privacy},
-  year={2013}
 }
 
 

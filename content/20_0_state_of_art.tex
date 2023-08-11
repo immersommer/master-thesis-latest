@@ -39,7 +39,7 @@ This chapter first discusses the effort to minimize the \acrshort{TCB} of virtua
 \section{Minimizing the VM's TCB}
 
 Reducing the size (\acrshort{TCB}) of a VM can enhance its performance, resulting in fast boot time and reduced memory consumption. Consequently, various research groups have conducted extensive studies throughout the last decade. The proposed solutions encompass 
-unikernel~\cite*{10.1145/2499368.2451167, 10.1145/3436512, 10.1145/3267809.3267845}, application kernel~\cite*{gvisor, quark}, and the tailoring of the full-stack guest kernel~\cite*{Kata-Containers, tiny_linux}, etc.
+unikernel~\cite*{10.1145/2499368.2451167, 10.1145/3436512, 10.1145/3267809.3267845}, application kernel~\cite*{quark}, and the tailoring of the full-stack guest kernel~\cite*{Kata-Containers, tiny_linux}, etc.
 
 
 Unikernel~\cite*{10.1145/2499368.2451167} uses a single-purpose, statically sealed, minimalist LibOS virtual machine to run individual programs. This single-purpose virtual machine, also known as an appliance, contains only the code and data the application needs. At compile time, the unikernel 

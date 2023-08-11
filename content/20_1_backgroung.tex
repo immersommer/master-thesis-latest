@@ -155,7 +155,7 @@ encrypted memory.
 AMD SEV-SNP utilizes encryption to protect the memory of a virtual machine. When a service running in an \acrshort{CVM} accesses memory, the AES-128 encryption engine transparently encrypts or decrypts the memory using a memory encryption key~\cite*{snp_Explained}.  This key is unique for each 
 VM and securely stored in the AMD secure processor (~\acrshort{AMD SP}) to prevent unauthorized access. Consequently, untrusted entities can only read the ciphertext on the VM memory. To enable memory page sharing between \acrshort{CVM}s, or between \acrshort{CVM}s and the hypervisor, SEV-SNP introduces a new 
 control bit known as the "C-bit" in the page table entry~\cite*{SEV_SNP_white_book}. This allows \acrshort{CVM}s to determine which pages should be encrypted. Furthermore, SEV-SNP introduces the Reverse Map Table (RMP) to protect the integrity of VM memory~\cite*{SEV_SNP_white_book}. 
-RMP records the ownership of pages and ensures that each physical page is owned by only one entity. In this case, only the page owner can modify the page content
+RMP records the ownership of pages and ensures that each physical page is owned by only one entity. In this case, only the page owner can modify the page content.
 
 
 
