@@ -216,13 +216,13 @@ analysis presented in Section~\ref{sec:security_analyse_STDIO_oci}. Therefore, t
 \subsection{EXEC Operation}
 As discussed in Subsection~\ref{sec:security_analyse_secret_deployment}, the Quark agent located in Qkernel is responsible for handling the EXEC request from Quark shim. However, it lacks authentication and access control over these requests. Thus, an attacker can issue arbitrary commands to the application to collect its secrets. Moreover, the commands are 
 redirected to Qkernel by Containerd~\cite*{containerd} and Quark shim, along with other metadata in EXEC request. Specifically, when Quark shim receives an EXEC request from Containerd, it generates a process configuration from the metadata received from Containerd. This configuration includes the command and its parameter, the STDIO type, the environment 
-variables, etc. Subsequently, Quark Shim forwards this configuration to the Quark agent via a Unix socket, wherein a guest process is created to execute the command (Figure~\ref{fig:quark_agent_work_flow}). Since the commands issued by the application owner may contain confidential data. Forwarding these commands by Containerd, Quark Shim poses potential risks 
-to their confidentiality and integrity. This finding aligns with the analysis presented in Section~\ref{sec:Security_OCI_EXEC}. As such, end-to-end cryptographic protection for these commands should be adopted, and authentication and access control checkpoints should be added in Qkernel. By doing so, any unauthorized commands can be denied. For further information, 
+variables, etc. Subsequently, Quark shim forwards this configuration to the Quark agent via a Unix socket, wherein a guest process is created to execute the command (Figure~\ref{fig:quark_agent_work_flow}). Since the commands issued by the application owner may contain confidential data. Forwarding these commands by Containerd, Quark shim poses potential risks 
+to their confidentiality and integrity. This finding aligns with the analysis presented in Section~\ref{sec:Security_OCI_EXEC}. As such, end-to-end cryptographic protection for these commands should be adopted, and a checkpoint for authentication and access control should be added in Qkernel. By doing so, any unauthorized commands can be denied. For further information, 
 please refer to section~\ref{sec:design_EXEC_Requests}.
 
 
 \subsection{Container Root Filesystem and Volume}
-Quark shim sets up the application's root filesystem on the host and enables applications to access the root filesystem through a para-virtualized file system sharing mechanism. For instance, when the application utilizes the guest-read system call to access a file, the Qkernel will request the host to read the target file via Hypercall or Ucall. As a result, the 
+Quark shim sets up the application's root filesystem on the host and enables applications to access the root filesystem through a paravirtualized file system sharing mechanism. For instance, when the application utilizes the guest-read system call to access a file, the Qkernel will request the host to read the target file via Hypercall or Ucall. As a result, the 
 data that the application writes to its filesystem and volumes is visible to the host. In this scenario, the untrusted host can manipulate the confidential data stored in the filesystem. Therefore, Qkernel must implement a filesystem shield. However, this vulnerability is beyond the scope of this thesis, as defined by the threat model in 
 Section~\ref{sec:Threat_model}.
 
@@ -249,11 +249,11 @@ This thesis aims to guarantee the integrity of binaries and shared libraries loa
 
 \subsubsection{Loading compromised Application Binary during Startup}
 \label{sec:app_binary_loading}
-The application binary is stored on the host. During the setup of the application process, the Qkernel loader opens the application binary using Hcall::Openat, reads its ELF header into the Qkernel using the \emph{Ucall::read}, and then requests the Qkernel virtual memory manager to create a private virtual 
-memory area (\acrshort{VMA}) for each loadable segment defined in the ELF file (Figure~\ref{fig2} (a)). When the application process runs, accessing an address within the \acrshort{VMA} will trigger a page fault, which is handled by the Qkernel page fault handler.
+The application binary is stored on the host. During the setup of the application process, the Qkernel loader opens the application binary using \emph{Hcall::Openat}, reads its ELF header into the Qkernel using the \emph{Ucall::read}, and then requests the Qkernel virtual memory manager to create a private 
+Virtual Memory Area (\acrshort{VMA}) for each loadable segment defined in the ELF file (Figure~\ref{fig2} (a)). When the application process runs, accessing an address within the \acrshort{VMA} will trigger a page fault, which is handled by the Qkernel page fault handler.
  
-The workflow for the page fault handling can be found in Figure~\ref{fig2} (b). Since the \acrshort{VMA} of a loadable segment is private, the page fault handler uses hcall::mmap to request Qvisor to map the loadable segment into a guest's physical address. It then allocates a page from the page pool on the Qkernel heap and copies the 
-segment's contents from the guest's physical address to this page. Finally, a page table entry (guest virtual address -> address of the page) is created. After this, the page fault handler hand over the control to the guest user process.
+The workflow for the page fault handling can be found in Figure~\ref{fig2} (b). Since the \acrshort{VMA} of a loadable segment is private, the page fault handler uses \emph{Hcall::mmap} to request Qvisor to map the loadable segment into a guest's physical address. It then allocates a 
+page from the page pool on the Qkernel heap and copies the segment's contents from the guest's physical address to this page. Finally, a page table entry (guest virtual address -> address of the page) is created. After this, the page fault handler hand over the control to the guest user process.
  
 Since the application binary is loaded from the host,  an attacker can induce Qkernel to execute compromised codes. For instance, the loader might request Qvisor to open binary A using \emph{Hcall::openat}. Nevertheless, instead, Qvisor provides the descriptor of file B. As a result, the loader creates the 
 wrong memory mapping. Consequently, the page fault handler will load the code from file B instead of file A. Furthermore, since the page fault handler uses \emph{Hcall::mmap} to map the executable into the guest's physical space, an attacker could manipulate the Qvisor to map compromised code. In this case, 
@@ -271,7 +271,7 @@ To this end, the application binary should be loaded to the guest and measured w
 
 \subsubsection{Loading compromised Binary at Runtime}
 Dynamic libraries are stored on the host and loaded at application runtime by the interpreter. When the application is a dynamically linked executable, the interpreter's code is executed upon launching the application process. As depicted in Figure~\ref{fig:load_shared_libarart}, the interpreter uses the \emph{open}, \emph{read}, and \emph{mmap} 
-system calls to create private memory mappings (\acrshort{VMA}s) for the loadable segments in a shared library. Accessing an address within the \acrshort{VMA}s triggers page faults. The page fault handler handles the fault like how it handles page faults when accessing the \acrshort{VMA} of the application binary.
+system calls to create \acrshort{VMA}s for the loadable segments in a shared library. Accessing an address within the \acrshort{VMA}s triggers page faults. The page fault handler handles the fault like how it handles page faults when accessing the \acrshort{VMA} of the application binary.
 Since the process of how the Qkernel creates memory mapping and later loads code to the guest for shared libraries and application binary are very similar, the issues encountered in the previous section also apply here. 
  
 Executing a command at runtime will cause the Qkernel to load the command binary. The binary loading mechanism has already been discussed in section~\ref{sec:app_binary_loading}. Therefore, a malicious user can inject malicious code into the Qkernel. 
@@ -286,7 +286,7 @@ Regarding the mitigation, Qkernel should measure the binaries and shared librari
 
 \subsection{No restriction to the available System Calls for Applications}
 
-Quark does not implement the system call intercept (Seccomp~\cite*{seccomp}) as specified in the OCI runtime specification~\cite*{oci-runtime-spec}. Thus, vulnerable system calls can be exploited to launch attacks against both the Qkernel and other processes. For instance, an attacker could initiate a malicious EXEC process and manipulate it 
+Quark does not implement the system call interception (\texttt{Seccomp}~\cite*{seccomp}) as specified in the OCI runtime specification~\cite*{oci-runtime-spec}. Thus, vulnerable system calls can be exploited to launch attacks against both the Qkernel and other processes. For instance, an attacker could initiate a malicious EXEC process and manipulate it 
 to utilize vulnerable system calls in order to steal application secrets. Furthermore, the discussion in Section~\ref{sec:security_analyse_oci_system_call} revealed that Seccomp is not an appropriate solution for confidential computing. Therefore, a novel mechanism for intercepting guest system calls is proposed in Section~\ref{sec:design_Interceptor}. This mechanism allows the 
 application owner to specify the permissible system calls for the application while ensuring that the guest system call interceptor is properly configured. 
 
@@ -301,12 +301,14 @@ since the untrusted Qvisor can load a compromised Qkernel binary, the applicatio
 determines the runtime behavior of the Qkernel, including whether the Ucall interface and RDMA are enabled. Incorrect configuration settings can expose secrets stored within the Qkernel. For instance, enabling RDMA would allow an untrusted entity to directly access the Qkernel's memory. Therefore, it is crucial to measure the Qkernel binary and the configuration 
 file, and send the resulting measurement to the relying party for integrity verification. Further details can be found in Section~\ref{sec:Enclave_Runtime_Measurement}.
 
-Qkernel uses \emph{Hcall::HYPERCALL\_PRINT} to store its logs on the host. The Qkernel logging system supports five logging levels: OFF, Error, Info, Debug, and Trace. Here OFF is the minor level, i.e., the least detailed, and Trace is the highest level, i.e., the most detailed log. The user can configure the highest level of logging for Qkernel through the 
-DebugLevel keyword in the configuration file~\cite*{quark_conf_file}. For example, when the DebugLevel is Info, Qkernel only prints logs in level Error and Info.
+Qkernel uses \emph{Hcall::HYPERCALL\_PRINT} to store its logs on the host. The Qkernel logging system supports five logging levels: \texttt{Off}, \texttt{Error}, \texttt{Info}, \texttt{Debug}, and \texttt{Trace}. Here \texttt{Off} is the minor level, i.e., the least detailed, and \texttt{Trace} is 
+the highest level, i.e., the most detailed log. The user can configure the highest level of logging for Qkernel through the \texttt{DebugLevel} keyword in the configuration file~\cite*{quark_conf_file}. For example, when the \texttt{DebugLevel} is \texttt{Info}, Qkernel only prints 
+logs in level \texttt{Error} and \texttt{Info}.
 
-A malicious administrator may set the DebugLevel keyword to Trace and then analyze the Qkernel logs to obtain sensitive information. This problem can be solved by measuring the guest kernel arguments. However, both Qvisor and Qkernel are configured using this file. Specifically, Qvisor reads this configuration file after startup and passes a copy to the 
-Qkernel when launching the guest. In confidential computing, Qkernel and Qvisor belong to the application owner and the cloud provider, respectively. They have different interests and do not trust each other. For example, to resolve errors quickly, the cloud provider requires the log level in Qvisor to be set to TRACE, while the application owner requires the 
-log level in Qkernel to be OFF to protect the confidentiality of the CVM. In the current architecture, Quark cannot satisfy both requirements. To this end, the Qkernel logging system configuration should be offloaded from the global configuration file. The detail can be found in section~\ref{sec:Qkernel_logger}..
+A malicious administrator may set the \texttt{DebugLevel} keyword to \texttt{Trace} and then analyze the Qkernel logs to obtain sensitive information. This problem can be solved by measuring the guest kernel arguments. However, both Qvisor and Qkernel are configured using this file. Specifically, 
+Qvisor reads this configuration file after startup and passes a copy to the Qkernel when launching the guest. In confidential computing, Qkernel and Qvisor belong to the application owner and the cloud provider, respectively. They have different interests and do not trust each other. 
+For example, to resolve errors quickly, the cloud provider requires the log level in Qvisor to be set to \texttt{Trace}, while the application owner requires the 
+log level in Qkernel to be \texttt{Off} to protect the confidentiality of the CVM. In the current architecture, Quark cannot satisfy both requirements. To this end, the Qkernel logging system configuration should be offloaded from the global configuration file. The detail can be found in section~\ref{sec:Qkernel_logger}..
 
 
 \section{Summary}
