@@ -9,7 +9,7 @@
 % vorzunehmen. Es wird empfohlen zunächst die eigenen Erwartungen
 % bezüglich der Ergebnisse zu erläutern und anschließend eventuell
 % festgestellte Abweichungen zu erklären.
-The previous chapters have analyzed the security issues associated with the OCI runtime interface in confidential computing, and have proposed the design and implementation of a shielding layer as a countermeasure. Therefore, this chapter assesses the security and performance of the implementation 
+The previous chapters have analyzed the security issues associated with the OCI runtime interface in confidential computing and have proposed the design and implementation of a shielding layer as a countermeasure. Therefore, this chapter assesses the security and performance of the implementation 
 from both qualitative and quantitative viewpoints. A brief introduction to qualitative and quantitative analyses can be found in Section~\ref{sec:eva_qualitativ} and~\ref{sec:eva_overwiwe_Quantitative}.
 Note that the implementation is referred to as confidential Quark in the subsequent discussions.
 
@@ -204,7 +204,7 @@ Furthermore, Figure~\ref{fig:cquark_priviled_cmd_result_protection} showcases th
 
 
 In the case of interactive applications, the busybox is used as an example. The corresponding YAML file for deployment can be found in commit~\cite*{artifacts_busybox}. Since protecting the terminal's STDIO is out of the scope,  the STDIO shield 
-only encrypt the STDOUT and STDERR outputs for the interactive application process in the same way that it encrypts the STDOUT and STDERR outputs of the non-interactive process.
+only encrypts the STDOUT and STDERR outputs for the interactive application process in the same way that it encrypts the STDOUT and STDERR outputs of the non-interactive process.
 \begin{figure}[!htb]
 
   \subfloat[Attaching to application using \emph{kubectl -it attach}\label{fig:attach_failed}]{%
@@ -263,7 +263,7 @@ the application process failed to start. The failure occurred because it lacked 
 \label{sec:eva_qualitativ_runtime_meausre}
 According to the discussion in Section~\ref{sec:Enclave_Runtime_Measurement}, the shield measures the binaries (e.g., shared libraries, command binaries) loaded from the host at application runtime and compares the resulting hashes with the reference hashes in the shield policy.  
 
-Figure~\ref{fig:cquark_runtime_runtime_lib_measurement_demo} shows a measurement demo of the shared library. Regarding the setup, the reference hash of the library \texttt{/lib/x86\_64-linux-gnu/libgcc\_s.so.1} in the shield policy is intentionally set to empty and the maximum logging level of the 
+Figure~\ref{fig:cquark_runtime_runtime_lib_measurement_demo} shows a measurement demo of the shared library. Regarding the setup, the reference hash of the library \texttt{/lib/x86\_64-linux-gnu/libgcc\_s.so.1} in the shield policy is intentionally set to empty, and the maximum logging level of the 
 Qlog manager is configured to \texttt{Debug}. Next, the modified policy is deployed to the secret manager. The Qkernel logs in Figure~\ref{fig:cquark_runtime_runtime_lib_measurement_demo} show that the \acrshort{CVM} encountered a crash due to a discrepancy between the measurements of the loaded library and the corresponding reference hash stored in the policy.
 
 
@@ -304,7 +304,7 @@ Figure~\ref{fig:cquark_application_restart_demo} (a) exemplifies this process.
     \label{fig:cquark_application_restart_demo}
 \end{figure}
 
-In this example, the Qlog manager’s max log level is configured to \texttt{Info} and the keywords \texttt{stdin: true} and \texttt{tty: true} are added to the container spec of the YAML file used to deploy the 
+In this example, the Qlog manager’s max log level is configured to \texttt{Info}, and the keywords \texttt{stdin: true} and \texttt{tty: true} are added to the container spec of the YAML file used to deploy the 
 application (Figure~\ref{fig:cquark_deployment}). These keywords keep the application’s stdin open and notify Kubernetes\cite*{k8s} that it should be regarded as a terminal. As shown in Figure~\ref{fig:cquark_application_restart_demo} (a), the application is first created using the modified YAML file. Once the application starts, \emph{kubectl attach -it} is used to 
 attach to the application process and send \texttt{ctrl c} to the process. The \texttt{ctrl c} will cause the terminal IO redirection thread sends \texttt{SIGINT} to terminate the application, as discussed in section~\ref{sec:security_analyse_STDIO}. The output of the second \emph{kubectl get} command confirmed that the application had successfully restarted. 
 As can be seen from the Qkernel logs shown in Figure~\ref{fig:cquark_application_restart_demo} (b), the shield measured binaries and shared libraries loaded from the host during the application restart. The shield compared the resulting measurements with the application startup reference hash to determine that the binaries and shared libraries loaded during 
@@ -731,7 +731,7 @@ overhead introduced by the remote attestation and provisioning agent.
 \subsection{Macro-Benchmark– Application Life Cycle Performance Benchmark}
 \label{macri_app_start_up}
 
-This subsection evaluates the performance of running real-world applications in confidential and vanilla Quark. The Nginx~\cite*{nginx} and Redis~\cite*{redis} are chosen as test subjects and their startup time, exit time, and runtime throughput are measured. At program runtime, the Apache HTTP 
+This subsection evaluates the performance of running real-world applications in confidential and vanilla Quark. The Nginx~\cite*{nginx} and Redis~\cite*{redis} are chosen as test subjects, and their startup time, exit time, and runtime throughput are measured. At program runtime, the Apache HTTP 
 Server Benchmarking Tool~\cite*{ab} and Redis-benchmark~\cite*{Redis_benchmark} are used to generate workloads for Nginx and Redis, respectively.
 
 Regarding the benchmarking methodology, the testing framework~\cite*{benchamark_framework} is extended to repeatedly launch the target application 100 times, record its startup and exit times, and the results of Redis and Apache benchmarks. Redis and Apache benchmarks are set to issue 1,000,000 
@@ -807,7 +807,7 @@ The possible reason for this impact is the overhead introduced by intercepting g
 \subsection{Trust Computing Base}\label{tcb}
 
 This subsection evaluates the \acrshort{TCB} overhead introduced by the shield and compares the \acrshort{TCB}  sizes of confidential Quark and Kata containers~\cite*{Kata-Containers}. To this end, the lines of code and the size of the guest kernel binary for confidential and 
-vanilla Quark are compared. Note that the guest kernel binary comprises the code from 3 components, Qkernel, Qlib, and the shielding layer. In comparing the \acrshort{TCB} sizes of confidential Quark and Kata containers, the binary sizes of the guest assets is utilized as a reference. The assets for 
+vanilla Quark are compared. Note that the guest kernel binary comprises the code from 3 components, Qkernel, Qlib, and the shielding layer. In comparing the \acrshort{TCB} sizes of confidential Quark and Kata containers, the binary size of the guest assets is utilized as a reference. The assets for 
 confidential Quark are the guest kennel (Qkernel) binary, while the assets for the Kata containers include the Kata agent~\cite*{kata_agent}, OVMF~\cite*{ovmf}, and the Linux kernel. Besides, the strip utility~\cite*{strip} is utilized to remove unused symbols from the binaries to ensure fairness.
 
 \begin{table}[htbp]

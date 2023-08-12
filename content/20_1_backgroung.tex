@@ -35,7 +35,7 @@
 This chapter offers background knowledge for all the content and topics covered in the thesis. The reader is assumed to understand operating systems, Kubernetes\cite*{k8s}, and confidential computing. Nonetheless, it provides a concise overview of essential terms and concepts to facilitate the reader's 
 comprehension of subsequent chapters.
 
-\section{Kubernetes and runtime communication interface}
+\section{Kubernetes and Runtime Communication Interface}
 \label{sec:k8s}
 Kubernetes~\cite*{k8s} is a tool for managing and orchestrating containers. It comprises at least one master node and multiple worker nodes. The master node handles global decision-making, scheduling, and managing cluster events. As shown in Figure~\ref{fig:k8s}, 
 the master node hosts an API server that provides users with an interface to manage and control the cluster. Users can submit requests to create or update Kubernetes objects like pods. A pod represents the smallest deployment unit in Kubernetes, which may contain multiple containers sharing network 
@@ -55,7 +55,7 @@ runtimes that implement the shim interface~\cite*{shim_v2, cri0_shim_v2}. In Con
 communication between higher-level runtimes and various lower-level runtimes.
 
 
-\section{OCI runtime specification}
+\section{OCI Runtime Specification}
 \label{sec:back_oci_runtime_spec}
 To ensure container portability and compatibility across runtimes, the Open Container Initiative (OCI) has introduced the OCI runtime specification~\cite*{oci-runtime-spec}. This specification outlines the procedure for low-level container runtimes to create and execute containers based on an 
 application bundle. The high-level container runtime generates the application bundle from an image. It contains the container's root file system and a configuration file. This bundle is transferred to the low-level runtime during the container creation phase. 
@@ -70,7 +70,7 @@ different stages of the container lifecycle (Figure~\ref{fig:Container_Lifecycle
   \label{fig:Container_Lifecycle_state}
 \end{figure}
 
-\section{Kata containers}
+\section{Kata Containers}
 \label{sec:Kata}
 
 Kata containers is an OCI-compliant low-level container runtime derived from combining two projects: Clear Containers and Hyper RunV~\cite*{Kata-Containers}. It runs containers in an ultra-lightweight virtual machine. This architecture preserves the speed of containers and utilizes 
@@ -87,7 +87,7 @@ from Kata shim v2 and managing the containers within the VM. Communication betwe
 Kata containers utilize a highly optimized hypervisor and guest kernel that strips off unnecessary modules to achieve a low boot time and small memory footprint~\cite*{8939164}.
 
 
-\section{Quark containers}
+\section{Quark Containers}
 \label{sec:Quark}
 Quark containers~\cite*{quark} is an OCI-compliant container runtime written in the Rust language. Similar to Kata containers~\cite*{Kata-Containers}, it also runs the containers in the VM. 
 The difference is that Quark uses an application kernel (also known as the forward kernel) as a guest OS. It implements some system calls and forwards others to the host. Compared to the Kata containers, its guest kernel is smaller since it reuse many services the host provides, eliminating unnecessary code.

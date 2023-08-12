@@ -47,10 +47,10 @@ generated afterward. This function solves the following three problems:
 \begin{enumerate}
     \item How the agent establishes a TCP connection to the secret manager
     \item How the agent establishes a TLS channel on top of the TCP connection to the secret manager
-    \item How the agent constructs HTTP requests according to the KBS attestation protocol, proves its identity to the secret manager, and retrieves secrets.
+    \item How the agent constructs HTTP requests according to the KBS attestation protocol, proves its identity to the secret manager and retrieves secrets.
 \end{enumerate}
 
-\subsubsection{TCP connection establishment}
+\subsubsection{TCP Connection Establishment}
 
 Listing~\ref{lst:api_for_tcp_connection} shows the API for establishing the TCP connection. In order to make the Qkernel socket object available to the shield layer, the \emph{Provider} interface defined in the Qkernel network stack is implemented for the \emph{ShieldSocketProvider}. Since each 
 socket implements trait \emph{SockOperations}, the shielding layer can first use \emph{ShieldSocketProvider} to obtain a socket object and then use \emph{Connect()} method to connect the socket to the secret manager.
@@ -70,7 +70,7 @@ pub trait SockOperations: Sync + Send {
 }    
 \end{lstlisting}
 
-\subsubsection{TLS channel establishment}
+\subsubsection{TLS Channel Establishment}
 Listing~\ref{lst:api_for_tls_connection} shows the functions for creating a TLS channel. The no-std compatible crate embedded-tls~\cite*{embede_tls} is used to establish a TLS channel between the secret manager and the \acrshort{CVM}, as the guest kernel (Qkernel) runs in a no-std environment. The 
 socket connected to the secret manager is stored in \emph{ShieldProvisioningHttpSClient}. Therefore, the \emph{ShieldProvisioningHttpSClient} implements the traits \emph{embedded\_io::blocking::Read} and \emph{embedded\_io::blocking::Write}. The embedded-tls library can then use the functions 
 in these two traits to read and write the socket stored in \emph{ShieldProvisioningHttpSClient}.
@@ -89,7 +89,7 @@ impl embedded_io::blocking::Write for ShieldProvisioningHttpSClient {
     fn write<'m>(&'m mut self, write_from: &'m [u8]) -> Result<usize>;
 }
 \end{lstlisting}
-\subsubsection{Building HTTP requests according to the KBS attestation protocol}
+\subsubsection{Building HTTP Requests According to the KBS Attestation Protocol}
 Listing~\ref{lst:http_connection} shows the functions for constructing the HTTP requests defined in the KBS attestation protocol~\cite*{kbs_Attestation_protocol}. \emph{ShieldProvisioningHttpSClient} holds the metadata used in the protocol. The explanation of those data can be found in 
 section~\ref{sec:kbs};
 
@@ -402,7 +402,7 @@ pub struct InodeTracker {
 } 
 \end{lstlisting}
 
-\subsection{Non-interactive process STDIO Protection}
+\subsection{Non-interactive Process STDIO Protection}
 \begin{lstlisting}[language=rust, caption= API of normal IO shield, label={lst:Normal_IO}]
 fn encrypNormalIOStdouterr (&self, src: DataBuff, inode_id: u64) -> Result<DataBuff>
 \end{lstlisting}
@@ -411,7 +411,7 @@ the function encrypts the data using the method specified in Section~\ref{sec:de
 
 
 
-\subsection{Interactive process STDIO Protection}
+\subsection{Interactive Process STDIO Protection}
 \begin{lstlisting}[language=rust, caption= API of system call interceptor, label={lst:Termianl_IO}]
 fn termianlIoEncryption(&self, src: &[IoVec], task: &Task,  inode_id: u64) -> Result<(Vec::<IoVec>)
 \end{lstlisting}

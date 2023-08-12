@@ -1,4 +1,4 @@
-\chapter{Conclusion And Outlook}
+\chapter{Conclusion and Outlook}
 \label{sec:conclusion}
 
 %  Schlußfolgerungen, Fragen, Ausblicke
@@ -29,7 +29,8 @@ secure client for the application owners is implemented, enabling them to issue 
  
 The qualitative analysis in Section~\ref{sec:eva_qualitativ} proved that the system implemented in Chapter~\ref{sec:implementation} can effectively mitigate most issues found in the security analysis. A summary of the qualitative analysis can be found in Table~\ref{tab:eva_qualitativ_summary} on page \pageref{tab:eva_qualitativ_summary}. 
 On the other hand, the quantitative analysis in Section~\ref{sec:eva_Quantitative} revealed performance degradation due to the system. This is evident in longer application startup time, 
-decreased application throughput, an increased \acrshort{TCB} size, etc. Nevertheless, Quark's \acrshort{TCB} is only one-sixteenth the size of Kata Containers\cite*{Kata-Containers}, highlighting the superiority of the \acrshort{pVM} architecture. 
+decreased application throughput, an increased \acrshort{TCB} size, etc. Nevertheless, Quark's \acrshort{TCB} is only one-sixteenth the size of Kata Containers\cite*{Kata-Containers}, highlighting the superiority of the \acrshort{pVM} architecture. The results of the quantitative analysis 
+are summarized in Section~\ref{sec:qualitativ_sum} on page \pageref{sec:qualitativ_sum}.
  
 Further work is required before the solution can be deployed. For example, running Quark in secure VMs (e.g., Intel TDX~\cite*{Intel_tdx_whitepaper}) and enhancing the remote attestation infrastructure are necessary. The following section provides a detailed discussion of these aspects.
 
@@ -47,7 +48,7 @@ incorporate a file system shielding layer~\cite*{file_system_shield} to prevent 
 The remote attestation infrastructure is immature, as Quark can only generate simulated attestation reports. As discussed in Section~\ref{subsec:Limitations}, in this case, the secret manager cannot verify the report's authenticity. Future implementations will have to close this security 
 gap.
 
-The performance evaluation in Section~\ref{bench_Interceptor} shows that the guest system interceptor imposes a significant latency overhead. As discussed in Section~\ref{sec:impl_interceptor}, these overheads arise from accessing the vector that holds the system calls whitelist and the lock 
+The performance evaluation in Section~\ref{bench_Interceptor} shows that the guest system interceptor imposes a significant latency overhead. As discussed in Section~\ref{sec:impl_interceptor}, these overheads arise from accessing the vector that holds the system call whitelist and the lock 
 that safeguards the vector. In future implementations, a possible solution could involve storing the system call whitelist in eight \texttt{AtomicU64}~\cite*{rust_automic_u64} variables, with each bit in the variable representing a system call ID. Given that Quark consists of a total of 451 system calls, eight variables would suffice. The whitelist can then be accessed using atomic 
 operations to circumvent the previously mentioned overhead.
 
@@ -70,6 +71,3 @@ reference hashes in the shield policy. This will allow the \acrshort{CVM} to loa
 
 \cleardoublepage
 
-%%% Local Variables:
-%%% TeX-master: "diplom"
-%%% End:

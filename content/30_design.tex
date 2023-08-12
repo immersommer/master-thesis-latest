@@ -144,7 +144,7 @@ types, and \emph{<tag>} is used to distinguish different versions of a resource.
 
 Note that some of the above features are not implemented. Section~\ref{subsec:Limitations} summarizes the limitations of secure application deployment.
 
-\subsection{Application Runtime Attestation Service}
+\subsection{Application Runtime Attestation Support}
 \label{sec:runtime_attesation}
 
 An application may need to attest itself to a remote party at runtime. Quark attestation and provisioning infrastructure enable applications to obtain attestation reports through the guest system call interface. Depending on the application's needs, one of three report formats can be 
@@ -334,7 +334,7 @@ A guest user-space process STDIO shield is proposed to tackle the vulnerability~
 both the application process and processes executing privileged EXEC commands. The distinction between interactive and non-interactive processes lies in their STDIO, specifically whether it is of terminal type. 
 
 
-\subsection{Distinguish the STDIO type of the Processes}
+\subsection{Distinguish the STDIO Type of the Processes}
 \label{sec:design_Distinguish_io}
 
 The guest user space can accommodate various types of processes, including privileged-level non-interactive EXEC processes, privileged-level interactive EXEC processes, session or policy update processes, and various non-privileged-level EXEC processes. The STDIO shield handles the STDIO of these processes differently. For instance, 
@@ -461,7 +461,7 @@ restricted to printing logs at the \texttt{INFO}, and \texttt{ERROR} levels. Not
 \end{lstlisting}
     
 
-\section{Modification to OCI}
+\section{Modification to OCI Runtime Interface}
 \label{sec:Modification_OCI}
 
 \subsection{Extending the Container Lifecycle to Support Confidential Computing}
@@ -536,12 +536,12 @@ the enclave must authenticate and control access to the request based on the pol
 privileged process. The encryption mechanism is explained in Section~\ref{sec:design_STDIO_PROTECTION}.
 
 
-\subsection{System call interception}
-Section~\ref{sec:security_analyse_oci_system_call} elaborates on why the seccomp-based system call interception mechanism does not apply to confidential computing. Therefore, enclaves must implement a new mechanism for the system call interception. In particular, the configuration file for this mechanism should be obtained from the relying party by the attestation and provisioning hook. 
-This avoids tampering with this file by an untrusted runtime. A reference design can be found in Section~\ref{sec:design_Interceptor}.
+\subsection{System Call Interception}
+Section~\ref{sec:security_analyse_oci_system_call} elaborates on why the seccomp-based system call interception mechanism does not apply to confidential computing. Therefore, enclaves must implement a new mechanism for the system call interception. In particular, the configuration file for this 
+mechanism should be obtained from the relying party by the attestation and provisioning hook. This avoids tampering with this file by an untrusted runtime. A reference design can be found in Section~\ref{sec:design_Interceptor}.
 
 
-\subsection{Enclave runtime configuration}
+\subsection{Enclave Runtime Configuration}
 
 As discussed in Section~\ref{sec:security_analyse_oci_vm}, the enclave (i.e., container namespace) must be properly configured. This includes properly configuring the VM's logging system and loading the correct guest kernel and guest kernel parameters for a VM container. The VM can use a configuration file loaded from the host to initialize the logging system 
 and add the measurement of the file to the attestation evidence of the attestation and provisioning hook. On the other hand, the VM could also initialize the logging system using a configuration file obtained from a relying party by the attestation and provisioning hook. The solution to choose is implementation specific. For guest kernels and guest kernel parameters, their 
