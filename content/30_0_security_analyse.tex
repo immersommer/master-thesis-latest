@@ -1,322 +1,219 @@
-\chapter{Security Analysis}
+\chapter{ENTWURF}
 \label{sec:security_analyse}
 
-% Ist das zentrale Kapitel der Arbeit. Hier werden das Ziel sowie die
-% eigenen Ideen, Wertungen, Entwurfsentscheidungen vorgebracht. Es kann
-% sich lohnen, verschiedene Möglichkeiten durchzuspielen und dann
-% explizit zu begründen, warum man sich für eine bestimmte entschieden
-% hat. Dieses Kapitel sollte - zumindest in Stichworten - schon bei den
-% ersten Festlegungen eines Entwurfs skizziert werden.
-% Es wird sich aber in einer normal verlaufenden
-% Arbeit dauernd etwas daran ändern. Das Kapitel darf nicht zu
-% detailliert werden, sonst langweilt sich der Leser. Es ist sehr
-% wichtig, das richtige Abstraktionsniveau zu finden. Beim Verfassen
-% sollte man auf die Wiederverwendbarkeit des Textes achten.
-
-% Plant man eine Veröffentlichung aus der Arbeit zu machen, können von
-% diesem Kapitel Teile genommen werden. Das Kapitel wird in der Regel
-% wohl mindestens 8 Seiten haben, mehr als 20 können ein Hinweis darauf
-% sein, daß das Abstraktionsniveau verfehlt wurde.
-
-%\ldots design \ldots
-
-%\todo{write design}
-This chapter aims to analyze the potential vulnerabilities in the OCI runtime interface~\cite*{oci-runtime-spec} through which an adversary can obtain sensitive data of an application. The first section defines the threat model (Section~\ref{sec:Threat_model}). Subsequently, Section~\ref{sec:security_analyse_oci_analysis} explores the problems in the OCI runtime interface~\cite*{oci-runtime-spec} in the 
-context of confidential computing. Section~\ref{sec:security_analyse_quark_analysis} then uses the vulnerabilities found in the OCI runtime interface to conduct a security analysis of Quark~\cite*{quark}. Chapter~\ref{sec:design} further proposes mechanisms to mitigate these vulnerabilities.
-
-
-\section{Threat Model}
+\section{ANFORDERUNGEN}
 \label{sec:Threat_model}
-The OWASP application threat modeling methodology~\cite*{OWASP_Threat_Modeling} is employed to create a threat model comprising four aspects: actors, assets, external dependencies, and attack surface.
+Das primäre Designziel dieses Entwurfs ist es, die Laufzeit des Algorithmus so weit wie möglich zu minimieren und den Hardwareaufwand so gering wie möglich zu halten. In der Praxis benötigt der Addition/Subtraktion nur einen Takt; für den Dividierer werden jedoch drei Takte benötigt. Daher wurde der Algorithmus so gewählt, dass statt eines Dividierers so viele Additionen/Subtraktionen wie möglich verwendet werden.
 
-\textbf{Actors.} The model involves the cloud provider and the tenant. The cloud provider is accountable for providing the hardware and software necessary for running and orchestrating applications. However, the tenant distrusts the cloud provider in the 
-context of confidential computing. Therefore, the software components within the cloud infrastructure, like Kubernetes~\cite*{k8s}, Containerd~\cite*{containerd}, and hypervisor, are untrusted.
+\noindent Der Kern des Algorithmus, der Euklidsche Algorithmus, verwendet Loops. Jedes Mal, wenn eine Loop läuft, wird eine neue Berechnung durchgeführt. Um den Hardwareaufwand zu verringern, ist die Wiederverwendung von Registern und Bussen zum Entwurf. Daher wird das Ergebnis jeder Berechnung über denselben Bus an das entsprechende Register gesendet, was das Überschreiben von Daten ermöglicht.
 
-\textbf{Assets.} The objective is to secure the OCI-managed workload, with Kubernetes being the implementation evaluated. Specifically, The goal includes preserving the integrity of the application binary and its dependencies, maintaining the confidentiality and integrity of the application’s secret 
-during application deployment and runtime.
-
-\textbf{External Dependencies.} The model assumes that the guests, including guest kernel and workloads, operate within a \acrshort{TEE}. This prevents the malicious hypervisor or powerful cloud operator from accessing the workload’s sensitive data through guest memory and registers. Furthermore, 
-the attacks related to denial of service~\cite*{DOS_ATTACK}, side channels~\cite*{217454}, networks, and file systems are excluded.
-
-\textbf{Attack Surface.} The model focuses on attacks occurring on the OCI interface~\cite*{oci-runtime-spec}. As the management of workloads is the cloud provider’s responsibility, it must have a means of accessing workloads for orchestration, even if the workloads are running within a TEE. Although the OCI runtime specification offers this possibility, 
-it exposes a new attack surface for an adversary to probe workloads’ secrets. Furthermore, since the OCI implementation in the Quark guest (Qkernel) interacts with the host through the Hypercall, Qcall, or Ucall interfaces, the specific calls employed by adversaries to launch attacks are highlighted when analyzing the security of Quark.
-The workflow of Hypercall, Qcall, or Ucall can be found in Section~\ref{sec:Quark}.
-
-
-
-\section{Analysis of OCI Runtime Interface}
+\section{ARITHMETIK}
 \label{sec:security_analyse_oci_analysis}
-This section analyzes the problems in the OCI runtime interface~\cite*{oci-runtime-spec} in the context of confidential computing.  Figure~\ref{fig:security_analysis} depicts an OCI  runtime interface-compliant container runtime. This container runtime comprises a shim process (also called runtime) and a container namespace, which serves as the environment for running applications and EXEC processes. In the realm of confidential computing, the shim process is untrusted, whereas the container namespace is protected by a 
-trusted execution environment. In the following, the word \texttt{shim} and \texttt{runtime} are used interchangeably.
+Die Wahl der Bitbreite der Baublöcke hängt von der Größe der im Bus transportierten Daten ab. Die Anzahl der Ein- und Ausgänge in diesem Beispiel ist klein. Daher wurde für alle Elemente in diesem Beispiel die Baublöcke von 32 bit für Festkommaoperationen gewählt.
+ 
+\vspace{\baselineskip}
 
-
-\begin{figure}[htp]
+\begin{figure}[H]
   \centering
-  \includegraphics[width=0.8\textwidth]{images/security_analysis.png}
-  \caption[Overview of the security analysis on OCI runtime interface]{Overview of the security analysis on OCI runtime interface}
-  \label{fig:security_analysis}
+  \includegraphics[width=0.5\textwidth]{images/Datenflussgraph.png}
+  \caption[Datenflussgraph]{Datenflussgraph}
+  \label{fig:datenflussgraph}
 \end{figure}
 
+\section{DATENFLUSSGRAPH}
+Das in Abbildung 3.1 dargestellte Datenflußdiagramm des Algorithmus ist in vier Hauptteile unterteilt. Die Zustände 1-4 dienen der Initialisierung der Eingabedaten in den Registern. Die Zustände 5-16 dienen dazu, die Eingabedaten so zu verarbeiten, dass sie die Bedingungen des dritten Teils des Algorithmus erfüllen. Die Zustände 17-24 sind für den dritten Teil, den euklidischen Algorithmus. Dieser Teil dient der Berechnung des größten gemeinsamen Teilers der beiden Eingabedaten. Die Zustände OUTPUT1 und OUTPUT2 sind der vierte Teil, der dazu dient, das Endergebnis in die Register zu schreiben.
 
-\subsection{Secret Deployment of Applications}
-The application secrets deployment process defined in the OCI runtime interface can potentially result in secret disclosure. In confidential computing, there are three ways to inject secrets into an application: command line arguments, mounted files, and environment variables. According to the semantics of the OCI runtime interface, shim implements the operation 
-\emph{create <container-id> <path-to-bundle>} for container creation. The \emph{<path-to-bundle>} points to an application bundle located on the host. As discussed in Section~\ref{sec:back_oci_runtime_spec}, this bundle, generated by a higher-level container runtime like Containerd~\cite*{containerd}, contains the necessary metadata for creating an 
-application process and the application secrets. As shown in Part A of Figure~\ref{fig:security_analysis}, the shim will create the application process and deploy the secrets based on this application bundle. However, storing secrets on an untrusted host and relying on the shim for deployment is not a secure approach. An adversary with access 
-to the host can manipulate these secrets. This compromises the confidentiality and integrity of the application secrets. Therefore, a new way of managing and deploying application secrets must be found. A reference solution can be found in Section~\ref{sec:design_Quark_Attestation_and_Provisioning_Infrastructure}.
+\vspace{\baselineskip}
 
-\subsection{EXEC Operation}
-\label{sec:Security_OCI_EXEC}
+\noindent Das Schreiben in den Speicher dauert einen Takt. Das Lesen von Daten muss nach dem Schreiben in den Speicher erfolgen. Daher darf das Schreiben von Daten in den Speicher und das Lesen von Registern aus dem Speicher nicht im selben Takt erfolgen. Bei den ersten beiden Beurteilungen des Algorithmus muss nur der Eingangswert mit 0 verglichen werden. Daher ist in diesem Prozess keine Änderung des Speichers erforderlich. Beim Euklidischen Algorithmus müssen die Werte in den Registern überschrieben werden. Die Werte in den Registern werden zur Berechnung über den Bus im vorherigen Takt an die Subtraktion gesendet. Dann wird er zum letzten Takt in das entsprechende Register transportiert, um die ursprünglichen Daten zu überschreiben. Es ist somit nicht notwendig, weitere temporäre Register zur Speicherung der Daten zu verwenden. Dies reduziert den Hardwareaufwand.
 
-As depicted in Part B of Figure~\ref{fig:security_analysis}, shim's EXEC endpoint allows anyone to issue commands to the applications. These include commands that allocate terminals, such as \emph{/bin/sh}, and others, like \emph{cat}, etc. Unfortunately, the container namespace does not implement authentication and access control mechanisms for EXEC requests from 
-the shim. Therefore, an adversary can issue arbitrary commands to an application to collect its secret. For example, using \emph{printenv} to obtain the application's environment variable type secrets. Besides, the commands issued by the application owner may contain confidential data but are unprotected during transmission. As shown in Part B of Figure~\ref{fig:security_analysis}, the untrusted 
-shim redirected commands and other metadata within the EXEC request to the container namespace. Consequently, the confidentiality and integrity of these commands may be compromised during transmission. To this end, the OCI interface~\cite*{oci-runtime-spec} should apply end-to-end cryptographic protection for these commands and add a checkpoint within the 
-container namespace for authentication and access control on the EXEC requests. Any unauthorized commands should be denied. For further details, please refer to Section~\ref{sec:design_EXEC_Requests}.
+\vspace{\baselineskip}
 
+\noindent Da der Algorithmus einfach ist. Die Dateneingabe und -ausgabe muss sequentiell in Taktfolge erfolgen. Es ist nicht möglich, durch parallele Berechnungen Zeit zu sparen. Daher besteht die einzige Möglichkeit, diesen Entwurf zu vereinfachen, in der Reduzierung des Hardwareaufwands. 
 
-\subsection{STDIO of Process}
-\label{sec:security_analyse_STDIO_oci}
-The OCI specification~\cite*{oci-runtime-spec} does not include cryptographic protection for the STDIN, STDOUT, and STDERR  of interactive processes and the STDOUT and STDERR of non-interactive processes. According to the OCI runtime interface semantics, there may be application processes or EXEC processes in the container's namespace. As depicted in Part C of 
-Figure~\ref{fig:security_analysis}, the STDIOs of these processes are redirected by the shim. For application processes, the stream outputs of STDOUT and STDERR are stored as container logs on the host. For the EXEC process, command execution results are returned to the user via STDOUT or STDERR. In confidential computing, the application logs, command execution 
-results, and data the application owner sends to interactive processes via STDIN may contain sensitive information. Hence, forwarding these data by the untrusted shim would jeopardize the data's confidentiality and integrity. As such, it is essential to apply cryptographic protection for the STDIN, STDOUT, and STDERR of interactive processes, as well as 
-the STDOUT and STDERR of non-interactive processes. A reference design can be found in Section~\ref{sec:design_STDIO_PROTECTION}
+\section{DATENPFADARCHITEKTUR}
 
-\subsection{Container Root Filesystem and Volume}
+Zur Realisierung des Entwurfs werden zwei 32-Bit-Register zur Speicherung der Eingangsdaten und Zwischenwerte verwendet. Drei Konstantenregister werden auch als Indizes für das Lesen und Schreiben in den Speicher verwendet. Sie sind über den Bus C mit dem Adress-Port des Speichers verbunden. Bus A verbindet die Register mit dem DOUT-Port des Speichers und initialisiert die Register. Bus B wird verwendet, um Werte in den Speicher zu schreiben, so dass das Konstantenregister 0 und die Register x und y mit Bus B verbunden sind.
 
-The OCI runtime interface~\cite*{oci-runtime-spec} lacks a mechanism to ensure the confidentiality and integrity of data in the container root filesystem and volumes. It does not define how the container root filesystem and volumes should be configured. Therefore, different runtimes can configure them as they see fit. For instance, virtual machine-based container 
-runtimes (e.g., Kata runtimes~\cite*{Kata-Containers}) may mount the container root filesystem and volumes on the host and make them accessible to containers using a paravirtualized filesystem sharing mechanism (e.g., \emph{virtio-fs})~\cite*{kata_storage}. Alternatively, the runtime may treat the container root filesystem (comprising the container image layers) and volumes as block devices and expose them to the guest 
-using \emph{virtio-block}~\cite*{kata_storage}. However, untrusted hosts can view or tamper with the data in these components (refer to part D of Figure~\ref{fig:security_analysis}). For example, viewing confidential data in volumes written by applications and tampering with binaries and shared 
-libraries. Consequently, the confidentiality and integrity of container data are compromised. Note that according to the threat model in Section~\ref{sec:Threat_model}, filesystem protection is outside the scope of this thesis (i.e., protecting the data written to volumes and the filesystem). The 
-threat model focuses on preserving the integrity of shared libraries and binaries, which include the application binary and the binaries loaded at application runtime (e.g., command binaries).
+\vspace{\baselineskip}
 
+\noindent Das Datenpfaddiagramm in Abbildung 3.2 zeigt die Verbindung zwischen den verwendeten Registern und den Bussen, wenn dieser Algorithmus ausgeführt wird. Beim Bus werden Daten zwischen den Registern und dem Speicher ausgetauscht, indem diese miteinander verbunden werden. Dieser Datenpfad ermöglicht die Operationen der Register, die Initialisierung des Speichers und die Speicherung von Konstanten.
 
-\subsection{System Call Interception}
-\label{sec:security_analyse_oci_system_call}
-The \texttt{Seccomp} section of the OCI runtime specification~\cite*{oci-runtime-spec} outlines a method for restricting the system calls accessible to an application. This approach relay on the Linux kernel's feature \texttt{Seccomp}~\cite*{seccomp} and a configuration file from the application bundle. During the creation of an application process, the runtime 
-utilizes the file to configure \texttt{Seccomp} accordingly. However, in confidential computing, the runtime is not trustworthy. It can tamper with the file to allow applications to execute system calls vulnerable to attack. Additionally, the host kernel is also deemed untrustworthy in this context. If the runtime were to rely on the \texttt{Seccomp} mechanism 
-within the host kernel, the system call interception would become meaningless. Thus, the OCI runtime specification must introduce a new mechanism for intercepting system calls. For further details, please refer to the reference design available in Section~\ref{sec:design_Interceptor}.
+\vspace{\baselineskip}
 
+\noindent Die Verwendung von Registern und Bussen hilft uns, den Entwurf mit einem Minimum an Hardware zu realisieren und den Algorithmus ohne zusätzliche Schaltungen zu implementieren.
 
-\subsection{Special Case for VM containers}
-\label{sec:security_analyse_oci_vm}
-For a VM container, the OCI interface defines the configuration of the hypervisor, guest kernel, and image. For example, the paths to the hypervisor, guest kernel,  and image,  as well as the startup parameters passed to the guest kernel and hypervisor. In confidential computing, ensuring that the environment for hosting containers 
-(i.e., container namespace) is properly configured is critical. In the case of a VM container,  this entails the integrity of the guest kernel, and the guest kernel's startup parameters must be verifiable and protected. Besides, as the logs of the VM can potentially include confidential information, it becomes crucial to configure 
-the VM logging system appropriately. To address these concerns, the OCI interface must define a remote attestation mechanism that enables the secret owner to validate that the VM is correctly configured.
-
-
-
-
-\subsection{Summary}
-\label{sec:security_analyse_oci_summary}
-This section analyzed vulnerabilities in the OCI interface for confidential computing. These vulnerabilities include:
- \begin{enumerate}
-  \item\label{vulnerability:1} Application secrets are deployed by untrusted runtime.
-  \item\label{vulnerabilities:2} Processes' STDIOs lack cryptographic protection, i.e., protecting interactive processes STDIN, STDOUT, and STDERR, and non-interactive processes STDOUT and STDERR
-      % \begin{enumerate}
-      %     \item\label{vulnerabilities:2} Interactive processes STDIN, STDOUT, and STDERR lack cryptographic protection.
-      %     \item\label{vulnerabilities:3} Non-interactive processes STDOUT and STDERR lack cryptographic protection.
-      % \end{enumerate}
-  \item\label{vulnerabilities:3}EXEC operation:
-      \begin{enumerate}
-        \item Lack of authentication and access control over EXEC requests.
-        \item Commands are transmitted by untrusted runtime. Therefore, the integrity and confidentiality of commands issued by application owners are compromised.
-      % and access control  Commands issued by the application owner may contain confidential data but are not protected in transit.
-      \end{enumerate}
-  \item\label{vulnerabilities:4} Container root file system and volume
-      \begin{enumerate}
-        \item Lack of protection for data written to the root file system and volumes (out of the scope).
-        \item Loading compromised binaries and share libraries from the untrusted host.
-      \end{enumerate}
-  \item\label{vulnerabilities:5} The system call interception mechanism provided by \texttt{Seccomp} does not apply to confidential computing.
-  \item\label{vulnerabilities:6} Lacking a mechanism to ensure that the container runtime environment is configured correctly. For VM containers, this means:
-      \begin{enumerate}
-        \item Ensure the integrity of guest kernel binary.
-        \item\label{vulnerabilities:10} Ensure the integrity of guest kernel startup parameters.
-        \item\label{vulnerabilities:11} Ensure the proper configuration of the guest kernel logging system.
-      \end{enumerate}
-\end{enumerate}
-
-
-\section{Analysis for the OCI Runtime Interface in Quark}
-\label{sec:security_analyse_quark_analysis}
-Section~\ref{sec:security_analyse_oci_summary} provide a summary of vulnerabilities in the OCI runtime specification. The subsequent analysis will evaluate the security of Quark runtime deployed in the Kubernetes~\cite*{k8s} environment based on these vulnerabilities. Note that Qlib serves 
-only as a developmental concept, as its code becomes part of the guest kernel (Qkernel) and the hypervisor (Qvisor) binaries through the compilation process. Henceforth, the Qkernel and Qvisor are used in the following to denote the guest kernel and hypervisor, respectively. Furthermore, the 
-term \texttt{runtime} defined in Section~\ref{sec:security_analyse_oci_analysis} represents the Quark shim and Qvisor, while the \texttt{container namespace} 
-refers to the virtual machine encompassing both Qkernel and the application. Besides, the analysis uses \emph{Hcall::call id}, \emph{Qcall::call id}, and \emph{Ucall::call id} to specify a specific Hypercall, Qcall, and Ucall. Please consult Section~\ref{sec:Quark} for information on the 
-Quark architecture and the workflow of Hypercall, Qcall, and Ucall.
-
-
-\subsection{Application Secret Deployment Process in Quark}
-\label{sec:security_analyse_secret_deployment}
-\begin{figure}[htp]
-    \centering
-    \includegraphics[width=0.8\textwidth]{images/quark-agent-work-flow.png}
-    \caption[Quark Agent Workflow]{Quark agent workflow}
-    \label{fig:quark_agent_work_flow}
-\end{figure}
-
-
-Untrusted Kubernetes~\cite*{k8s} and Quark shim manage and deploy application secrets, i.e., command line arguments, mount files, and environment variables. As shown in Figure~\ref{fig:quark_agent_work_flow}, when deploying the application, Containerd~\cite*{containerd} generates an application bundle and transmits it via the \texttt{shim v2 API}~\cite*{shim_v2} to the \texttt{shim v2 API} server in the Quark shim. 
-As discussed in Section~\ref{sec:back_oci_runtime_spec}, this bundle contains the rootfs of the application along with an OCI-compatible configuration file. Quark shim creates the root filesystem for the container on the host side, mounts the file type secret, and passes the process configuration via the Unix socket. The configuration contains metadata for creating a process in the guest, including command line 
-arguments, environment variables, the type of STDIO (interactive or non-interactive IO), and the host file descriptor for transmitting data from/to the process STDIO. Upon receiving the configuration, the Quark agent in the Qkernel will create an application process accordingly.
-
-
-Quark-agent operates as a socket server accepting connection requests from the Quark shim through \emph{Ucall::Uringop::accept()}. These requests include creating and deleting application processes, creating an EXEC process, etc. Upon receiving a request from Quark shim to create an application or EXEC process, the Uringop::accept returns a host file descriptor 
-that contains the process configuration. As the agent in the Qkernel cannot read its contents directly, it employs \emph{Qcall::Msg::ReadControlMsg} to request the Qvivor to read the file descriptor and return the configuration. Based on the configuration, Quark-agent creates a guest user process. Specifically, the command line arguments and the environment variables 
-are pushed to the process stack, and the STDIO of the process is set accordingly to the type of STDIO specified in the configuration. Further details about the process's STDIO can be found in section~\ref{sec:security_analyse_STDIO}.
-
-
-Using Kubernetes~\cite*{k8s} to manage application secrets and deploying them through untrusted Containerd~\cite*{containerd} and Quark shim lead to secret disclosure. Specifically, individuals with cluster access can exploit the \emph{kubectl} tool to manipulate secrets. Furthermore, the Containerd and Quark shim can tamper with these secrets during the application deployment. Besides, 
-when Quark-agent uses the Qcall interface to request Qvisor to read the process configuration, Qvisor could potentially steal or modify these secrets in it.  The aforementioned analysis aligns with vulnerability~\ref{{vulnerability:1}} of the OCI runtime interface listed in Section~\ref{sec:security_analyse_oci_summary}. For this reason, the management and deployment of secrets must be offloaded from Kubernetes, Quark shim, 
-and Qvisor. A detailed explanation of the mitigation can be found in Section~\ref{sec:design_Quark_Attestation_and_Provisioning_Infrastructure}.
-
-
-\subsection{Guest User Space Process STDIO}
-\label{sec:security_analyse_STDIO}
-
-The Quark agent loads the corresponding binary and initiates a guest user-space process for handling the request, such as creating an application or executing a command. Thus, Quark handles the application process STDIO in the same way as it handles the exec process STDIO. For instance, when Containerd~\cite*{containerd} wishes to create an EXEC process in Qkernel, 
-three named pipes are created for the process's standard input, output, and error. These are then passed to Quark shim with other metadata. Quark shim then employs these data to create the EXEC request's process configuration. The Quark handles the process's STDIO differently based on the terminal keyword in the process configuration.
-
-
-\begin{figure}[ht] 
-    \begin{subfigure}[b]{0.5\linewidth}
-      \centering
-      \includegraphics[width=0.9\linewidth]{images/normorl_io.png} 
-      \caption{STDIO of non-interactive process} 
-      \label{fig1:a} 
-      \vspace{4ex}
-    \end{subfigure}%% 
-    \begin{subfigure}[b]{0.5\linewidth}
-      \centering
-      \includegraphics[width=0.9\linewidth]{images/termianl_workflow.png} 
-      \caption{STDIO of interactive process} 
-      \label{fig1:b} 
-      \vspace{4ex}
-    \end{subfigure} 
-    \caption{Guest User Space Process STDIO Handling Workflow}
-    \label{fig1} 
-\end{figure}
-
-
-The terminal keyword is true for an interactive process. In this case, as illustrated in Figure~\ref{fig1} (b), Quark Shim creates an asynchronous terminal IO redirection thread and requests a TTY pair from the host kernel (TTY master and TTY slave). The TTY slave is then sent to the Quark agent, where it is set as STDIN, STDOUT, and STDERR of the process. 
-The Qkernel TTY module can read and write the TTY slave through the UCLL interface. Furthermore, the redirection thread filters the signals in the STDIN-named pipe and transfers the data between the TTY master and the named pipes. The filtered signals include SIGINT, SIGQUIT, and SIGTSTP, which are forwarded to the Quark agent via the Unix socket. In this case, 
-the Quark agent will signal the process accordingly. For instance, when the character \textasciicircum C (ASCII code 3) appears in the STDIN-named pipe, the redirection thread sends SIGINT to the process, ultimately terminating it. Besides, the data written to the TTY master and slave are processed by the host kernel TTY drive. For data written to the slave, the driver translates 
-each line feed (\textbackslash n) into a carriage return followed by a line feed (\textbackslash r\textbackslash n). This editing is required because the user-side terminal needs these two characters to start a new line of text. Also, for characters written to the TTY master, the driver first echoes them back to the user and stores a copy in an internal buffer. 
-When the user presses the enter key (\textbackslash r), it copies the buffered data to the TTY slave. As such, the terminal will not work without the host kernel TTY driver.
-
- 
-
-The terminal keyword is false for a non-interactive process. In this case, as shown in Figure 4.2a, Quark Shim directly sends the three named pipes to the Quark agent. It then creates the process and uses the pipes as STDIN, STDOUT, and STDERR. Unlike the former case, Qkernel uses the Qcall interface for STDIO data transmission.
-
-While the process is running, Containerd~\cite*{containerd} will keep the three named pipes open. For the application process, STDOUT and STDERR stream output is saved as container logs to a location specified by Kubernetes~\cite*{k8s}. For an EXEC process, the command execution result is returned to the user via STDOUT or STDERR.
-
-
-The above description shows that untrusted entities (such as Quark shim, Qvisor, and Containerd) are responsible for processing the STDIO data streams of both interactive and non-interactive processes. Consequently, these entities can steal privacy-sensitive data within the processes' STDIO data streams. This finding aligns consistently with the 
-analysis presented in Section~\ref{sec:security_analyse_STDIO_oci}. Therefore, the STDIO data stream of the guest process must be cryptographically protected. Further information can be found in Section~\ref{sec:design_STDIO_PROTECTION}.
-
-
-\subsection{EXEC Operation}
-As discussed in Subsection~\ref{sec:security_analyse_secret_deployment}, the Quark agent located in Qkernel is responsible for handling the EXEC request from Quark shim. However, it lacks authentication and access control over these requests. Thus, an attacker can issue arbitrary commands to the application to collect its secrets. Moreover, the commands are 
-redirected to Qkernel by Containerd~\cite*{containerd} and Quark shim, along with other metadata in EXEC request. Specifically, when Quark shim receives an EXEC request from Containerd, it generates a process configuration from the metadata received from Containerd. This configuration includes the command and its parameter, the STDIO type, the environment 
-variables, etc. Subsequently, Quark shim forwards this configuration to the Quark agent via a Unix socket, wherein a guest process is created to execute the command (Figure~\ref{fig:quark_agent_work_flow}). Since the commands issued by the application owner may contain confidential data. Forwarding these commands by Containerd, Quark shim poses potential risks 
-to their confidentiality and integrity. This finding aligns with the analysis presented in Section~\ref{sec:Security_OCI_EXEC}. As such, end-to-end cryptographic protection for these commands should be adopted, and a checkpoint for authentication and access control should be added in Qkernel. By doing so, any unauthorized commands can be denied. For further information, 
-please refer to section~\ref{sec:design_EXEC_Requests}.
-
-
-\subsection{Container Root Filesystem and Volume}
-Quark shim sets up the application's root filesystem on the host and enables applications to access the root filesystem through a paravirtualized file system sharing mechanism. For instance, when the application utilizes the guest-read system call to access a file, the Qkernel will request the host to read the target file via Hypercall or Ucall. As a result, the 
-data that the application writes to its filesystem and volumes is visible to the host. In this scenario, the untrusted host can manipulate the confidential data stored in the filesystem. Therefore, Qkernel must implement a filesystem shield. However, this vulnerability is beyond the scope of this thesis, as defined by the threat model in 
-Section~\ref{sec:Threat_model}.
-
-This thesis aims to guarantee the integrity of binaries and shared libraries loaded from the host. Hence, the following two subsections analyze the security issues that occurred during the loading of binaries and shared libraries by Qkernel.
-
-\begin{figure}[ht] 
-  \begin{subfigure}[b]{0.5\linewidth}
-    \centering
-    \includegraphics[width=0.9\linewidth]{images/loader_flow.png} 
-    \caption{Loader setup memory mappings during application startup} 
-    \label{fig2:a} 
-    \vspace{4ex}
-  \end{subfigure}%% 
-  \begin{subfigure}[b]{0.5\linewidth}
-    \centering
-    \includegraphics[width=0.9\linewidth]{images/page_fault_handling.png} 
-    \caption{Page Fault Handling} 
-    \label{fig2:b} 
-    \vspace{4ex}
-  \end{subfigure} 
-  \caption{Application binary loading process}
-  \label{fig2} 
-\end{figure}
-
-\subsubsection{Loading compromised Application Binary during Startup}
-\label{sec:app_binary_loading}
-The application binary is stored on the host. During the setup of the application process, the Qkernel loader opens the application binary using \emph{Hcall::Openat}, reads its ELF header into the Qkernel using the \emph{Ucall::read}, and then requests the Qkernel virtual memory manager to create a private 
-Virtual Memory Area (\acrshort{VMA}) for each loadable segment defined in the ELF file (Figure~\ref{fig2} (a)). When the application process runs, accessing an address within the \acrshort{VMA} will trigger a page fault, which is handled by the Qkernel page fault handler.
- 
-The workflow for the page fault handling can be found in Figure~\ref{fig2} (b). Since the \acrshort{VMA} of a loadable segment is private, the page fault handler uses \emph{Hcall::mmap} to request Qvisor to map the loadable segment into a guest's physical address. It then allocates a 
-page from the page pool on the Qkernel heap and copies the segment's contents from the guest's physical address to this page. Finally, a page table entry (guest virtual address -> address of the page) is created. After this, the page fault handler hand over the control to the guest user process.
- 
-Since the application binary is loaded from the host,  an attacker can induce Qkernel to execute compromised codes. For instance, the loader might request Qvisor to open binary A using \emph{Hcall::openat}. Nevertheless, instead, Qvisor provides the descriptor of file B. As a result, the loader creates the 
-wrong memory mapping. Consequently, the page fault handler will load the code from file B instead of file A. Furthermore, since the page fault handler uses \emph{Hcall::mmap} to map the executable into the guest's physical space, an attacker could manipulate the Qvisor to map compromised code. In this case, 
-the page fault handler copies this code to a page, creates a page table entry, and then returns to the application process without an integrity check.  
- 
-To this end, the application binary should be loaded to the guest and measured when the Qkernel loader creates the \acrshort{VMA}s for it. The measurements should be forwarded to relying party for integrity checking. Further detail can be found in Section~\ref{sec:Enclave_Runtime_Measurement}. 
-
-\begin{figure}[htp]
+\vspace{\baselineskip}
+\begin{figure}[H]
   \centering
-  \includegraphics[width=0.6\textwidth]{images/load_shared_libarart.png}
-  \caption[Interpreter setups shared library's memory mappings]{Interpreter setups shared library's memory mappings}
-  \label{fig:load_shared_libarart}
+  \includegraphics[width=1.0\textwidth]{images/Datenpfad.png}
+  \caption[Datenpfad]{Datenpfad}
+  \label{fig:datenpfad}
 \end{figure}
 
+\noindent Als Folge der oben genannten Analyse ist es möglich, das Datenpfad mit CADENCE zu erstellen. Das erstellte Diagramm ist in Abbildung 3.3 dargestellt.
 
-\subsubsection{Loading compromised Binary at Runtime}
-Dynamic libraries are stored on the host and loaded at application runtime by the interpreter. When the application is a dynamically linked executable, the interpreter's code is executed upon launching the application process. As depicted in Figure~\ref{fig:load_shared_libarart}, the interpreter uses the \emph{open}, \emph{read}, and \emph{mmap} 
-system calls to create \acrshort{VMA}s for the loadable segments in a shared library. Accessing an address within the \acrshort{VMA}s triggers page faults. The page fault handler handles the fault like how it handles page faults when accessing the \acrshort{VMA} of the application binary.
-Since the process of how the Qkernel creates memory mapping and later loads code to the guest for shared libraries and application binary are very similar, the issues encountered in the previous section also apply here. 
- 
-Executing a command at runtime will cause the Qkernel to load the command binary. The binary loading mechanism has already been discussed in section~\ref{sec:app_binary_loading}. Therefore, a malicious user can inject malicious code into the Qkernel. 
- 
-Regarding the mitigation, Qkernel should measure the binaries and shared libraries after its \acrshort{VMA} is created and checks its correctness using the reference hashes in the policy file obtained from the relying party. Further detail can be found in Section~\ref{sec:Enclave_Runtime_Measurement}. 
+\vspace{\baselineskip}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{images/DatapfadCADENCE.png}
+  \caption[Datenpfad mit CADENCE]{Datenpfad mit CADENCE}
+  \label{fig:datapfadCADENCE}
+\end{figure}
+
+\section{REGISTERTRANSFERFOLGE}
+
+Die Registertransferfolge beschreibt die Schritte, die bei der Ausführung des Algorithmus durch den Computer durchgeführt werden müssen. Die Beschreibung wird aus Datenflussdiagrammen und Datenpfaden abgeleitet, damit die gewünschten Ergebnisse des Algorithmus erzielt werden können.
+
+\vspace{\baselineskip}
+
+\noindent Die Zustände der Registertransferfolge im Datenflussdiagramm sind in Abbildung 3.4 dargestellt. Dazu gehören die Zustände 1-2 und 5-6 zur Initialisierung der Eingabedaten, die Zustände 3-4 und 7-16 zur Verarbeitung der Eingabedaten, die Zustände 17-24 für den euklidischen Algorithmus und die Ausgangszustände OUTPUT1 und OUTPUT2 zum Schreiben der Ergebnisse.
+
+\vspace{\baselineskip}
+
+\noindent Die Verzweigung der Registertransferfolge basiert auf die Beurteilungen von Zero-Flags und Negative-Flags. Die Zero-Flags werden verwendet, um zu prüfen, ob der Algorithmus die Ausgangsbedingungen erfüllt. Ist das Flag auf 0 gesetzt, d.h. z = 0, dann sind die beiden zu vergleichenden Werte nicht gleich und der Algorithmus sollte fortgesetzt werden; ist das Flag auf 1 gesetzt, d.h. z = 1, dann sind die beiden zu vergleichenden Werte gleich und das Ergebnis sollte an dieser Stelle ausgegeben werden. Die Verzweigung mit Negative-Flags wird verwendet, um die Daten im Algorithmus zu verarbeiten. Wird das Flag auf 0 gesetzt, d.h. s = 0, bedeutet dies, dass der über Bus A transportierte Wert kleiner ist als der über Bus B transportierte Wert. Wird das Flag auf 1 gesetzt, d.h. s = 1, bedeutet dies, dass der über Bus A transportierte Wert größer oder gleich dem über Bus B transportierten Wert ist. Der Algorithmus führt die entsprechende Operation auf der Grundlage des Zustands des Negative-Flags durch.
+
+\vspace{\baselineskip}
+
+\noindent Wenn der Algorithmus Ergebnisse ausgibt, kehrt er in den Zustand IDLE zurück und wartet auf neue Eingaben. Insgesamt erfüllt der Algorithmus die Aufgabe mit diesem Entwurf.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.7\textwidth]{images/Registertransferfolge.png}
+  \caption[Registertransferfolge]{Registertransferfolge}
+  \label{fig:Registertransferfolge}
+\end{figure}
+
+\section{ZUSTANDSÜBERGÄNGE}
+
+Abbildung 3.5 zeigt den endlichen Automaten für FSM-Zustandsübergänge. Das Zustandsdiagramm ergibt sich aus der in Abbildung 3.4 dargestellten Registertransferfolge. Es zeigt deutlich die Zustandsübergänge des Algorithmus.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{images/Zustandsgraph.png}
+  \caption[Zustandsgraph]{Zustandsgraph}
+  \label{fig:Zustandsgraph}
+\end{figure}
+
+\noindent Die Zustandsübergangstabelle in Tabelle 3.1 zeigt die möglichen Zustandsübergänge des in Abbildung 3.5 dargestellten endlichen Zustandsautomaten. Diese Tabelle zeigt die Kombination aus dem aktuellen Zustand und dem Flag für den nächsten Zustandsübergang. Der aktuelle Zustand wird durch die Bits x4-x0 dargestellt. Der Folgezustand wird durch die Bits y4-y0 dargestellt. Die Flags in der Tabelle, die die Zustandsübergänge beeinflussen, sind die Vergleichsoperationsflags NEGATIVE und ZERO und das Datenladeflag LOAD.
+
+\noindent Zustandsbits werden zur Steuerung eines endlichen Zustandsautomaten verwendet. Wenn bestimmte Bedingungen erfüllt sind, werden die Zustandsbits erneuert. Der Automat überführt dann in den nächsten Zustand. Der endliche Automat besteht aus 26 Zuständen. Die nicht verwendeten Zustände sind als UNUSED markiert. Die Verwendung eines endlichen Automaten ermöglicht, dass der Algorithmus Schritt für Schritt ausgeführt wird und wie erwartet funktioniert.
 
 
-% \subsubsection{Lack of Management of Application Restart}
-% In an unexpected application crash, Kubernetes~\cite*{k8s} may recreate a pod to execute the crashed application or restart the program within the original pod if it still exists~\cite*{k8s}. In the latter case, Qkernel reloads the application binaries from the host and provides the application with the secret 
-% obtained from relying party during the first startup. An attacker may use this opportunity to inject malicious code into Qkernel. To mitigate this threat, Qkernel should measure the application recreation process and compare the result with the initial 
-% application startup measurement stored on guest memory. If the two hashes do not match, Qkernel should panic.  Further detail can be found in Section~\ref{sec:Enclave_Runtime_Measurement}. 
+\begin{table}[H]
+% \centering
+\caption{Zustandsübergangstabelle}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{|cccccc|ccc|cccccc|}
+  \hline
+  \multicolumn{6}{|c|}{Zustand}                                                                                                             & \multicolumn{3}{c|}{Flags}                                       & \multicolumn{6}{c|}{Folgezustand}                                                                                                         \\ \hline
+  \multicolumn{1}{|c|}{Name}   & \multicolumn{1}{c|}{x4} & \multicolumn{1}{c|}{x3} & \multicolumn{1}{c|}{x2} & \multicolumn{1}{c|}{x1} & x0 & \multicolumn{1}{c|}{load} & \multicolumn{1}{c|}{negative} & zero & \multicolumn{1}{c|}{Name}    & \multicolumn{1}{c|}{y4} & \multicolumn{1}{c|}{y3} & \multicolumn{1}{c|}{y2} & \multicolumn{1}{c|}{y1} & y0 \\ \hline\hline
+  \multicolumn{1}{|c|}{IDLE}   & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 0  & \multicolumn{1}{c|}{0}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{IDLE}    & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 0  \\ \hline
+  \multicolumn{1}{|c|}{IDLE}   & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 0  & \multicolumn{1}{c|}{1}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{SORT1}   & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 1  \\ \hline
+  \multicolumn{1}{|c|}{SORT1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 1  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{SORT2}   & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & 0  \\ \hline
+  \multicolumn{1}{|c|}{SORT2}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{SORT3}   & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & 1  \\ \hline
+  \multicolumn{1}{|c|}{SORT3}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & 1  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{SORT4}   & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & 0  \\ \hline
+  \multicolumn{1}{|c|}{SORT4}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{SORT5}   & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & 1  \\ \hline
+  \multicolumn{1}{|c|}{SORT5}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & 1  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{SORT6}   & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & 0  \\ \hline
+  \multicolumn{1}{|c|}{SORT6}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & 0    & \multicolumn{1}{c|}{SORT7}   & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & 1  \\ \hline
+  \multicolumn{1}{|c|}{SORT6}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & 1    & \multicolumn{1}{c|}{OUTPUT2} & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & 0  \\ \hline
+  \multicolumn{1}{|c|}{SORT7}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & 1  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{SORT8}   & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 0  \\ \hline
+  \multicolumn{1}{|c|}{SORT8}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & 0    & \multicolumn{1}{c|}{SORT9}   & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 1  \\ \hline
+  \multicolumn{1}{|c|}{SORT8}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & 1    & \multicolumn{1}{c|}{OUTPUT1} & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 1  \\ \hline
+  \multicolumn{1}{|c|}{SORT9}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 1  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{SORT10}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & 0  \\ \hline
+  \multicolumn{1}{|c|}{SORT10} & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{0}        & -    & \multicolumn{1}{c|}{SORT13}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & 1  \\ \hline
+  \multicolumn{1}{|c|}{SORT10} & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{1}        & -    & \multicolumn{1}{c|}{SORT11}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & 1  \\ \hline
+  \multicolumn{1}{|c|}{SORT11} & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & 1  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{SORT12}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & 0  \\ \hline
+  \multicolumn{1}{|c|}{SORT12} & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{SORT13}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & 1  \\ \hline
+  \multicolumn{1}{|c|}{SORT13}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & 1  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{SORT14}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & 0  \\ \hline
+\multicolumn{1}{|c|}{SORT14}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{0}        & -    & \multicolumn{1}{c|}{SORT17}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 1  \\ \hline
+\multicolumn{1}{|c|}{SORT14}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{1}        & -    & \multicolumn{1}{c|}{SORT15}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & 1  \\ \hline
+\multicolumn{1}{|c|}{SORT15}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & 1  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{SORT16}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 0  \\ \hline
+\multicolumn{1}{|c|}{SORT16}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{SORT17}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 1  \\ \hline
+\multicolumn{1}{|c|}{SORT17}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 1  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{SORT18}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & 0  \\ \hline
+\multicolumn{1}{|c|}{SORT18}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & 0    & \multicolumn{1}{c|}{SORT19}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & 1  \\ \hline
+\multicolumn{1}{|c|}{SORT18}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & 1    & \multicolumn{1}{c|}{OUTPUT2} & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & 0  \\ \hline
+\multicolumn{1}{|c|}{SORT19}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & 1  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{SORT20}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & 0  \\ \hline
+\multicolumn{1}{|c|}{SORT20}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{0}        & -    & \multicolumn{1}{c|}{SORT21}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & 1  \\ \hline
+\multicolumn{1}{|c|}{SORT20}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{1}        & -    & \multicolumn{1}{c|}{SORT23}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & 1  \\ \hline
+\multicolumn{1}{|c|}{SORT21}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & 1  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{SORT22}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & 0  \\ \hline
+\multicolumn{1}{|c|}{SORT22}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{SORT17}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 1  \\ \hline
+\multicolumn{1}{|c|}{SORT23}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & 1  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{SORT24}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 0  \\ \hline
+\multicolumn{1}{|c|}{SORT24}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{SORT17}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 1  \\ \hline
+\multicolumn{1}{|c|}{OUTPUT1} & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 1  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{IDLE}    & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 0  \\ \hline
+\multicolumn{1}{|c|}{OUTPUT2} & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{IDLE}    & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 0  \\ \hline
+\multicolumn{1}{|c|}{UNUSED1} & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{1}  & 1  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{IDLE}    & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 0  \\ \hline
+\multicolumn{1}{|c|}{UNUSED2} & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{IDLE}    & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 0  \\ \hline
+\multicolumn{1}{|c|}{UNUSED3} & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{0}  & 1  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{IDLE}    & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 0  \\ \hline
+\multicolumn{1}{|c|}{UNUSED4} & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & 0  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{IDLE}    & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 0  \\ \hline
+\multicolumn{1}{|c|}{UNUSED5} & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & \multicolumn{1}{c|}{1}  & 1  & \multicolumn{1}{c|}{-}    & \multicolumn{1}{c|}{-}        & -    & \multicolumn{1}{c|}{IDLE}    & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & \multicolumn{1}{c|}{0}  & 0  \\ \hline
+\end{tabular}}
+\end{table}
 
-\subsection{No restriction to the available System Calls for Applications}
 
-Quark does not implement the system call interception (\texttt{Seccomp}~\cite*{seccomp}) as specified in the OCI runtime specification~\cite*{oci-runtime-spec}. Thus, vulnerable system calls can be exploited to launch attacks against both the Qkernel and other processes. For instance, an attacker could initiate a malicious EXEC process and manipulate it 
-to utilize vulnerable system calls in order to steal application secrets. Furthermore, the discussion in Section~\ref{sec:security_analyse_oci_system_call} revealed that Seccomp is not an appropriate solution for confidential computing. Therefore, a novel mechanism for intercepting guest system calls is proposed in Section~\ref{sec:design_Interceptor}. This mechanism allows the 
-application owner to specify the permissible system calls for the application while ensuring that the guest system call interceptor is properly configured. 
+\section{LOGIKGLEICHUNGEN}
 
+Die vereinfachten logischen Gleichungen 3.1-3.5 erhält man durch Eingabe der Wahrheitstabelle aus Tabelle 3.1 mit LOGICFRIDAY.
 
+\begin{equation}
+y4 = x4\overline{x3} + x4\overline{x1}\overline{x0} + x3x2x1\overline{negative} + \overline{x3}x2\overline{x1x0}zero + x3\overline{x2x1x0}zero \label{3.1}
+\end{equation}
 
+\begin{equation}
+  y3 = \overline{x4}x3 \overline{x2} + \overline{x3}x2x1x0 + \overline{x4}x2\overline{x1x0}zero + x4\overline{x3x2}x1\overline{x0}zero + x3x2\overline{x1} + x3x2\overline{x0}negative \label{3.2}
+\end{equation}
 
-\subsection{VM Configuration}
-\label{sec:VM_Misconfiguration}
+\begin{equation}
+	\begin{split}
+  y2 = & x4x2\overline{x1} + x3x2\overline{x1} + \overline{x2}x1x0 + x2\overline{x1}x0 + \overline{x4x3}x2x1\overline{x0} + \overline{x4}x3\overline{x2}x1\overline{negative} + \\
+       & \overline{x4}x2x1\overline{x0}negative + \overline{x4x3}x2\overline{x0zero} \label{3.3}
+  \end{split}
+\end{equation}
 
-As described in Section~\ref{sec:security_analyse_oci_vm}, the correct VM configuration involves loading the correct guest kernel binary and the startup parameters, as well as configuring the guest logging system properly. In the case of Quark, the Qkernel is the binary that Qvisor loads into the guest's memory during the VM setup process. However, 
-since the untrusted Qvisor can load a compromised Qkernel binary, the application secrets can be leaked during runtime. Moreover, Qvisor passes several startup parameters to Qkernel, including the number of VCPUs, the file descriptor of the socket on which Quark-agent is listening, and Qkernel's configuration file~\cite*{quark_conf_file}. This configuration file 
-determines the runtime behavior of the Qkernel, including whether the Ucall interface and RDMA are enabled. Incorrect configuration settings can expose secrets stored within the Qkernel. For instance, enabling RDMA would allow an untrusted entity to directly access the Qkernel's memory. Therefore, it is crucial to measure the Qkernel binary and the configuration 
-file, and send the resulting measurement to the relying party for integrity verification. Further details can be found in Section~\ref{sec:Enclave_Runtime_Measurement}.
+\begin{equation}
+  \begin{split}
+  y1 = & \overline{x4x1}x0 + \overline{x3x1}x0 + \overline{x4x3}x1\overline{x0} + \overline{x3x2}x1\overline{x0} + x4x2\overline{x1}negative + \overline{x4}x1\overline{x0}negative + \\
+       & \overline{x4}x3\overline{x2x1}zero \label{3.4}
+  \end{split}
+\end{equation}
 
-Qkernel uses \emph{Hcall::HYPERCALL\_PRINT} to store its logs on the host. The Qkernel logging system supports five logging levels: \texttt{Off}, \texttt{Error}, \texttt{Info}, \texttt{Debug}, and \texttt{Trace}. Here \texttt{Off} is the minor level, i.e., the least detailed, and \texttt{Trace} is 
-the highest level, i.e., the most detailed log. The user can configure the highest level of logging for Qkernel through the \texttt{DebugLevel} keyword in the configuration file~\cite*{quark_conf_file}. For example, when the \texttt{DebugLevel} is \texttt{Info}, Qkernel only prints 
-logs in level \texttt{Error} and \texttt{Info}.
+\begin{equation}
+  y0 = x2\overline{x0} + \overline{x4}x1\overline{x0} + x4\overline{x1x0} + \overline{x3x1x0}load + \overline{x3}x1\overline{x0zero} + x3\overline{x1x0zero} \label{3.5}
+\end{equation}
 
-A malicious administrator may set the \texttt{DebugLevel} keyword to \texttt{Trace} and then analyze the Qkernel logs to obtain sensitive information. This problem can be solved by measuring the guest kernel arguments. However, both Qvisor and Qkernel are configured using this file. Specifically, 
-Qvisor reads this configuration file after startup and passes a copy to the Qkernel when launching the guest. In confidential computing, Qkernel and Qvisor belong to the application owner and the cloud provider, respectively. They have different interests and do not trust each other. 
-For example, to resolve errors quickly, the cloud provider requires the log level in Qvisor to be set to \texttt{Trace}, while the application owner requires the 
-log level in Qkernel to be \texttt{Off} to protect the confidentiality of the CVM. In the current architecture, Quark cannot satisfy both requirements. To this end, the Qkernel logging system configuration should be offloaded from the global configuration file. The detail can be found in section~\ref{sec:Qkernel_logger}..
+\section{REALISIERUNG DER FSM}
 
+Die fünf Ausgänge (y0-y4) der logischen Gleichungen dieses Algorithmus werden aus der Kombination der Zustandsbits (x0-x4) der Eingangsvariablen und der drei Flaggenbits (LOAD, NEGOTIVE, ZERO) erstellt. Auf der Grundlage der Gleichungen 3.1-3.5 können die entsprechenden Gatterschaltungen erzeugt werden (Abbildung 3.6).
 
-\section{Summary}
-\label{sec:security_summarize}
+\vspace{\baselineskip}
 
-This chapter first defined the threat model. Then, it analyzed the problems of the OCI runtime interface in confidential computing. A summary of the vulnerabilities found in the OCI runtime interface is listed in Section~\ref{sec:security_analyse_oci_summary}. Section~\ref{sec:security_analyse_quark_analysis} did a security analysis further on the Quark 
-based on these vulnerabilities.
- 
-\cleardoublepage
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\textwidth]{images/FSM.png}
+  \caption[FSM]{FSM}
+  \label{fig:FSM}
+\end{figure}
+
+\section{STEUERLOGIK}
+
+Die Steuerlogik dient zur Steuerung der Ausführung von Datenpfadbefehlen. Der Quellcode für die Steuerlogik befindet sich im Anhang. Der Code beschreibt die Funktion und die erforderlichen Befehle für jeden Zustand. Die Steuerlogik ist wichtig für die vollständige Implementierung des Algorithmus.
+
+\section{GESAMTSCHALTUNG}
+
+Die Gesamtschaltung besteht aus drei Teilen - FSM, Datenpfad und Logiksteuerung. Das FSM dient als Eingang für die Logiksteuerung und liefert den aktuellen Zustand des Algorithmus. Die Logiksteuerung erzeugt Steuersignale für den aktuellen Zustand und leitet sie an den Datenpfad weiter. Der Datenpfad führt die Steuersignale aus und schreibt das Ergebnis auf den Datenbus oder liest Daten vom Datenbus (EDB). Der externe Adressbus (EAB) wird zur Steuerung der Speicheradresse verwendet, von der Daten gelesen oder geschrieben werden.
+
+\vspace{\baselineskip}
+
+\noindent Abbildung 3.7 zeigt ein schematisches Diagramm der Gesamtschaltung, bestehend aus FSM, Datenpfad und Logiksteuerung. Alle Komponenten sind sowohl über Busse als auch über interne Busse verbunden. Die Gesamtschaltung führt den Prozess der Berechnung des größten gemeinsamen Teilers durch und kann die Daten lesen und das Ergebnis schreiben.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1.0\textwidth]{images/TOP.png}
+  \caption[Gesamtschaltung in CADENCE]{Gesamtschaltung in CADENCE}
+  \label{fig:Gesamtschaltung}
+\end{figure}
+
+\clearpage
+
 

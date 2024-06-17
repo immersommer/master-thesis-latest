@@ -1,73 +1,434 @@
-\chapter{Conclusion and Outlook}
+\chapter{Quellcodes}
 \label{sec:conclusion}
 
-%  Schlußfolgerungen, Fragen, Ausblicke
+\section{VERHALTENSBESCHREIBUNG FSM}
 
-% Dieses Kapitel ist sicherlich das am Schwierigsten zu schreibende. Es
-% dient einer gerafften Zusammenfassung dessen, was man gelernt hat. Es
-% ist möglicherweise gespickt von Rückwärtsverweisen in den Text, um dem
-% faulen aber interessierten Leser (der Regelfall) doch noch einmal die
-% Chance zu geben, sich etwas fundierter weiterzubilden. Manche guten
-% Arbeiten werfen mehr Probleme auf als sie lösen. Dies darf man ruhig
-% zugeben und diskutieren. Man kann gegebenenfalls auch schreiben, was
-% man in dieser Sache noch zu tun gedenkt oder den Nachfolgern ein paar
-% Tips geben. Aber man sollte nicht um jeden Preis Fragen, die gar nicht
-% da sind, mit Gewalt aufbringen und dem Leser suggerieren, wie
-% weitsichtig man doch ist. Dieses Kapitel muß kurz sein, damit es
-% gelesen wird.
+\begin{lstlisting}[numbers=left,xleftmargin=1em, multicols=2,frame=leftline, basicstyle = \small\ttfamily]
+//Verilog HDL for "fc_example", "FSM" "functional"
 
-% \ldots conclusion \ldots
+module FSM (flag_s, flag_z, clk, reset, load, state);
 
-% \todo{write conclusion}
+	parameter IDLE = 5'b00000;
+	parameter SORT1 = 5'b00001;
+	parameter SORT2 = 5'b00010;
+	parameter SORT3 = 5'b00011;
+	parameter SORT4 = 5'b00100;
+	parameter SORT5 = 5'b00101;
+	parameter SORT6 = 5'b00110;
+	parameter SORT7 = 5'b00111;
+	parameter SORT8 = 5'b01000;
+	parameter SORT9 = 5'b01001;
+	parameter SORT10 = 5'b01010;
+	parameter SORT11 = 5'b01011;
+	parameter SORT12 = 5'b01100;
+	parameter SORT13 = 5'b01101;
+	parameter SORT14 = 5'b01110;
+	parameter SORT15 = 5'b01111;
+	parameter SORT16 = 5'b10000;
+	parameter SORT17 = 5'b10001;
+	parameter SORT18 = 5'b10010;
+	parameter SORT19 = 5'b10011;
+	parameter SORT20 = 5'b10100;
+	parameter SORT21 = 5'b10101;
+	parameter SORT22 = 5'b10110;
+	parameter SORT23 = 5'b10111;
+	parameter SORT24 = 5'b11000;
+	parameter OUTPUT1 = 5'b11001;
+	parameter OUTPUT2 = 5'b11010;
 
-This thesis aims at enabling untrustworthy cloud providers to orchestrate applications within \acrshort{CVM} while ensuring the confidentiality and integrity of applications' data. In particular, to minimize the \acrshort{TCB} of the CVM, \acrshort{pVM} is selected as a starting point.
- 
-Chapter~\ref{sec:security_analyse} analyzed the vulnerabilities of the OCI runtime interface in confidential computing. To address these issues, Chapter~\ref{sec:design} introduced the OCI runtime interface shield and proposed modifications to the OCI runtime interface. The shield is implemented 
-within the \acrshort{CVM} and enforces a policy provided by the application owner on the OCI runtime interface. Figure~\ref{fig:generic_policy} on page \pageref{fig:generic_policy} illustrates an example of such a policy. The shield allows the application owner to verify the state of the \acrshort{CVM}
-and securely deploy secrets. While the \acrshort{CVM} is operational, the shield can authenticate and do access control on EXEC requests, encrypts STDIO for the processes running in the \acrshort{CVM}, restricts guest system calls, and manages \acrshort{CVM}'s logs. Additionally, a 
-secure client for the application owners is implemented, enabling them to issue privilege commands and update the shield policy.
- 
-The qualitative analysis in Section~\ref{sec:eva_qualitativ} proved that the system implemented in Chapter~\ref{sec:implementation} can effectively mitigate most issues found in the security analysis. A summary of the qualitative analysis can be found in Table~\ref{tab:eva_qualitativ_summary} on page \pageref{tab:eva_qualitativ_summary}. 
-On the other hand, the quantitative analysis in Section~\ref{sec:eva_Quantitative} revealed performance degradation due to the system. This is evident in longer application startup time, 
-decreased application throughput, an increased \acrshort{TCB} size, etc. Nevertheless, Quark's \acrshort{TCB} is only one-sixteenth the size of Kata Containers\cite*{Kata-Containers}, highlighting the superiority of the \acrshort{pVM} architecture. The results of the quantitative analysis 
-are summarized in Section~\ref{sec:qualitativ_sum} on page \pageref{sec:qualitativ_sum}.
- 
-Further work is required before the solution can be deployed. For example, running Quark in secure VMs (e.g., Intel TDX~\cite*{Intel_tdx_whitepaper}) and enhancing the remote attestation infrastructure are necessary. The following section provides a detailed discussion of these aspects.
+	input clk;
+	input reset;
+	input flag_s;
+	input flag_z;
+	input load;
 
+	output state;
 
-\section{Furture Work}
+	reg [4:0] state;
+	reg [4:0] next_state;
 
-Chapter~\ref{sec:design} provides solutions to the problems identified through the security analysis in Chapter~\ref{sec:security_analyse}. However, some of these were not implemented since they were out of scope. This includes the secret uploading discussed in 
-Section~\ref{sec:design_Secret_Uploading}, the methods to mitigate secret cross-leakage described in Section~\ref{sec:secure_application_deployment} on page \pageref{eq:1}, and the terminal protection outlined in Section~\ref{subsec:design_terminal}. In the next step, the 
-priority will be to implement these designs.
+   always @ (posedge clk or posedge reset)
+     if (reset) begin
+           state <= IDLE;
+     end
+     else begin
+       state <= next_state;
+     end
 
-Currently, the secret manager operates locally and utilizes a local file system backend to store secrets. However, in the future, the goal is for the secret manager to run in the cloud and manage secrets from multiple stakeholders. Thus, it is necessary to place the secret manager in 
-a secure virtual machine and develop a confidential backend. The backend can be memory-based or storage-based. The former is more straightforward because the VM's memory is encrypted. On the other hand, if the latter option is chosen, it is essential to 
-incorporate a file system shielding layer~\cite*{file_system_shield} to prevent any leakage of secrets written to the VOLUME.
+   always @ (state or flag_z or flag_s or load)
+     case (state)
+	IDLE		: if (load) begin       //BC0
+                      next_state = SORT1;
+                end
+                else begin
+                   next_state = IDLE;
+                end
+	SORT1	: next_state = SORT2;
+	SORT2	: next_state = SORT3;
+	SORT3	: next_state = SORT4;
+	SORT4	: next_state = SORT5;
+    SORT5	: next_state = SORT6;
+	SORT6	: if (flag_z) begin
+               next_state = OUTPUT2;
+              end
+              else begin
+                next_state = SORT7;
+              end
+	SORT7	: next_state = SORT8;
+	SORT8	: if (flag_z) begin
+				next_state = OUTPUT1;
+			  end
+			  else begin
+				next_state = SORT9;
+			  end
+	SORT9	: next_state = SORT10;
+	SORT10	: if (flag_s) begin
+				next_state = SORT11;
+			  end
+			  else begin
+				next_state = SORT13;
+			  end
+	SORT11	: next_state = SORT12;
+	SORT12	: next_state = SORT13;
+	SORT13	: next_state = SORT14;
+	SORT14	: if (flag_s) begin
+				next_state = SORT15;
+			  end
+			  else begin
+				next_state = SORT17;
+			  end
+	SORT15	: next_state = SORT16;
+	SORT16	: next_state = SORT17;
+	SORT17	: next_state = SORT18;
+	SORT18	: if (flag_z) begin
+				next_state = OUTPUT2;
+			  end
+			  else begin
+				next_state = SORT19;
+			  end
+	SORT19	: next_state = SORT20;
+	SORT20	: if (flag_s) begin
+				next_state = SORT23;
+			  end
+			  else begin
+				next_state = SORT21;
+			  end
+	SORT21	: next_state = SORT22;
+	SORT22	: next_state = SORT17;
+	SORT23	: next_state = SORT24;
+	SORT24	: next_state = SORT17;
+	OUTPUT1	: next_state = IDLE;
+	OUTPUT2	: next_state = IDLE;
+	default	: next_state = IDLE;
+  endcase
 
-The remote attestation infrastructure is immature, as Quark can only generate simulated attestation reports. As discussed in Section~\ref{subsec:Limitations}, in this case, the secret manager cannot verify the report's authenticity. Future implementations will have to close this security 
-gap.
+endmodule
+\end{lstlisting}
 
-The performance evaluation in Section~\ref{bench_Interceptor} shows that the guest system interceptor imposes a significant latency overhead. As discussed in Section~\ref{sec:impl_interceptor}, these overheads arise from accessing the vector that holds the system call whitelist and the lock 
-that safeguards the vector. In future implementations, a possible solution could involve storing the system call whitelist in eight \texttt{AtomicU64}~\cite*{rust_automic_u64} variables, with each bit in the variable representing a system call ID. Given that Quark consists of a total of 451 system calls, eight variables would suffice. The whitelist can then be accessed using atomic 
-operations to circumvent the previously mentioned overhead.
+\section{VERHALTENSBESCHREIBUNG STEUERLOGIK}
+\begin{lstlisting}[numbers=left,xleftmargin=1em, multicols=2,frame=leftline, basicstyle = \small\ttfamily]
+//Verilog HDL for "fc_example", "Controllogic" "functional"
 
-Quark lacks protection for the VM's memory and registers states. Thus, untrusted entities (e.g., virtual machine hypervisors) can gain access to secrets stored within the VM. To tackle this issue, the future implementation must modify Quark's architecture to support either 
-AMD SEV SNP~\cite*{SEV_SNP_white_book} or Intel TDX~\cite*{Intel_tdx_whitepaper}.
+module Controllogic (
+            state,
+            EN_ALU, EN_X, EN_Y, MX_A, MX_B, MX_C, MX_X, MX_Y, SET_S, SET_Z, SUB,
+            ram_wr_en, ram_rd_en, ready);
+    
+    parameter IDLE = 5'b00000;
+    parameter SORT1 = 5'b00001;
+    parameter SORT2 = 5'b00010;
+    parameter SORT3 = 5'b00011;
+    parameter SORT4 = 5'b00100;
+    parameter SORT5 = 5'b00101;
+    parameter SORT6 = 5'b00110;
+    parameter SORT7 = 5'b00111;
+    parameter SORT8 = 5'b01000;
+    parameter SORT9 = 5'b01001;
+    parameter SORT10 = 5'b01010;
+    parameter SORT11 = 5'b01011;
+    parameter SORT12 = 5'b01100;
+    parameter SORT13 = 5'b01101;
+    parameter SORT14 = 5'b01110;
+    parameter SORT15 = 5'b01111;
+    parameter SORT16 = 5'b10000;
+    parameter SORT17 = 5'b10001;
+    parameter SORT18 = 5'b10010;
+    parameter SORT19 = 5'b10011;
+    parameter SORT20 = 5'b10100;
+    parameter SORT21 = 5'b10101;
+    parameter SORT22 = 5'b10110;
+    parameter SORT23 = 5'b10111;
+    parameter SORT24 = 5'b11000;
+    parameter OUTPUT1 = 5'b11001;
+    parameter OUTPUT2 = 5'b11010;
+    
+    input  [4:0] state;
+    output EN_ALU;
+    output EN_X;
+    output EN_Y;
+    output [1:0] MX_A;
+    output [1:0] MX_B;
+    output [1:0] MX_C;
+    output MX_X;
+    output MX_Y;
+    output SET_S;
+    output SET_Z;
+    output SUB;
+    
+    output ram_wr_en;
+    output ram_rd_en;
+    output ready;
+    
+    reg	EN_ALU;
+    reg EN_X;
+    reg EN_Y;
+    reg [1:0] MX_A;
+    reg [1:0] MX_B;
+    reg [1:0] MX_C;
+    reg MX_X;
+    reg MX_Y;
+    reg SET_S;
+    reg SET_Z;
+    reg SUB;
+        
+    reg ram_wr_en;
+    reg ram_rd_en;
+    reg ready;
+    
+   always @ (state)
+     begin
+        EN_ALU = 1'b0;
+        EN_X = 1'b0;
+        EN_Y = 1'b0;
+        MX_A = 2'b00;
+        MX_B = 2'b00;
+        MX_C = 2'b00;
+        MX_X = 1'b0;
+        MX_Y = 1'b0;
+        SET_S = 1'b0;
+        SET_Z = 1'b0;
+        SUB = 1'b0;
+        
+        ram_wr_en = 1'b0;
+        ram_rd_en = 1'b0;
+        ready = 1'b0;
+    
+     case (state)
+    IDLE: begin
+            ready = 1'b1;   // ready if FSM returns to idle state
+          end
+    SORT1: begin
+             MX_C = 2'b00;      //Const0->C
+              ram_rd_en = 1'b1;  //read MEM
+            end
+    SORT2: begin			 
+             MX_A = 2'b00;   //MEM->A
+             MX_X = 1'b0;    //A->Rx
+             EN_X = 1'b1;
+           end
+    SORT3: begin
+             MX_C = 2'b01;   //Const1->C
+             ram_rd_en = 1'b1;  //read MEM
+           end
+    SORT4: begin
+             MX_A = 2'b00;  //MEM->A
+             MX_Y = 1'b0;   //A->Ry
+             EN_Y = 1'b1;
+           end
+    SORT5: begin
+             MX_A = 2'b10;  //Ry->A
+             MX_B = 2'b10;  //Const0->B
+             EN_ALU = 1'b1;
+             SUB = 1'b1;
+             SET_Z = 1'b1;
+           end
+    SORT6: begin
+           end
+    SORT7: begin
+             MX_A = 2'b01;  //Rx->A
+             MX_B = 2'b10;  //Const0->B
+             EN_ALU = 1'b1;
+             SUB = 1'b1;
+             SET_Z = 1'b1;
+           end
+    SORT8: begin
+           end
+    SORT9: begin
+             MX_A = 2'b01;  //Rx->A
+             MX_B = 2'b10;  //Const0->B
+             EN_ALU = 1'b1;
+             SUB = 1'b1;
+             SET_S = 1'b1;
+           end
+    SORT10: begin
+            end
+    SORT11: begin
+              MX_A = 2'b11;  //Const0->A
+              MX_B = 2'b00;  //Rx->B
+              EN_ALU = 1'b1;
+              SUB = 1'b1;
+            end
+    SORT12: begin
+              MX_C = 2'b11;//SUB->C
+              MX_X = 1'b1;//C->Rx
+              EN_X = 1'b1;				 
+            end
+    SORT13: begin
+              MX_A = 2'b01;  //Rx->A
+              MX_B = 2'b10;  //Const0->B
+              EN_ALU = 1'b1;
+              SUB = 1'b1;
+              SET_S = 1'b1;
+            end
+    SORT14: begin
+            end
+    SORT15: begin
+              MX_A = 2'b11;  //Const0->A
+               MX_B = 2'b01;  //Ry->B
+              EN_ALU = 1'b1;
+              SUB = 1'b1;
+            end
+    SORT16: begin
+              MX_C = 2'b11;  //SUB->C
+              MX_Y = 1'b1;   //C->Ry
+              EN_Y = 1'b1;
+            end
+    SORT17: begin
+              MX_A = 2'b01;  //Rx->A
+              MX_B = 2'b01;  //Ry->B
+              EN_ALU = 1'b1;
+              SUB = 1'b1;
+              SET_Z = 1'b1;
+            end
+    SORT18: begin
+            end
+    SORT19: begin
+              MX_A = 2'b01;  //Rx->A
+              MX_B = 2'b01;  //Ry->B
+              EN_ALU = 1'b1;
+              SUB = 1'b1;
+              SET_S = 1'b1;
+            end
+    SORT20: begin
+            end
+    SORT21: begin
+              MX_A = 2'b01;  //Rx->A
+              MX_B = 2'b01;  //Ry->B
+              EN_ALU = 1'b1;
+              SUB = 1'b1;
+            end
+    SORT22: begin
+              MX_C = 2'b11;  //SUB->C
+              MX_X = 1'b1;   //C->Rx
+              EN_X = 1'b1;
+            end
+    SORT23: begin
+              MX_A = 2'b10;  //Ry->A
+              MX_B = 2'b00;  //Rx->B
+              EN_ALU = 1'b1;
+              SUB = 1'b1;
+            end
+    SORT24: begin
+              MX_C = 2'b11;  //SUB->C
+              MX_Y = 1'b1;   //C->Ry
+              EN_Y = 1'b1;				 
+            end				   
+    OUTPUT1: begin
+               MX_C = 2'b10;  //Const2->C
+               MX_B = 2'b01;  //Ry->B
+                      
+               ram_wr_en = 1'b1;
+             end
+    OUTPUT2: begin
+               MX_C = 2'b10;  //Const2->C
+               MX_B = 2'b00;  //Rx->B
+                      
+               ram_wr_en = 1'b1;
+             end
+ endcase
+ end
+    
+endmodule
+\end{lstlisting}
 
-Quark uses a parevirtualized file system sharing mechanism to share files and volumes stored on the host with applications on the guest. Any changes made to the files by the application are reflected on the host. This poses a security risk because an attacker can access an application's secrets by 
-accessing the rootfs of the application on the host. A common approach is implementing a guest filesystem shield to protect inbound and outbound guest data. Those interested in learning more about this topic should refer to~\cite*{file_system_shield}.
+\section{TESTBENCH TOPZELLE}
+\begin{lstlisting}[numbers=left,xleftmargin=1em, multicols=2,frame=leftline, basicstyle = \small\ttfamily]
+//Verilog HDL for "fc_example", "Top_tb" "functional"
 
-Quark lacks authentication to network requests and cryptographic protection for transmitted data, resulting in potential unauthorized access to the application or man-in-the-middle attack~\cite*{Man_in_the_middle_attack}. For instance, attackers can use \emph{kubectl port-forwarding} to connect to an 
-application listening on the target port and acquire the application's confidential data or service. A possible solution is implementing a guest network shield that leverages TLS\cite*{tls_record_size} to authorize incoming network requests and provides cryptographic protection for incoming and 
-outgoing data. However, this thesis does not cover this type of vulnerability, and readers are encouraged to refer to~\cite*{network_shiled}.
-
-Currently, a \acrshort{CVM} is restricted to running a single application. Attempting to load additional applications into the \acrshort{CVM}  will cause the software measurement manager to panic since the application restart hash does not match the application startup reference hash. 
-This prevents the service mesh from working properly since it requires the sidecar container to be run in the \acrshort{CVM}. As such,  future releases should involve an extension of the software measurement manager. In this case, the application owner can specify the loadable containers and their 
-reference hashes in the shield policy. This will allow the \acrshort{CVM} to load additional containers. During the loading process, the software measurer will use the container's reference hash to ensure that the loaded container binaries are correct.
-
-
-
-
+module Top_tb (load);
+    
+    parameter CYCLE = 50;
+    
+// declarations
+    wire  [31:0] DATA_MEM_RD;
+    wire  [31:0] DATA_MEM_WR;
+    wire  [31:0] ADR;
+    wire         ready;
+    wire         ram_wr_en;
+    wire         ram_rd_en;
+    
+    reg          clk, reset;
+    output       load;
+    reg          load;
+    
+// RAM
+   Memory MEM(
+     .ADR(ADR),
+     .DIN(DATA_MEM_WR),
+     .DOUT(DATA_MEM_RD),
+     .clk(clk),
+     .wr_en(ram_wr_en),
+     .rd_en(ram_rd_en)
+   );
+    
+// DUT
+   Tob_level DUT(
+     .ADR(ADR),
+     .DIN(DATA_MEM_RD),
+     .DOUT(DATA_MEM_WR),
+     .clk(clk),
+     .reset(reset),
+     .ram_wr_en(ram_wr_en),
+     .ram_rd_en(ram_rd_en),
+     .ready(ready),
+     .load(load)
+   );
+    
+// Clock
+   initial clk = 1'b0;
+   always #(CYCLE/2) clk = ~clk;
+    
+// Reset
+   initial begin
+     reset = 1'b1;
+     #(3*CYCLE )
+     reset = 1'b0;
+// special setup for certain state:
+// 	 DUT.FSM.state= 15; // LOOP3
+   end 
+    
+// Load-Signal   
+   initial begin
+     load = 0;
+     #(5*CYCLE)
+     load = 1;
+     #(CYCLE)
+     load = 0;
+         
+     while (ready == 0) begin
+       #(CYCLE);
+       load = 0;
+     end
+         
+     $finish;
+   end
+    
+// Delay Annotation
+// initial begin
+// $sdf_annotate("/home2/vlsi00/prz-root/ICPRO/ice/ziyi/units/sdf/ALU_FIXED32.sdf",DUT.Datenpfad.ALU,,);
+// end
+    
+endmodule
+\end{lstlisting}
 \cleardoublepage
 
